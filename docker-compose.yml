@@ -1,0 +1,74 @@
+services:
+  postgres-postgis:
+    image: postgis/postgis:16-3.4
+    container_name: geodecisionnel-postgis
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-geodecisionnel}
+      POSTGRES_USER: ${POSTGRES_USER:-geodecisionnel}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-geodecisionnel}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./infra/docker/postgres/init-postgis.sql:/docker-entrypoint-initdb.d/01-init-postgis.sql:ro
+      - ./data-warehouse/schema:/docker-entrypoint-initdb.d/schema:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-geodecisionnel} -d ${POSTGRES_DB:-geodecisionnel}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build: ./backend
+    container_name: geodecisionnel-backend
+    restart: unless-stopped
+    env_file: .env
+    ports:
+      - "3001:3001"
+    depends_on:
+      postgres-postgis:
+        condition: service_healthy
+      ahp-engine:
+        condition: service_started
+
+  frontend:
+    build: ./frontend
+    container_name: geodecisionnel-frontend
+    restart: unless-stopped
+    env_file: .env
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+
+  etl:
+    build: ./etl
+    container_name: geodecisionnel-etl
+    restart: unless-stopped
+    env_file: .env
+    depends_on:
+      postgres-postgis:
+        condition: service_healthy
+    command: ["python", "scheduler/cron_jobs.py"]
+
+  ahp-engine:
+    build: ./ahp-engine
+    container_name: geodecisionnel-ahp
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+
+  superset:
+    image: apache/superset:latest
+    container_name: geodecisionnel-superset
+    restart: unless-stopped
+    environment:
+      SUPERSET_SECRET_KEY: ${SUPERSET_SECRET_KEY:-change-me}
+    ports:
+      - "8088:8088"
+    depends_on:
+      - postgres-postgis
+
+volumes:
+  postgres_data:
