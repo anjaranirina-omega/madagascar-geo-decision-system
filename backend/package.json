@@ -2,9 +2,52 @@
   "name": "geodecisionnel-backend",
   "version": "0.1.0",
   "private": true,
-  "scripts": { "start": "nest start", "start:dev": "nest start --watch", "build": "nest build", "test": "jest" },
-  "dependencies": {
-    "@nestjs/common": "latest", "@nestjs/core": "latest", "@nestjs/platform-express": "latest", "@nestjs/config": "latest", "@nestjs/jwt": "latest", "@nestjs/passport": "latest", "@nestjs/schedule": "latest", "@nestjs/swagger": "latest", "@nestjs/websockets": "latest", "@nestjs/platform-socket.io": "latest", "class-transformer": "latest", "class-validator": "latest", "pg": "latest", "reflect-metadata": "latest", "rxjs": "latest"
+  "description": "API NestJS du système géodécisionnel spatial Madagascar",
+  "scripts": {
+    "start": "nest start",
+    "start:dev": "nest start --watch",
+    "start:prod": "node dist/main",
+    "build": "nest build",
+    "test": "jest",
+    "test:e2e": "jest --config ./test/jest-e2e.json"
   },
-  "devDependencies": { "@nestjs/cli": "latest", "@nestjs/schematics": "latest", "@nestjs/testing": "latest", "@types/node": "latest", "jest": "latest", "ts-jest": "latest", "typescript": "latest" }
+  "dependencies": {
+    "@nestjs/common": "^11.0.1",
+    "@nestjs/config": "^4.0.0",
+    "@nestjs/core": "^11.0.1",
+    "@nestjs/jwt": "^11.0.0",
+    "@nestjs/passport": "^11.0.0",
+    "@nestjs/platform-express": "^11.0.1",
+    "@nestjs/platform-socket.io": "^11.0.1",
+    "@nestjs/schedule": "^6.0.0",
+    "@nestjs/swagger": "^11.0.0",
+    "@nestjs/websockets": "^11.0.1",
+    "class-transformer": "^0.5.1",
+    "class-validator": "^0.14.1",
+    "passport": "^0.7.0",
+    "passport-jwt": "^4.0.1",
+    "passport-local": "^1.0.0",
+    "pg": "^8.13.1",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.1",
+    "socket.io": "^4.8.1"
+  },
+  "devDependencies": {
+    "@nestjs/cli": "^11.0.0",
+    "@nestjs/schematics": "^11.0.0",
+    "@nestjs/testing": "^11.0.1",
+    "@types/express": "^5.0.0",
+    "@types/jest": "^29.5.14",
+    "@types/node": "^22.10.2",
+    "@types/passport-jwt": "^4.0.1",
+    "@types/passport-local": "^1.0.38",
+    "jest": "^29.7.0",
+    "source-map-support": "^0.5.21",
+    "supertest": "^7.0.0",
+    "ts-jest": "^29.2.5",
+    "ts-loader": "^9.5.1",
+    "ts-node": "^10.9.2",
+    "tsconfig-paths": "^4.2.0",
+    "typescript": "^5.7.3"
+  }
 }
