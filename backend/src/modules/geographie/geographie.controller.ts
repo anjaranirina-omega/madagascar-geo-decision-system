@@ -1,34 +1,9 @@
-import {
-  Body,
-  Controller,
-  Get,
-  Param,
-  Post,
-  Query,
-} from '@nestjs/common';
-import { CreateCommuneDto } from './dto/create-commune.dto';
-import { CreateDistrictDto } from './dto/create-district.dto';
-import { CreateRegionDto } from './dto/create-region.dto';
+import { Controller, Get, Param, Query } from '@nestjs/common';
 import { GeographieService } from './geographie.service';
 
 @Controller('geographie')
 export class GeographieController {
   constructor(private readonly geographieService: GeographieService) {}
-
-  @Post('regions')
-  createRegion(@Body() dto: CreateRegionDto) {
-    return this.geographieService.createRegion(dto);
-  }
-
-  @Post('districts')
-  createDistrict(@Body() dto: CreateDistrictDto) {
-    return this.geographieService.createDistrict(dto);
-  }
-
-  @Post('communes')
-  createCommune(@Body() dto: CreateCommuneDto) {
-    return this.geographieService.createCommune(dto);
-  }
 
   @Get('regions')
   findAllRegions() {

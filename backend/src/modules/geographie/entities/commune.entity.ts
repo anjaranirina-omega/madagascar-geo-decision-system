@@ -21,11 +21,11 @@ export class Commune {
   nom!: string;
 
   @ManyToOne(() => District, (district) => district.communes, {
-    nullable: false,
+    nullable: true,
     eager: true,
   })
   @JoinColumn({ name: 'district_id' })
-  district!: District;
+  district?: District;
 
   @Column({
     type: 'geometry',

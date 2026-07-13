@@ -1,13 +1,6 @@
-import {
-  ConflictException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ILike, Repository } from 'typeorm';
-import { CreateCommuneDto } from './dto/create-commune.dto';
-import { CreateDistrictDto } from './dto/create-district.dto';
-import { CreateRegionDto } from './dto/create-region.dto';
 import { Commune } from './entities/commune.entity';
 import { District } from './entities/district.entity';
 import { Region } from './entities/region.entity';
@@ -25,152 +18,179 @@ export class GeographieService {
     private readonly communesRepository: Repository<Commune>,
   ) {}
 
-  async createRegion(dto: CreateRegionDto) {
-    const exists = await this.regionsRepository.findOne({
-      where: { code: dto.code },
-    });
-
-    if (exists) {
-      throw new ConflictException('Cette région existe déjà');
-    }
-
-    const region = this.regionsRepository.create({
-      code: dto.code,
-      nom: dto.nom,
-      geom: dto.geom,
-    });
-
-    return this.regionsRepository.save(region);
-  }
-
-  async createDistrict(dto: CreateDistrictDto) {
-    const exists = await this.districtsRepository.findOne({
-      where: { code: dto.code },
-    });
-
-    if (exists) {
-      throw new ConflictException('Ce district existe déjà');
-    }
-
-    const region = await this.regionsRepository.findOne({
-      where: { id: dto.regionId },
-    });
-
-    if (!region) {
-      throw new NotFoundException('Région introuvable');
-    }
-
-    const district = this.districtsRepository.create({
-      code: dto.code,
-      nom: dto.nom,
-      region,
-      geom: dto.geom,
-    });
-
-    return this.districtsRepository.save(district);
-  }
-
-  async createCommune(dto: CreateCommuneDto) {
-    const exists = await this.communesRepository.findOne({
-      where: { code: dto.code },
-    });
-
-    if (exists) {
-      throw new ConflictException('Cette commune existe déjà');
-    }
-
-    const district = await this.districtsRepository.findOne({
-      where: { id: dto.districtId },
-    });
-
-    if (!district) {
-      throw new NotFoundException('District introuvable');
-    }
-
-    const commune = this.communesRepository.create({
-      code: dto.code,
-      nom: dto.nom,
-      district,
-      geom: dto.geom,
-    });
-
-    return this.communesRepository.save(commune);
-  }
-
   findAllRegions() {
-    return this.regionsRepository.find({
-      order: { nom: 'ASC' },
-    });
+    return this.regionsRepository
+      .createQueryBuilder('region')
+      .select([
+        'region.id',
+        'region.code',
+        'region.nom',
+        'region.createdAt',
+        'region.updatedAt',
+      ])
+      .orderBy('region.nom', 'ASC')
+      .getMany();
   }
 
   findAllDistricts(regionId?: string) {
+    const qb = this.districtsRepository
+      .createQueryBuilder('district')
+      .leftJoinAndSelect('district.region', 'region')
+      .select([
+        'district.id',
+        'district.code',
+        'district.nom',
+        'district.createdAt',
+        'district.updatedAt',
+        'region.id',
+        'region.code',
+        'region.nom',
+      ])
+      .orderBy('district.nom', 'ASC');
+
     if (regionId) {
-      return this.districtsRepository.find({
-        where: {
-          region: {
-            id: regionId,
-          },
-        },
-        order: { nom: 'ASC' },
-      });
+      qb.where('region.id = :regionId', { regionId });
     }
 
-    return this.districtsRepository.find({
-      order: { nom: 'ASC' },
-    });
+    return qb.getMany();
   }
 
   findAllCommunes(districtId?: string) {
+    const qb = this.communesRepository
+      .createQueryBuilder('commune')
+      .leftJoinAndSelect('commune.district', 'district')
+      .leftJoinAndSelect('district.region', 'region')
+      .select([
+        'commune.id',
+        'commune.code',
+        'commune.nom',
+        'commune.createdAt',
+        'commune.updatedAt',
+        'district.id',
+        'district.code',
+        'district.nom',
+        'region.id',
+        'region.code',
+        'region.nom',
+      ])
+      .orderBy('commune.nom', 'ASC');
+
     if (districtId) {
-      return this.communesRepository.find({
-        where: {
-          district: {
-            id: districtId,
-          },
-        },
-        order: { nom: 'ASC' },
-      });
+      qb.where('district.id = :districtId', { districtId });
     }
 
-    return this.communesRepository.find({
-      order: { nom: 'ASC' },
-    });
+    return qb.getMany();
   }
 
   async findRegionById(id: string) {
-    const region = await this.regionsRepository.findOne({
-      where: { id },
-    });
+    const result = await this.regionsRepository
+      .createQueryBuilder('region')
+      .select([
+        'region.id AS id',
+        'region.code AS code',
+        'region.nom AS nom',
+        'ST_AsGeoJSON(region.geom)::json AS geometry',
+      ])
+      .where('region.id = :id', { id })
+      .getRawOne();
 
-    if (!region) {
+    if (!result) {
       throw new NotFoundException('Région introuvable');
     }
 
-    return region;
+    return {
+      type: 'Feature',
+      geometry: result.geometry,
+      properties: {
+        id: result.id,
+        code: result.code,
+        nom: result.nom,
+        type: 'region',
+      },
+    };
   }
 
   async findDistrictById(id: string) {
-    const district = await this.districtsRepository.findOne({
-      where: { id },
-    });
+    const result = await this.districtsRepository
+      .createQueryBuilder('district')
+      .leftJoin('district.region', 'region')
+      .select([
+        'district.id AS id',
+        'district.code AS code',
+        'district.nom AS nom',
+        'region.id AS region_id',
+        'region.code AS region_code',
+        'region.nom AS region_nom',
+        'ST_AsGeoJSON(district.geom)::json AS geometry',
+      ])
+      .where('district.id = :id', { id })
+      .getRawOne();
 
-    if (!district) {
+    if (!result) {
       throw new NotFoundException('District introuvable');
     }
 
-    return district;
+    return {
+      type: 'Feature',
+      geometry: result.geometry,
+      properties: {
+        id: result.id,
+        code: result.code,
+        nom: result.nom,
+        type: 'district',
+        region: {
+          id: result.region_id,
+          code: result.region_code,
+          nom: result.region_nom,
+        },
+      },
+    };
   }
 
   async findCommuneById(id: string) {
-    const commune = await this.communesRepository.findOne({
-      where: { id },
-    });
+    const result = await this.communesRepository
+      .createQueryBuilder('commune')
+      .leftJoin('commune.district', 'district')
+      .leftJoin('district.region', 'region')
+      .select([
+        'commune.id AS id',
+        'commune.code AS code',
+        'commune.nom AS nom',
+        'district.id AS district_id',
+        'district.code AS district_code',
+        'district.nom AS district_nom',
+        'region.id AS region_id',
+        'region.code AS region_code',
+        'region.nom AS region_nom',
+        'ST_AsGeoJSON(commune.geom)::json AS geometry',
+      ])
+      .where('commune.id = :id', { id })
+      .getRawOne();
 
-    if (!commune) {
+    if (!result) {
       throw new NotFoundException('Commune introuvable');
     }
 
-    return commune;
+    return {
+      type: 'Feature',
+      geometry: result.geometry,
+      properties: {
+        id: result.id,
+        code: result.code,
+        nom: result.nom,
+        type: 'commune',
+        district: {
+          id: result.district_id,
+          code: result.district_code,
+          nom: result.district_nom,
+        },
+        region: {
+          id: result.region_id,
+          code: result.region_code,
+          nom: result.region_nom,
+        },
+      },
+    };
   }
 
   async search(q: string) {
@@ -186,16 +206,31 @@ export class GeographieService {
 
     const [regions, districts, communes] = await Promise.all([
       this.regionsRepository.find({
+        select: {
+          id: true,
+          code: true,
+          nom: true,
+        },
         where: [{ nom: ILike(query) }, { code: ILike(query) }],
         take: 10,
         order: { nom: 'ASC' },
       }),
       this.districtsRepository.find({
+        select: {
+          id: true,
+          code: true,
+          nom: true,
+        },
         where: [{ nom: ILike(query) }, { code: ILike(query) }],
         take: 10,
         order: { nom: 'ASC' },
       }),
       this.communesRepository.find({
+        select: {
+          id: true,
+          code: true,
+          nom: true,
+        },
         where: [{ nom: ILike(query) }, { code: ILike(query) }],
         take: 10,
         order: { nom: 'ASC' },

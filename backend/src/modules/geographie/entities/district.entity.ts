@@ -23,11 +23,11 @@ export class District {
   nom!: string;
 
   @ManyToOne(() => Region, (region) => region.districts, {
-    nullable: false,
+    nullable: true,
     eager: true,
   })
   @JoinColumn({ name: 'region_id' })
-  region!: Region;
+  region?: Region;
 
   @Column({
     type: 'geometry',
