@@ -54,7 +54,9 @@ export class UsersService {
   }
 
   findAllRoles() {
-    return this.rolesRepository.find({ order: { name: 'ASC' } });
+    return this.rolesRepository.find({
+      order: { name: 'ASC' },
+    });
   }
 
   async create(dto: CreateUserDto) {
@@ -160,6 +162,7 @@ export class UsersService {
   async remove(id: string) {
     const user = await this.findOne(id);
     await this.usersRepository.remove(user);
+
     return { deleted: true };
   }
 
