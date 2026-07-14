@@ -12,3 +12,11 @@ logs/
 *.log
 .DS_Store
 coverage/
+
+# Données SIG locales
+etl/data/geographie/*.gpkg
+etl/data/geographie/*.zip
+etl/data/geographie/*.shp
+etl/data/geographie/*.dbf
+etl/data/geographie/*.shx
+etl/data/geographie/*.prj
