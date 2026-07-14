@@ -23,9 +23,30 @@ export type LoginResponse = {
   refreshToken: string;
 };
 
+export type ForgotPasswordResponse = {
+  message: string;
+  resetLink?: string;
+};
+
 export const authService = {
   async login(payload: LoginPayload) {
     const response = await api.post<LoginResponse>('/auth/login', payload);
+    return response.data;
+  },
+
+  async forgotPassword(email: string) {
+    const response = await api.post<ForgotPasswordResponse>(
+      '/auth/forgot-password',
+      { email },
+    );
+    return response.data;
+  },
+
+  async resetPassword(token: string, newPassword: string) {
+    const response = await api.post<{ message: string }>(
+      '/auth/reset-password',
+      { token, newPassword },
+    );
     return response.data;
   },
 

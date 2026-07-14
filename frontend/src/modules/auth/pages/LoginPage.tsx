@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import { ClipboardEvent, FormEvent, useMemo, useState } from 'react';
 import { Controller, SubmitHandler, useForm } from 'react-hook-form';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { z } from 'zod';
 import { useAppStore } from '../../../app/store';
 import { authService } from '../auth.service';
@@ -444,12 +444,12 @@ export default function LoginPage() {
                   )}
                 />
 
-                <a
-                  href="#"
+                <Link
+                  to="/forgot-password"
                   className="text-base font-semibold text-blue-600 transition hover:text-blue-700 hover:underline focus:outline-none focus:ring-4 focus:ring-blue-100"
                 >
                   Mot de passe oublié ?
-                </a>
+                </Link>
               </div>
 
               <button
@@ -486,23 +486,12 @@ export default function LoginPage() {
               Se connecter avec Google
             </button>
 
-            <p className="mt-10 text-center text-base text-slate-500">
-              Vous n’avez pas encore de compte ?{' '}
-              <span className="font-extrabold text-blue-600">
-                Contactez l’administrateur
-              </span>
-            </p>
-          </div>
-
-          <div className="mt-8 flex flex-col items-center justify-center gap-3 text-sm text-slate-500 sm:flex-row">
-            <span>© 2026 RISKCLIM-MG</span>
-            <span className="hidden h-5 w-px bg-slate-300 sm:block" />
-            <span>Tous droits réservés</span>
-            <span className="hidden h-5 w-px bg-slate-300 sm:block" />
-            <span className="flex items-center gap-2">
-              <ShieldCheck size={18} />
-              Plateforme sécurisée
-            </span>
+            <Link
+              to="/contact-admin"
+              className="font-extrabold text-blue-600 hover:underline"
+            >
+              Contactez l’administrateur
+            </Link>
           </div>
         </div>
       </section>

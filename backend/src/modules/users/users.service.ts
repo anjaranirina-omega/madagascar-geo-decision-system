@@ -175,4 +175,38 @@ export class UsersService {
 
     return this.usersRepository.save(user);
   }
+
+  async setPasswordResetToken(
+  userId: string,
+  tokenHash: string,
+  expiresAt: Date,
+) {
+  const user = await this.findOne(userId);
+
+  user.passwordResetTokenHash = tokenHash;
+  user.passwordResetExpiresAt = expiresAt;
+
+  return this.usersRepository.save(user);
+}
+
+  async findByPasswordResetTokenHash(tokenHash: string) {
+    return this.usersRepository
+      .createQueryBuilder('user')
+      .addSelect('user.passwordHash')
+      .addSelect('user.refreshTokenHash')
+      .addSelect('user.passwordResetTokenHash')
+      .where('user.passwordResetTokenHash = :tokenHash', { tokenHash })
+      .getOne();
+  }
+
+  async updatePasswordAndClearResetToken(userId: string, newPassword: string) {
+    const user = await this.findOne(userId);
+
+    user.passwordHash = await bcrypt.hash(newPassword, 10);
+    user.refreshTokenHash = undefined;
+    user.passwordResetTokenHash = undefined;
+    user.passwordResetExpiresAt = undefined;
+
+    return this.usersRepository.save(user);
+  }
 }
