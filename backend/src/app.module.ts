@@ -10,6 +10,7 @@ import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { SigModule } from './modules/sig/sig.module';
 import { UsersModule } from './modules/users/users.module';
 import { GeographieModule } from './modules/geographie/geographie.module';
+import { InterventionsModule } from './modules/interventions/interventions.module';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { GeographieModule } from './modules/geographie/geographie.module';
     AuthModule,
     UsersModule,
     GeographieModule,
+    InterventionsModule,
     CollecteModule,
     SigModule,
     DashboardModule,
