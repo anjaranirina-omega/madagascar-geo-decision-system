@@ -1,119 +1,541 @@
-import { Eye, CloudSun } from 'lucide-react';
-import { FormEvent, useState } from 'react';
+import { zodResolver } from '@hookform/resolvers/zod';
+import {
+  Alert,
+  Box,
+  Button,
+  Checkbox,
+  CircularProgress,
+  FormControlLabel,
+  IconButton,
+  InputAdornment,
+  Link,
+  TextField,
+  Typography,
+} from '@mui/material';
+import { CloudRain, Droplets, Eye, EyeOff } from 'lucide-react';
+import { ClipboardEvent, useMemo, useState } from 'react';
+import { Controller, SubmitHandler, useForm } from 'react-hook-form';
 import { useNavigate } from 'react-router-dom';
+import { z } from 'zod';
 import { useAppStore } from '../../../app/store';
 import { authService } from '../auth.service';
+
+const loginSchema = z.object({
+  email: z
+    .string()
+    .trim()
+    .min(1, 'L’email est obligatoire.')
+    .email('Veuillez saisir une adresse email valide.'),
+  password: z
+    .string()
+    .min(1, 'Le mot de passe est obligatoire.')
+    .min(6, 'Le mot de passe doit contenir au moins 6 caractères.'),
+  rememberMe: z.boolean(),
+});
+
+type LoginFormValues = z.infer<typeof loginSchema>;
+
+function containsSuspiciousScript(value: string) {
+  const normalized = value.toLowerCase();
+
+  return (
+    normalized.includes('<script') ||
+    normalized.includes('</script') ||
+    normalized.includes('javascript:') ||
+    normalized.includes('onerror=') ||
+    normalized.includes('onload=')
+  );
+}
+
+function getRedirectPathByRole(roleName?: string) {
+  switch (roleName) {
+    case 'AGENT_TERRAIN':
+      return '/interventions';
+    case 'ADMIN':
+    case 'DECIDEUR':
+    case 'ANALYSTE':
+    default:
+      return '/';
+  }
+}
+
+function getAuthErrorMessage(error: unknown) {
+  if (typeof error === 'object' && error !== null && 'response' in error) {
+    const response = (error as {
+      response?: {
+        status?: number;
+        data?: {
+          message?: string | string[];
+        };
+      };
+    }).response;
+
+    const status = response?.status;
+    const message = response?.data?.message;
+
+    const normalizedMessage = Array.isArray(message)
+      ? message.join(' ')
+      : message ?? '';
+
+    if (status === 401) {
+      return 'Identifiants invalides ou compte désactivé.';
+    }
+
+    if (status === 403 || normalizedMessage.toLowerCase().includes('désactiv')) {
+      return 'Votre compte est désactivé. Veuillez contacter l’administrateur.';
+    }
+
+    if (status && status >= 500) {
+      return 'Le serveur est momentanément indisponible. Réessayez plus tard.';
+    }
+  }
+
+  return 'Impossible de se connecter. Vérifiez vos informations puis réessayez.';
+}
 
 export default function LoginPage() {
   const navigate = useNavigate();
   const setAuth = useAppStore((state) => state.setAuth);
 
-  const [email, setEmail] = useState('admin@georisque.mg');
-  const [password, setPassword] = useState('admin123');
-  const [error, setError] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [serverError, setServerError] = useState('');
 
-  const handleSubmit = async (event: FormEvent) => {
-    event.preventDefault();
-    setError('');
+  const defaultValues = useMemo<LoginFormValues>(
+    () => ({
+      email: 'admin@georisque.mg',
+      password: 'admin123',
+      rememberMe: true,
+    }),
+    [],
+  );
+
+  const {
+    control,
+    handleSubmit,
+    formState: { errors, isSubmitting, isValid },
+    setError,
+  } = useForm<LoginFormValues>({
+    resolver: zodResolver(loginSchema),
+    defaultValues,
+    mode: 'onChange',
+  });
+
+  const handlePaste = (event: ClipboardEvent<HTMLElement>) => {
+    const pastedText = event.clipboardData.getData('text');
+
+    if (containsSuspiciousScript(pastedText)) {
+      event.preventDefault();
+      setServerError('Contenu collé refusé pour des raisons de sécurité.');
+    }
+  };
+
+  const onSubmit: SubmitHandler<LoginFormValues> = async (values) => {
+    setServerError('');
+
+    if (
+      containsSuspiciousScript(values.email) ||
+      containsSuspiciousScript(values.password)
+    ) {
+      setError('email', {
+        type: 'manual',
+        message: 'Contenu suspect détecté.',
+      });
+      return;
+    }
 
     try {
-      const result = await authService.login({ email, password });
+      const result = await authService.login({
+        email: values.email.trim(),
+        password: values.password,
+      });
+
       setAuth(result.accessToken, result.refreshToken, result.user);
-      navigate('/');
-    } catch {
-      setError('Nom d’utilisateur ou mot de passe invalide');
+
+      const redirectPath = getRedirectPathByRole(result.user.role?.name);
+      navigate(redirectPath, { replace: true });
+    } catch (error) {
+      setServerError(getAuthErrorMessage(error));
     }
   };
 
   return (
-    <div className="grid min-h-screen grid-cols-1 bg-white lg:grid-cols-[45%_55%]">
-      <div className="relative hidden overflow-hidden bg-riskdark lg:block">
-        <div className="absolute inset-0 bg-gradient-to-br from-slate-900 via-slate-800 to-green-950" />
+    <Box
+      component="main"
+      sx={{
+        minHeight: '100vh',
+        display: 'grid',
+        gridTemplateColumns: {
+          xs: '1fr',
+          md: '40% 60%',
+        },
+        bgcolor: '#ffffff',
+      }}
+    >
+      <Box
+        aria-hidden="true"
+        sx={{
+          display: {
+            xs: 'none',
+            md: 'block',
+          },
+          position: 'relative',
+          minHeight: '100vh',
+          overflow: 'hidden',
+          backgroundImage:
+            'linear-gradient(180deg, rgba(2, 6, 23, 0.05), rgba(2, 6, 23, 0.76)), url("/images/login-risk-bg.png")',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+        }}
+      >
+        <Box
+          sx={{
+            position: 'absolute',
+            inset: 0,
+            background:
+              'radial-gradient(circle at 20% 12%, rgba(34,197,94,0.12), transparent 32%), radial-gradient(circle at 78% 24%, rgba(14,165,233,0.16), transparent 35%)',
+          }}
+        />
 
-        <div className="absolute inset-0 opacity-30">
-          <div className="h-full w-full bg-[radial-gradient(circle_at_30%_20%,#22c55e,transparent_25%),radial-gradient(circle_at_70%_60%,#38bdf8,transparent_30%)]" />
-        </div>
+        <Box
+          sx={{
+            position: 'absolute',
+            left: 48,
+            right: 48,
+            bottom: 48,
+            color: '#ffffff',
+          }}
+        >
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1.5,
+              mb: 2,
+            }}
+          >
+            <Box
+              sx={{
+                width: 54,
+                height: 54,
+                borderRadius: 4,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                background: 'linear-gradient(135deg, #22c55e, #38bdf8)',
+                boxShadow: '0 18px 45px rgba(0,0,0,0.35)',
+              }}
+            >
+              <CloudRain size={30} />
+              <Droplets size={18} style={{ marginLeft: -8, marginTop: 14 }} />
+            </Box>
 
-        <div className="relative flex h-full flex-col justify-end p-12 text-white">
-          <div className="mb-8 flex items-center gap-3">
-            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-green-400 to-sky-400">
-              <CloudSun size={32} />
-            </div>
-            <div className="text-2xl font-black">RISKLIM-MG</div>
-          </div>
+            <Typography
+              sx={{
+                fontSize: 26,
+                fontWeight: 900,
+                letterSpacing: 0.3,
+              }}
+            >
+              RISKCLIM-MG
+            </Typography>
+          </Box>
 
-          <p className="max-w-sm text-lg font-medium text-slate-100">
-            Système décisionnel spatial pour l’analyse des risques climatiques à Madagascar.
-          </p>
-        </div>
-      </div>
+          <Typography
+            sx={{
+              maxWidth: 410,
+              fontSize: 16,
+              lineHeight: 1.6,
+              fontWeight: 500,
+              color: 'rgba(255,255,255,0.94)',
+              textShadow: '0 2px 12px rgba(0,0,0,0.45)',
+            }}
+          >
+            Système décisionnel spatial pour l’analyse des risques climatiques à
+            Madagascar
+          </Typography>
+        </Box>
+      </Box>
 
-      <div className="flex items-center justify-center px-8 py-12">
-        <form onSubmit={handleSubmit} className="w-full max-w-md">
-          <h1 className="mb-10 text-center text-3xl font-extrabold text-slate-900">
+      <Box
+        sx={{
+          minHeight: {
+            xs: '100vh',
+            md: 'auto',
+          },
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          px: {
+            xs: 3,
+            sm: 5,
+            md: 8,
+          },
+          py: 6,
+          background: {
+            xs:
+              'linear-gradient(rgba(255,255,255,0.95), rgba(255,255,255,0.98)), url("/images/login-risk-bg.png")',
+            md: '#ffffff',
+          },
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+        }}
+      >
+        <Box
+          component="form"
+          noValidate
+          onSubmit={handleSubmit(onSubmit)}
+          sx={{
+            width: '100%',
+            maxWidth: 430,
+            animation: 'loginFadeIn 420ms ease-out',
+            '@keyframes loginFadeIn': {
+              from: {
+                opacity: 0,
+                transform: 'translateY(14px)',
+              },
+              to: {
+                opacity: 1,
+                transform: 'translateY(0)',
+              },
+            },
+          }}
+        >
+          <Typography
+            component="h1"
+            sx={{
+              mb: 5,
+              textAlign: 'center',
+              fontSize: {
+                xs: 28,
+                sm: 34,
+              },
+              fontWeight: 900,
+              color: '#0f172a',
+              letterSpacing: -0.5,
+            }}
+          >
             Connexion
-          </h1>
+          </Typography>
 
-          {error && (
-            <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
-              {error}
-            </div>
+          {serverError && (
+            <Alert
+              severity="error"
+              role="alert"
+              sx={{
+                mb: 3,
+                borderRadius: 2,
+                '& .MuiAlert-message': {
+                  fontWeight: 600,
+                },
+              }}
+            >
+              {serverError}
+            </Alert>
           )}
 
-          <label className="mb-2 block text-sm font-bold text-slate-700">
-            Nom d’utilisateur
-          </label>
-          <input
-            type="email"
-            placeholder="Entrez votre email"
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
-            className="mb-5 w-full rounded-lg border border-slate-300 px-4 py-3 text-sm outline-none transition focus:border-riskgreen focus:ring-2 focus:ring-green-100"
+          <Controller
+            name="email"
+            control={control}
+            render={({ field }) => (
+              <Box sx={{ mb: 2.5 }}>
+                <TextField
+                  {...field}
+                  id="login-email"
+                  label="Email"
+                  placeholder="Entrez votre adresse email"
+                  type="email"
+                  fullWidth
+                  autoComplete="email"
+                  error={Boolean(errors.email)}
+                  helperText={errors.email?.message}
+                  onPaste={handlePaste}
+                  disabled={isSubmitting}
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      borderRadius: 2,
+                      bgcolor: '#ffffff',
+                      '&.Mui-focused fieldset': {
+                        borderColor: '#16a34a',
+                        borderWidth: 2,
+                      },
+                    },
+                    '& .MuiInputLabel-root.Mui-focused': {
+                      color: '#0f7a36',
+                    },
+                  }}
+                />
+              </Box>
+            )}
           />
 
-          <label className="mb-2 block text-sm font-bold text-slate-700">
-            Mot de passe
-          </label>
-          <div className="relative mb-4">
-            <input
-              type="password"
-              placeholder="Entrez votre mot de passe"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              className="w-full rounded-lg border border-slate-300 px-4 py-3 pr-11 text-sm outline-none transition focus:border-riskgreen focus:ring-2 focus:ring-green-100"
-            />
-            <Eye
-              size={18}
-              className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400"
-            />
-          </div>
+          <Controller
+            name="password"
+            control={control}
+            render={({ field }) => (
+              <Box sx={{ mb: 1.5 }}>
+                <TextField
+                  {...field}
+                  id="login-password"
+                  label="Mot de passe"
+                  placeholder="Entrez votre mot de passe"
+                  type={showPassword ? 'text' : 'password'}
+                  fullWidth
+                  autoComplete="current-password"
+                  error={Boolean(errors.password)}
+                  helperText={errors.password?.message}
+                  onPaste={handlePaste}
+                  disabled={isSubmitting}
+                  slotProps={{
+                    input: {
+                      endAdornment: (
+                        <InputAdornment position="end">
+                          <IconButton
+                            aria-label={
+                              showPassword
+                                ? 'Masquer le mot de passe'
+                                : 'Afficher le mot de passe'
+                            }
+                            onClick={() => setShowPassword((value) => !value)}
+                            onMouseDown={(event) => event.preventDefault()}
+                            edge="end"
+                            disabled={isSubmitting}
+                          >
+                            {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                          </IconButton>
+                        </InputAdornment>
+                      ),
+                    },
+                  }}
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      borderRadius: 2,
+                      bgcolor: '#ffffff',
+                      '&.Mui-focused fieldset': {
+                        borderColor: '#16a34a',
+                        borderWidth: 2,
+                      },
+                    },
+                    '& .MuiInputLabel-root.Mui-focused': {
+                      color: '#0f7a36',
+                    },
+                  }}
+                />
+              </Box>
+            )}
+          />
 
-          <div className="mb-8 flex items-center justify-between text-sm">
-            <label className="flex items-center gap-2 text-slate-600">
-              <input type="checkbox" className="rounded border-slate-300" />
-              Se souvenir de moi
-            </label>
-
-            <a href="#" className="font-medium text-riskgreen hover:underline">
-              Mot de passe oublié ?
-            </a>
-          </div>
-
-          <button
-            type="submit"
-            className="w-full rounded-lg bg-riskgreen py-3 text-sm font-bold text-white shadow-lg shadow-green-900/20 transition hover:bg-green-700"
+          <Box
+            sx={{
+              mb: 3.5,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 2,
+              flexWrap: {
+                xs: 'wrap',
+                sm: 'nowrap',
+              },
+            }}
           >
-            Se connecter
-          </button>
+            <Controller
+              name="rememberMe"
+              control={control}
+              render={({ field }) => (
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={field.value}
+                      onChange={(event) => field.onChange(event.target.checked)}
+                      disabled={isSubmitting}
+                      sx={{
+                        color: '#16a34a',
+                        '&.Mui-checked': {
+                          color: '#16a34a',
+                        },
+                      }}
+                    />
+                  }
+                  label={
+                    <Typography sx={{ fontSize: 14, color: '#475569' }}>
+                      Se souvenir de moi
+                    </Typography>
+                  }
+                />
+              )}
+            />
 
-          <p className="mt-12 text-center text-sm text-slate-500">
+            <Link
+              href="#"
+              underline="hover"
+              sx={{
+                fontSize: 14,
+                fontWeight: 700,
+                color: '#0f7a36',
+                outlineColor: '#16a34a',
+              }}
+            >
+              Mot de passe oublié ?
+            </Link>
+          </Box>
+
+          <Button
+            type="submit"
+            fullWidth
+            variant="contained"
+            disabled={!isValid || isSubmitting}
+            sx={{
+              py: 1.35,
+              borderRadius: 2,
+              bgcolor: '#16a34a',
+              color: '#ffffff',
+              fontWeight: 800,
+              textTransform: 'none',
+              boxShadow: '0 14px 30px rgba(22, 163, 74, 0.25)',
+              '&:hover': {
+                bgcolor: '#0f7a36',
+                boxShadow: '0 16px 34px rgba(15, 122, 54, 0.30)',
+              },
+              '&.Mui-disabled': {
+                bgcolor: '#a7f3d0',
+                color: '#ffffff',
+              },
+              '&:focus-visible': {
+                outline: '3px solid rgba(22, 163, 74, 0.35)',
+                outlineOffset: 3,
+              },
+            }}
+          >
+            {isSubmitting ? (
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <CircularProgress size={18} color="inherit" />
+                Connexion en cours...
+              </Box>
+            ) : (
+              'Se connecter'
+            )}
+          </Button>
+
+          <Typography
+            sx={{
+              mt: 6,
+              textAlign: 'center',
+              fontSize: 14,
+              color: '#64748b',
+            }}
+          >
             Pas encore de compte ?{' '}
-            <span className="font-semibold text-riskgreen">
+            <Box
+              component="span"
+              sx={{
+                color: '#0f7a36',
+                fontWeight: 800,
+              }}
+            >
               Contactez l’administrateur
-            </span>
-          </p>
-        </form>
-      </div>
-    </div>
+            </Box>
+          </Typography>
+        </Box>
+      </Box>
+    </Box>
   );
 }
