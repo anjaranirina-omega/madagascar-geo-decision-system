@@ -59,6 +59,18 @@ export class UsersService {
     });
   }
 
+  async findRoleByName(name: string) {
+    const role = await this.rolesRepository.findOne({
+      where: { name },
+    });
+
+    if (!role) {
+      throw new NotFoundException(`Rôle introuvable: ${name}`);
+    }
+
+    return role;
+  }
+
   async create(dto: CreateUserDto) {
     const exists = await this.usersRepository.findOne({
       where: { email: dto.email },
