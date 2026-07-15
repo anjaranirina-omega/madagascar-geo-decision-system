@@ -148,8 +148,8 @@ export default function LoginPage() {
 
   const defaultValues = useMemo<LoginFormValues>(
     () => ({
-      email: 'admin@georisque.mg',
-      password: 'admin123',
+      email: '',
+      password: '',
       rememberMe: false,
     }),
     [],
@@ -353,7 +353,7 @@ export default function LoginPage() {
                         id="login-email"
                         type="email"
                         autoComplete="email"
-                        placeholder="Entrez votre nom d’utilisateur ou email"
+                        placeholder="Entrez votre email"
                         disabled={isSubmitting}
                         onPaste={handlePaste}
                         className="h-16 w-full bg-transparent text-base text-slate-900 outline-none placeholder:text-slate-400 disabled:cursor-not-allowed disabled:opacity-70"
@@ -486,12 +486,26 @@ export default function LoginPage() {
               Se connecter avec Google
             </button>
 
-            <Link
-              to="/contact-admin"
-              className="font-extrabold text-blue-600 hover:underline"
-            >
-              Contactez l’administrateur
-            </Link>
+            <p className="mt-10 text-center text-base text-slate-500">
+              Vous n’avez pas encore de compte ?{' '}
+              <Link
+                to="/contact-admin"
+                className="font-extrabold text-blue-600 hover:underline"
+              >
+                Contactez l’administrateur
+              </Link>
+            </p>
+          </div>
+
+          <div className="mt-8 flex flex-col items-center justify-center gap-3 text-sm text-slate-500 sm:flex-row">
+            <span>© 2026 RISKCLIM-MG</span>
+            <span className="hidden h-5 w-px bg-slate-300 sm:block" />
+            <span>Tous droits réservés</span>
+            <span className="hidden h-5 w-px bg-slate-300 sm:block" />
+            <span className="flex items-center gap-2">
+              <ShieldCheck size={18} />
+              Plateforme sécurisée
+            </span>
           </div>
         </div>
       </section>

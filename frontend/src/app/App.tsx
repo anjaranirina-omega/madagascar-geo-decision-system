@@ -10,7 +10,7 @@ import MainLayout from '../shared/layouts/MainLayout';
 import { useAppStore } from './store';
 import ForgotPasswordPage from '../modules/auth/pages/ForgotPasswordPage';
 import ResetPasswordPage from '../modules/auth/pages/ResetPasswordPage';
-//import ContactAdminPage from '../modules/auth/pages/ContactAdminPage';
+import ContactAdminPage from '../modules/auth/pages/ContactAdminPage';
 
 export default function App() {
   const hydrateAuth = useAppStore((state) => state.hydrateAuth);
@@ -25,7 +25,7 @@ export default function App() {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
-        {/* <Route path="/contact-admin" element={<ContactAdminPage />} /> */}
+        <Route path="/contact-admin" element={<ContactAdminPage />} />
 
         <Route element={<PrivateRoute />}>
           <Route element={<MainLayout />}>

@@ -53,3 +53,9 @@
     @apply bg-green-100 text-green-700;
   }
 }
+
+@layer components {
+  .field-input {
+    @apply h-12 w-full bg-transparent text-slate-900 outline-none placeholder:text-slate-400;
+  }
+}

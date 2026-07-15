@@ -11,6 +11,7 @@ import { SigModule } from './modules/sig/sig.module';
 import { UsersModule } from './modules/users/users.module';
 import { GeographieModule } from './modules/geographie/geographie.module';
 import { InterventionsModule } from './modules/interventions/interventions.module';
+import { AccountRequestsModule } from './modules/account-requests/account-requests.module';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { InterventionsModule } from './modules/interventions/interventions.modul
     }),
     AuthModule,
     UsersModule,
+    AccountRequestsModule,
     GeographieModule,
     InterventionsModule,
     CollecteModule,
