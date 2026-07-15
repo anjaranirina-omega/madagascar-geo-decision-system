@@ -11,6 +11,7 @@ import {
   Map,
   Settings,
   Users,
+  UserCheck,
 } from 'lucide-react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAppStore } from '../../app/store';
@@ -25,6 +26,7 @@ const menu = [
   { label: 'Rapports', path: '/rapports', icon: FileText },
   { label: 'Paramètres', path: '/parametres', icon: Settings },
   { label: 'Utilisateurs', path: '/utilisateurs', icon: Users },
+  { label: 'Demandes de compte', path: '/demandes-comptes', icon: UserCheck },
   { label: 'Aide', path: '/aide', icon: HelpCircle },
 ];
 

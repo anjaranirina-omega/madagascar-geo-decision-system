@@ -25,7 +25,7 @@ export type LoginResponse = {
 
 export type ForgotPasswordResponse = {
   message: string;
-  resetLink?: string;
+  emailSent?: boolean;
 };
 
 export const authService = {

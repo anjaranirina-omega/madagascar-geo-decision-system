@@ -5,6 +5,7 @@ import LoginPage from '../modules/auth/pages/LoginPage';
 import CartePage from '../modules/cartographie/pages/CartePage';
 import DashboardPage from '../modules/dashboard/pages/DashboardPage';
 import PlaceholderPage from '../shared/components/PlaceholderPage';
+import AccountRequestsPage from '../modules/administration/pages/AccountRequestsPage';
 import PrivateRoute from '../shared/guards/PrivateRoute';
 import MainLayout from '../shared/layouts/MainLayout';
 import { useAppStore } from './store';
@@ -37,6 +38,7 @@ export default function App() {
             <Route path="/rapports" element={<PlaceholderPage title="Rapports" />} />
             <Route path="/parametres" element={<PlaceholderPage title="Paramètres" />} />
             <Route path="/utilisateurs" element={<PlaceholderPage title="Gestion des utilisateurs" />} />
+            <Route path="/demandes-comptes" element={<AccountRequestsPage />} />
             <Route path="/aide" element={<PlaceholderPage title="Aide" />} />
           </Route>
         </Route>

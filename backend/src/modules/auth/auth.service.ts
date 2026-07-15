@@ -138,8 +138,6 @@ export class AuthService {
     return {
       ...genericResponse,
       emailSent: true,
-      resetLink:
-        process.env.NODE_ENV === 'production' ? undefined : resetLink,
     };
   }
 
