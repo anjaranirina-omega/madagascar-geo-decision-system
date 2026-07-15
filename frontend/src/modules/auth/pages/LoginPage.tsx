@@ -11,7 +11,7 @@ import {
   ShieldCheck,
   User,
 } from 'lucide-react';
-import { ClipboardEvent, FormEvent, useMemo, useState } from 'react';
+import { ClipboardEvent, useMemo, useState } from 'react';
 import { Controller, SubmitHandler, useForm } from 'react-hook-form';
 import { Link, useNavigate } from 'react-router-dom';
 import { z } from 'zod';
@@ -202,13 +202,6 @@ export default function LoginPage() {
     } catch (error) {
       setServerError(getAuthErrorMessage(error));
     }
-  };
-
-  const handleGoogleLogin = (event: FormEvent) => {
-    event.preventDefault();
-    setServerError(
-      'La connexion Google n’est pas encore activée pour cette plateforme.',
-    );
   };
 
   return (
@@ -470,21 +463,6 @@ export default function LoginPage() {
                 )}
               </button>
             </form>
-
-            <div className="my-8 flex items-center gap-6">
-              <div className="h-px flex-1 bg-slate-200" />
-              <span className="text-base font-medium text-slate-400">ou</span>
-              <div className="h-px flex-1 bg-slate-200" />
-            </div>
-
-            <button
-              type="button"
-              onClick={handleGoogleLogin}
-              className="flex h-14 w-full items-center justify-center gap-3 rounded-xl border border-slate-300 bg-white text-base font-bold text-slate-700 transition hover:bg-slate-50 focus:outline-none focus:ring-4 focus:ring-blue-100"
-            >
-              <span className="text-xl font-black text-blue-600">G</span>
-              Se connecter avec Google
-            </button>
 
             <p className="mt-10 text-center text-base text-slate-500">
               Vous n’avez pas encore de compte ?{' '}
