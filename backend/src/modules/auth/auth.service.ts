@@ -4,6 +4,7 @@ import * as bcrypt from 'bcrypt';
 import { createHash, randomBytes } from 'crypto';
 import { UsersService } from '../users/users.service';
 import { LoginDto } from './dto/login.dto';
+import { MailService } from './mail.service';
 
 type JwtPayload = {
   sub: string;
@@ -13,9 +14,12 @@ type JwtPayload = {
 
 @Injectable()
 export class AuthService {
+  private readonly resetTokenExpirationMinutes = 30;
+
   constructor(
     private readonly usersService: UsersService,
     private readonly jwtService: JwtService,
+    private readonly mailService: MailService,
   ) {}
 
   async login(dto: LoginDto) {
@@ -98,14 +102,9 @@ export class AuthService {
   async forgotPassword(email: string) {
     const user = await this.usersService.findByEmail(email);
 
-    /**
-     * Important sécurité :
-     * On retourne toujours le même message pour ne pas révéler
-     * si l'email existe ou non.
-     */
     const genericResponse = {
       message:
-        'Si cet email existe, un lien de réinitialisation a été généré.',
+        'Si cet email existe, un lien de réinitialisation a été envoyé.',
     };
 
     if (!user || !user.isActive) {
@@ -116,7 +115,9 @@ export class AuthService {
     const resetTokenHash = this.hashResetToken(resetToken);
 
     const expiresAt = new Date();
-    expiresAt.setMinutes(expiresAt.getMinutes() + 30);
+    expiresAt.setMinutes(
+      expiresAt.getMinutes() + this.resetTokenExpirationMinutes,
+    );
 
     await this.usersService.setPasswordResetToken(
       user.id,
@@ -127,12 +128,16 @@ export class AuthService {
     const frontendUrl = process.env.FRONTEND_URL ?? 'http://localhost:3000';
     const resetLink = `${frontendUrl}/reset-password?token=${resetToken}`;
 
-    /**
-     * En production, il faudra envoyer ce lien par email.
-     * En développement, on retourne le lien pour tester immédiatement.
-     */
+    await this.mailService.sendPasswordResetEmail({
+      to: user.email,
+      firstName: user.firstName,
+      resetLink,
+      expiresInMinutes: this.resetTokenExpirationMinutes,
+    });
+
     return {
       ...genericResponse,
+      emailSent: true,
       resetLink:
         process.env.NODE_ENV === 'production' ? undefined : resetLink,
     };
