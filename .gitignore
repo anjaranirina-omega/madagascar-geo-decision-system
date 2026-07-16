@@ -20,3 +20,10 @@ etl/data/geographie/*.shp
 etl/data/geographie/*.dbf
 etl/data/geographie/*.shx
 etl/data/geographie/*.prj
+
+# Données raster locales
+etl/data/raster/**/*.tif
+etl/data/raster/**/*.tiff
+etl/data/raster/**/*.png
+etl/data/raster/**/*.vrt
+etl/data/raster/**/*.aux.xml
