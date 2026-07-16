@@ -39,6 +39,12 @@ export class User {
   @Column({ name: 'refresh_token_hash', nullable: true, select: false })
   refreshTokenHash?: string;
 
+  @Column({ name: 'password_reset_token_hash', nullable: true, select: false })
+  passwordResetTokenHash?: string;
+
+  @Column({ name: 'password_reset_expires_at', type: 'timestamptz', nullable: true })
+  passwordResetExpiresAt?: Date;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;
 
