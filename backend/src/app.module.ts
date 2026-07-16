@@ -11,6 +11,7 @@ import { SigModule } from './modules/sig/sig.module';
 import { UsersModule } from './modules/users/users.module';
 import { GeographieModule } from './modules/geographie/geographie.module';
 import { InterventionsModule } from './modules/interventions/interventions.module';
+import { RastersModule } from './modules/rasters/rasters.module';
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { InterventionsModule } from './modules/interventions/interventions.modul
     UsersModule,
     GeographieModule,
     InterventionsModule,
+    RastersModule,
     CollecteModule,
     SigModule,
     DashboardModule,
