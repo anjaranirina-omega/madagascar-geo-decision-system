@@ -75,3 +75,16 @@ Les rasters générés sont ignorés par Git. Ils doivent être régénérés lo
 - WorldPop pour la population ;
 - ESA WorldCover pour l'occupation du sol ;
 - Copernicus / ERA5 pour les variables climatiques.
+
+## Intégration Copernicus DEM GLO-30
+
+La couche `slope_norm.tif` peut être produite à partir d'une vraie source topographique :
+Copernicus DEM GLO-30 via OpenTopography COP30
+
+Commandes :
+cd etl
+source .venv/bin/activate
+python raster/dem/download_dem_opentopography.py
+python raster/dem/mosaic_dem.py
+python raster/dem/compute_slope_from_dem.py
+python raster/weighted_overlay.py

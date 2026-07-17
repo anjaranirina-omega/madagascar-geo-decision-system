@@ -59,3 +59,13 @@
     @apply h-12 w-full bg-transparent text-slate-900 outline-none placeholder:text-slate-400;
   }
 }
+
+@layer components {
+  .card {
+    @apply dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100 dark:shadow-none;
+  }
+
+  .field-input {
+    @apply dark:text-slate-100 dark:placeholder:text-slate-500;
+  }
+}
