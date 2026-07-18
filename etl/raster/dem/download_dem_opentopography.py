@@ -37,9 +37,21 @@ def safe_name(value: float):
     return f"{value:.2f}".replace("-", "m").replace(".", "p")
 
 
-def download_tile(west: float, south: float, east: float, north: float, output_path: Path):
+def download_tile(
+    west: float,
+    south: float,
+    east: float,
+    north: float,
+    output_path: Path,
+):
+    skip_path = output_path.with_suffix(".skip")
+
     if output_path.exists() and output_path.stat().st_size > 1024:
         print(f"Tuile déjà présente : {output_path.name}")
+        return
+
+    if skip_path.exists():
+        print(f"Tuile déjà ignorée (No Content) : {output_path.name}")
         return
 
     params = {
@@ -57,9 +69,27 @@ def download_tile(west: float, south: float, east: float, north: float, output_p
 
     response = requests.get(API_URL, params=params, timeout=240)
 
+    # 204 = No Content.
+    # Certaines tuiles dans le rectangle Madagascar sont en mer ou sans contenu DEM.
+    # On ne bloque pas le pipeline : on crée un marqueur .skip.
+    if response.status_code == 204:
+        print("  Tuile sans contenu OpenTopography (HTTP 204), ignorée.")
+        skip_path.write_text(
+            f"No content for bounds west={west}, south={south}, east={east}, north={north}\n",
+            encoding="utf-8",
+        )
+        return
+
     if response.status_code != 200:
         print("Erreur OpenTopography:")
         print(response.text[:1200])
+
+        if "maximum rate limit" in response.text.lower():
+            raise RuntimeError(
+                "Limite OpenTopography atteinte. Relance le téléchargement après 24h. "
+                "Les tuiles déjà téléchargées seront conservées."
+            )
+
         raise RuntimeError(
             f"Erreur OpenTopography HTTP {response.status_code}. "
             "La clé API n'est pas affichée pour des raisons de sécurité."
@@ -68,9 +98,17 @@ def download_tile(west: float, south: float, east: float, north: float, output_p
     content_type = response.headers.get("content-type", "").lower()
 
     if "xml" in content_type or response.content[:5].lower().startswith(b"<?xml"):
+        text = response.text[:1200]
+
+        if "maximum rate limit" in text.lower():
+            raise RuntimeError(
+                "Limite OpenTopography atteinte. Relance le téléchargement après 24h. "
+                "Les tuiles déjà téléchargées seront conservées."
+            )
+
         raise RuntimeError(
-            "OpenTopography a retourné une erreur XML au lieu d'un GeoTIFF.\n"
-            f"Réponse : {response.text[:1200]}"
+            "OpenTopography a retourné une réponse XML au lieu d'un GeoTIFF. "
+            f"Réponse : {text}"
         )
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
