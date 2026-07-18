@@ -27,3 +27,6 @@ etl/data/raster/**/*.tiff
 etl/data/raster/**/*.png
 etl/data/raster/**/*.vrt
 etl/data/raster/**/*.aux.xml
+
+# Uploads utilisateurs
+backend/uploads/

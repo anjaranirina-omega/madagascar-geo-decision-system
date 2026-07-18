@@ -99,6 +99,7 @@ export class UsersService {
       lastName: dto.lastName,
       email: dto.email,
       phone: dto.phone,
+      avatarUrl: dto.avatarUrl,
       isActive: dto.isActive ?? true,
       passwordHash,
       role: role ?? undefined,
@@ -165,6 +166,7 @@ export class UsersService {
       lastName: dto.lastName ?? user.lastName,
       email: dto.email ?? user.email,
       phone: dto.phone ?? user.phone,
+      avatarUrl: dto.avatarUrl ?? user.avatarUrl,
       isActive: dto.isActive ?? user.isActive,
     });
 
@@ -221,4 +223,26 @@ async updatePasswordAndClearResetToken(userId: string, newPassword: string) {
 
   return this.usersRepository.save(user);
 }
+
+  async updateAvatar(id: string, filename: string) {
+    const user = await this.findOne(id);
+
+    const publicUrl =
+      process.env.BACKEND_PUBLIC_URL ??
+      `http://localhost:${process.env.BACKEND_PORT ?? 3001}`;
+
+    user.avatarUrl = `${publicUrl}/uploads/avatars/${filename}`;
+
+    return this.usersRepository.save(user);
+  }
+
+
+  async removeAvatar(id: string) {
+    const user = await this.findOne(id);
+
+    user.avatarUrl = null;
+
+    return this.usersRepository.save(user);
+  }
+
 }
