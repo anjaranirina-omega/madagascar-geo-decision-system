@@ -8,7 +8,12 @@ type RasterRiskLayerProps = {
 };
 
 function getRiskColor(value: number | null | undefined) {
-  if (value === null || value === undefined || Number.isNaN(value)) {
+  if (
+    value === null ||
+    value === undefined ||
+    Number.isNaN(value) ||
+    value < 0
+  ) {
     return null;
   }
 

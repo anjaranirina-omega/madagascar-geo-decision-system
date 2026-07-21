@@ -7,12 +7,12 @@ import rasterio
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 RASTER_ROOT = PROJECT_ROOT / "etl" / "data" / "raster"
 
-
+# On limite volontairement les métadonnées aux rasters utilisés par l'application.
+# Les gros fichiers DEM intermédiaires ne sont pas scannés ici pour éviter
+# une consommation mémoire excessive.
 TARGET_PATTERNS = [
     "normalized/*.tif",
     "risk/*.tif",
-    "processed/dem/dem_madagascar_metric.tif",
-    "processed/dem/slope_metric.tif",
 ]
 
 
