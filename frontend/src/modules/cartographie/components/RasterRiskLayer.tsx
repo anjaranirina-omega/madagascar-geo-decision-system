@@ -1,67 +1,80 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { useMap } from 'react-leaflet';
 import parseGeoraster from 'georaster';
 import GeoRasterLayer from 'georaster-layer-for-leaflet';
 
 type RasterRiskLayerProps = {
   visible: boolean;
+  onRasterLoaded?: (georaster: any | null) => void;
 };
 
 function getRiskColor(value: number | null | undefined) {
   if (
     value === null ||
     value === undefined ||
-    Number.isNaN(value) ||
-    value < 0
+    Number.isNaN(Number(value)) ||
+    Number(value) < 0 ||
+    Number(value) <= -9999
   ) {
     return null;
   }
 
-  if (value <= 30) {
+  const numericValue = Number(value);
+
+  if (numericValue <= 30) {
     return 'rgba(47, 158, 68, 0.62)';
   }
 
-  if (value <= 60) {
+  if (numericValue <= 60) {
     return 'rgba(234, 179, 8, 0.62)';
   }
 
-  if (value <= 80) {
+  if (numericValue <= 80) {
     return 'rgba(249, 115, 22, 0.68)';
   }
 
   return 'rgba(220, 38, 38, 0.72)';
 }
 
-export default function RasterRiskLayer({ visible }: RasterRiskLayerProps) {
+export default function RasterRiskLayer({
+  visible,
+  onRasterLoaded,
+}: RasterRiskLayerProps) {
   const map = useMap();
-  const [layer, setLayer] = useState<any>(null);
+  const layerRef = useRef<any>(null);
+  const georasterRef = useRef<any>(null);
+  const onRasterLoadedRef = useRef(onRasterLoaded);
 
   useEffect(() => {
-    let isMounted = true;
-    let rasterLayer: any = null;
+    onRasterLoadedRef.current = onRasterLoaded;
+  }, [onRasterLoaded]);
+
+  useEffect(() => {
+    let cancelled = false;
 
     async function loadRaster() {
-      if (!visible) {
-        return;
-      }
-
       try {
         const response = await fetch(
           'http://localhost:3001/api/rasters/latest/risk/file',
         );
 
         if (!response.ok) {
-          throw new Error('Impossible de charger le raster de risque.');
+          throw new Error(
+            `Impossible de charger le raster de risque. HTTP ${response.status}`,
+          );
         }
 
         const arrayBuffer = await response.arrayBuffer();
         const georaster = await parseGeoraster(arrayBuffer);
 
-        if (!isMounted) {
+        if (cancelled) {
           return;
         }
 
-        rasterLayer = new GeoRasterLayer({
+        georasterRef.current = georaster;
+        onRasterLoadedRef.current?.(georaster);
+
+        const rasterLayer = new GeoRasterLayer({
           georaster,
           opacity: 0.72,
           resolution: 256,
@@ -71,27 +84,44 @@ export default function RasterRiskLayer({ visible }: RasterRiskLayerProps) {
           },
         });
 
-        rasterLayer.addTo(map);
-        map.fitBounds(rasterLayer.getBounds());
+        layerRef.current = rasterLayer;
 
-        setLayer(rasterLayer);
+        if (visible) {
+          rasterLayer.addTo(map);
+        }
+
+        console.log('[RasterRiskLayer] Raster chargé', {
+          width: georaster.width,
+          height: georaster.height,
+          xmin: georaster.xmin,
+          ymax: georaster.ymax,
+          pixelWidth: georaster.pixelWidth,
+          pixelHeight: georaster.pixelHeight,
+        });
       } catch (error) {
         console.error('[RasterRiskLayer] Erreur chargement raster:', error);
+        onRasterLoadedRef.current?.(null);
       }
     }
 
     loadRaster();
 
     return () => {
-      isMounted = false;
+      cancelled = true;
 
-      if (rasterLayer) {
-        map.removeLayer(rasterLayer);
+      if (layerRef.current && map.hasLayer(layerRef.current)) {
+        map.removeLayer(layerRef.current);
       }
+
+      layerRef.current = null;
+      georasterRef.current = null;
+      onRasterLoadedRef.current?.(null);
     };
-  }, [map, visible]);
+  }, [map]);
 
   useEffect(() => {
+    const layer = layerRef.current;
+
     if (!layer) {
       return;
     }
@@ -100,10 +130,18 @@ export default function RasterRiskLayer({ visible }: RasterRiskLayerProps) {
       if (!map.hasLayer(layer)) {
         layer.addTo(map);
       }
-    } else if (map.hasLayer(layer)) {
-      map.removeLayer(layer);
+
+      if (georasterRef.current) {
+        onRasterLoadedRef.current?.(georasterRef.current);
+      }
+    } else {
+      if (map.hasLayer(layer)) {
+        map.removeLayer(layer);
+      }
+
+      onRasterLoadedRef.current?.(null);
     }
-  }, [layer, map, visible]);
+  }, [map, visible]);
 
   return null;
 }
