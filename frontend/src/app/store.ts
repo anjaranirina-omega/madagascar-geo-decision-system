@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import type { AuthUser } from '../modules/auth/auth.service';
 
+type ThemeMode = 'light' | 'dark';
+
 function getStoredUser(): AuthUser | undefined {
   const userRaw = localStorage.getItem('authUser');
 
@@ -16,19 +18,40 @@ function getStoredUser(): AuthUser | undefined {
   }
 }
 
+function getStoredTheme(): ThemeMode {
+  const theme = localStorage.getItem('theme');
+
+  if (theme === 'dark' || theme === 'light') {
+    return theme;
+  }
+
+  return 'light';
+}
+
+function applyTheme(theme: ThemeMode) {
+  document.documentElement.classList.toggle('dark', theme === 'dark');
+}
+
 type AppState = {
   token?: string;
   user?: AuthUser;
   isAuthHydrated: boolean;
+  theme: ThemeMode;
   setAuth: (accessToken: string, refreshToken: string, user: AuthUser) => void;
   clearAuth: () => void;
   hydrateAuth: () => void;
+  setTheme: (theme: ThemeMode) => void;
+  toggleTheme: () => void;
 };
 
-export const useAppStore = create<AppState>((set) => ({
+const initialTheme = getStoredTheme();
+applyTheme(initialTheme);
+
+export const useAppStore = create<AppState>((set, get) => ({
   token: localStorage.getItem('accessToken') ?? undefined,
   user: getStoredUser(),
   isAuthHydrated: true,
+  theme: initialTheme,
 
   setAuth: (accessToken, refreshToken, user) => {
     localStorage.setItem('accessToken', accessToken);
@@ -63,5 +86,18 @@ export const useAppStore = create<AppState>((set) => ({
       user,
       isAuthHydrated: true,
     });
+  },
+
+  setTheme: (theme) => {
+    localStorage.setItem('theme', theme);
+    applyTheme(theme);
+    set({ theme });
+  },
+
+  toggleTheme: () => {
+    const nextTheme = get().theme === 'dark' ? 'light' : 'dark';
+    localStorage.setItem('theme', nextTheme);
+    applyTheme(nextTheme);
+    set({ theme: nextTheme });
   },
 }));
