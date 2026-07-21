@@ -22,11 +22,20 @@ etl/data/geographie/*.shx
 etl/data/geographie/*.prj
 
 # Données raster locales
-etl/data/raster/**/*.tif
-etl/data/raster/**/*.tiff
-etl/data/raster/**/*.png
-etl/data/raster/**/*.vrt
-etl/data/raster/**/*.aux.xml
+# etl/data/raster/**/*.tif
+# etl/data/raster/**/*.tiff
+# etl/data/raster/**/*.png
+# etl/data/raster/**/*.vrt
+# etl/data/raster/**/*.aux.xml
 
 # Uploads utilisateurs
 backend/uploads/
+
+# Données raster générées localement
+etl/data/raster/**/*.tif
+etl/data/raster/**/*.tiff
+etl/data/raster/**/*.vrt
+etl/data/raster/**/*.aux.xml
+etl/data/raster/**/*.skip
+etl/data/raster/**/*.part
+etl/data/raster/**/*.ovr
