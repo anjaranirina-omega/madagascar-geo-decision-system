@@ -30,3 +30,4 @@ etl/data/raster/**/*.aux.xml
 
 # Uploads utilisateurs
 backend/uploads/
+etl/data/raster/raw/dem/tiles/*.skip
