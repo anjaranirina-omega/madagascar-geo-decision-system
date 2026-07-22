@@ -19,6 +19,11 @@ import {
 
 @Injectable()
 export class AccountRequestsService {
+  private getEnvValue(name: string) {
+    const value = process.env[name]?.trim();
+    return value && value.length > 0 ? value : undefined;
+  }
+
   constructor(
     @InjectRepository(AccountRequest)
     private readonly accountRequestsRepository: Repository<AccountRequest>,
@@ -171,15 +176,15 @@ export class AccountRequestsService {
   }
 
   private createTransporter() {
-    const smtpHost = process.env.SMTP_HOST;
-    const smtpPort = Number(process.env.SMTP_PORT ?? 587);
-    const smtpSecure = process.env.SMTP_SECURE === 'true';
-    const smtpUser = process.env.SMTP_USER;
-    const smtpPass = process.env.SMTP_PASS;
+    const smtpHost = this.getEnvValue('SMTP_HOST');
+    const smtpPort = Number(this.getEnvValue('SMTP_PORT') ?? 587);
+    const smtpSecure = this.getEnvValue('SMTP_SECURE') === 'true';
+    const smtpUser = this.getEnvValue('SMTP_USER');
+    const smtpPass = this.getEnvValue('SMTP_PASS');
 
     if (!smtpHost || !smtpUser || !smtpPass) {
       throw new InternalServerErrorException(
-        'Configuration SMTP incomplète.',
+        'Configuration SMTP incomplète. Vérifiez SMTP_HOST, SMTP_USER et SMTP_PASS.',
       );
     }
 
@@ -195,18 +200,32 @@ export class AccountRequestsService {
   }
 
   private getMailConfig() {
-    const smtpUser = process.env.SMTP_USER;
+    const smtpUser = this.getEnvValue('SMTP_USER');
+
     const adminEmail =
-      process.env.ADMIN_CONTACT_EMAIL ?? process.env.SMTP_USER;
+      this.getEnvValue('ADMIN_CONTACT_EMAIL') ||
+      smtpUser;
 
     const from =
-      process.env.SMTP_FROM ?? `RISKCLIM-MG <${smtpUser}>`;
+      this.getEnvValue('SMTP_FROM') ||
+      (smtpUser ? `RISKCLIM-MG <${smtpUser}>` : undefined);
 
     if (!adminEmail) {
       throw new InternalServerErrorException(
-        'Email administrateur non configuré.',
+        'Email administrateur non configuré. Ajoutez ADMIN_CONTACT_EMAIL ou SMTP_USER dans backend/.env.',
       );
     }
+
+    if (!from) {
+      throw new InternalServerErrorException(
+        'Expéditeur email non configuré. Ajoutez SMTP_FROM ou SMTP_USER dans backend/.env.',
+      );
+    }
+
+    console.log('[AccountRequests] Configuration email:', {
+      adminEmail,
+      from,
+    });
 
     return {
       from,
