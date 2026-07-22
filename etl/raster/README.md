@@ -384,3 +384,16 @@ Les prochaines étapes recommandées sont :
 5. connecter les poids AHP dynamiques ;
 6. calculer des indices de risque par type d’aléa ;
 7. agréger les résultats par région, district et commune.
+
+## Intégration CHIRPS rainfall
+
+La couche `rainfall_norm.tif` peut désormais être produite à partir d’une vraie source climatique raster : CHIRPS.
+
+Commandes :
+
+```bash
+python raster/chirps/download_chirps.py
+python raster/chirps/process_chirps.py
+python raster/chirps/normalize_chirps.py
+
+Cette couche remplace la pluie simulée dans le calcul du raster de risque.
