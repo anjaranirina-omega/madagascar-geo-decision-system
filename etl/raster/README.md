@@ -397,3 +397,16 @@ python raster/chirps/process_chirps.py
 python raster/chirps/normalize_chirps.py
 
 Cette couche remplace la pluie simulée dans le calcul du raster de risque.
+
+## Intégration WorldPop population
+
+La couche `population_norm.tif` peut être produite à partir d’une vraie source raster de population : WorldPop.
+
+Commandes :
+
+```bash
+python raster/worldpop/download_worldpop.py
+python raster/worldpop/process_worldpop.py
+python raster/worldpop/normalize_worldpop.py
+
+Cette couche remplace la population simulée dans le calcul du raster de risque.

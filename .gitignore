@@ -74,3 +74,8 @@ etl/data/raster/**/*.ovr
 etl/data/raster/**/*.gz
 etl/data/raster/**/*.zip
 etl/data/raster/**/*.nc
+
+# Données WorldPop locales
+etl/data/raster/raw/worldpop/*.tif
+etl/data/raster/raw/worldpop/*.zip
+etl/data/raster/processed/worldpop/*.tif
