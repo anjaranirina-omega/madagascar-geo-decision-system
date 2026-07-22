@@ -69,3 +69,8 @@ etl/data/raster/**/*.aux.xml
 etl/data/raster/**/*.skip
 etl/data/raster/**/*.part
 etl/data/raster/**/*.ovr
+
+# Archives raster téléchargées
+etl/data/raster/**/*.gz
+etl/data/raster/**/*.zip
+etl/data/raster/**/*.nc
