@@ -243,4 +243,253 @@ export class GeographieService {
       communes,
     };
   }
+
+  async findRegionsGeoJson() {
+    const rows = await this.regionsRepository
+      .createQueryBuilder('region')
+      .select([
+        'region.id AS id',
+        'region.code AS code',
+        'region.nom AS nom',
+        'ST_AsGeoJSON(region.geom)::json AS geometry',
+      ])
+      .orderBy('region.nom', 'ASC')
+      .getRawMany();
+
+    return {
+      type: 'FeatureCollection',
+      features: rows
+        .filter((row) => row.geometry)
+        .map((row) => ({
+          type: 'Feature',
+          geometry: row.geometry,
+          properties: {
+            id: row.id,
+            code: row.code,
+            nom: row.nom,
+            type: 'region',
+          },
+        })),
+    };
+  }
+
+  async findDistrictsGeoJson() {
+    const rows = await this.districtsRepository
+      .createQueryBuilder('district')
+      .leftJoin('district.region', 'region')
+      .select([
+        'district.id AS id',
+        'district.code AS code',
+        'district.nom AS nom',
+        'region.id AS region_id',
+        'region.code AS region_code',
+        'region.nom AS region_nom',
+        'ST_AsGeoJSON(district.geom)::json AS geometry',
+      ])
+      .orderBy('district.nom', 'ASC')
+      .getRawMany();
+
+    return {
+      type: 'FeatureCollection',
+      features: rows
+        .filter((row) => row.geometry)
+        .map((row) => ({
+          type: 'Feature',
+          geometry: row.geometry,
+          properties: {
+            id: row.id,
+            code: row.code,
+            nom: row.nom,
+            type: 'district',
+            region: {
+              id: row.region_id,
+              code: row.region_code,
+              nom: row.region_nom,
+            },
+          },
+        })),
+    };
+  }
+
+  async findCommunesGeoJson() {
+    const rows = await this.communesRepository
+      .createQueryBuilder('commune')
+      .leftJoin('commune.district', 'district')
+      .leftJoin('district.region', 'region')
+      .select([
+        'commune.id AS id',
+        'commune.code AS code',
+        'commune.nom AS nom',
+        'district.id AS district_id',
+        'district.code AS district_code',
+        'district.nom AS district_nom',
+        'region.id AS region_id',
+        'region.code AS region_code',
+        'region.nom AS region_nom',
+        'ST_AsGeoJSON(commune.geom)::json AS geometry',
+      ])
+      .orderBy('commune.nom', 'ASC')
+      .getRawMany();
+
+    return {
+      type: 'FeatureCollection',
+      features: rows
+        .filter((row) => row.geometry)
+        .map((row) => ({
+          type: 'Feature',
+          geometry: row.geometry,
+          properties: {
+            id: row.id,
+            code: row.code,
+            nom: row.nom,
+            type: 'commune',
+            district: {
+              id: row.district_id,
+              code: row.district_code,
+              nom: row.district_nom,
+            },
+            region: {
+              id: row.region_id,
+              code: row.region_code,
+              nom: row.region_nom,
+            },
+          },
+        })),
+    };
+  }
+
+
+  async locatePoint(latitude: number, longitude: number) {
+    const commune = await this.communesRepository
+      .createQueryBuilder('commune')
+      .leftJoin('commune.district', 'district')
+      .leftJoin('district.region', 'region')
+      .select([
+        'commune.id AS commune_id',
+        'commune.code AS commune_code',
+        'commune.nom AS commune_nom',
+        'district.id AS district_id',
+        'district.code AS district_code',
+        'district.nom AS district_nom',
+        'region.id AS region_id',
+        'region.code AS region_code',
+        'region.nom AS region_nom',
+      ])
+      .where(
+        `
+        commune.geom IS NOT NULL
+        AND ST_Intersects(
+          commune.geom,
+          ST_SetSRID(ST_Point(:longitude, :latitude), 4326)
+        )
+        `,
+        { latitude, longitude },
+      )
+      .getRawOne();
+
+    if (commune) {
+      return {
+        latitude,
+        longitude,
+        region: {
+          id: commune.region_id,
+          code: commune.region_code,
+          nom: commune.region_nom,
+        },
+        district: {
+          id: commune.district_id,
+          code: commune.district_code,
+          nom: commune.district_nom,
+        },
+        commune: {
+          id: commune.commune_id,
+          code: commune.commune_code,
+          nom: commune.commune_nom,
+        },
+      };
+    }
+
+    const district = await this.districtsRepository
+      .createQueryBuilder('district')
+      .leftJoin('district.region', 'region')
+      .select([
+        'district.id AS district_id',
+        'district.code AS district_code',
+        'district.nom AS district_nom',
+        'region.id AS region_id',
+        'region.code AS region_code',
+        'region.nom AS region_nom',
+      ])
+      .where(
+        `
+        district.geom IS NOT NULL
+        AND ST_Intersects(
+          district.geom,
+          ST_SetSRID(ST_Point(:longitude, :latitude), 4326)
+        )
+        `,
+        { latitude, longitude },
+      )
+      .getRawOne();
+
+    if (district) {
+      return {
+        latitude,
+        longitude,
+        region: {
+          id: district.region_id,
+          code: district.region_code,
+          nom: district.region_nom,
+        },
+        district: {
+          id: district.district_id,
+          code: district.district_code,
+          nom: district.district_nom,
+        },
+        commune: null,
+      };
+    }
+
+    const region = await this.regionsRepository
+      .createQueryBuilder('region')
+      .select([
+        'region.id AS region_id',
+        'region.code AS region_code',
+        'region.nom AS region_nom',
+      ])
+      .where(
+        `
+        region.geom IS NOT NULL
+        AND ST_Intersects(
+          region.geom,
+          ST_SetSRID(ST_Point(:longitude, :latitude), 4326)
+        )
+        `,
+        { latitude, longitude },
+      )
+      .getRawOne();
+
+    if (region) {
+      return {
+        latitude,
+        longitude,
+        region: {
+          id: region.region_id,
+          code: region.region_code,
+          nom: region.region_nom,
+        },
+        district: null,
+        commune: null,
+      };
+    }
+
+    return {
+      latitude,
+      longitude,
+      region: null,
+      district: null,
+      commune: null,
+    };
+  }
+
 }
