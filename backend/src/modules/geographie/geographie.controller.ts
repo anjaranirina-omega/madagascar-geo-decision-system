@@ -15,11 +15,6 @@ export class GeographieController {
     return this.geographieService.findRegionsGeoJson();
   }
 
-  @Get('regions/:id')
-  findRegionById(@Param('id') id: string) {
-    return this.geographieService.findRegionById(id);
-  }
-
   @Get('districts')
   findAllDistricts(@Query('regionId') regionId?: string) {
     return this.geographieService.findAllDistricts(regionId);
@@ -28,11 +23,6 @@ export class GeographieController {
   @Get('districts/geojson')
   findDistrictsGeoJson() {
     return this.geographieService.findDistrictsGeoJson();
-  }
-
-  @Get('districts/:id')
-  findDistrictById(@Param('id') id: string) {
-    return this.geographieService.findDistrictById(id);
   }
 
   @Get('communes')
@@ -45,11 +35,6 @@ export class GeographieController {
     return this.geographieService.findCommunesGeoJson();
   }
 
-  @Get('communes/:id')
-  findCommuneById(@Param('id') id: string) {
-    return this.geographieService.findCommuneById(id);
-  }
-
   @Get('locate')
   locatePoint(@Query('lat') lat: string, @Query('lng') lng: string) {
     const latitude = Number(lat);
@@ -60,6 +45,30 @@ export class GeographieController {
     }
 
     return this.geographieService.locatePoint(latitude, longitude);
+  }
+
+  @Get('summary')
+  getZoneSummary(@Query('type') type: string, @Query('id') id: string) {
+    if (!type || !id) {
+      throw new BadRequestException('type et id sont obligatoires');
+    }
+
+    return this.geographieService.getZoneSummary(type, id);
+  }
+
+  @Get('regions/:id')
+  findRegionById(@Param('id') id: string) {
+    return this.geographieService.findRegionById(id);
+  }
+
+  @Get('districts/:id')
+  findDistrictById(@Param('id') id: string) {
+    return this.geographieService.findDistrictById(id);
+  }
+
+  @Get('communes/:id')
+  findCommuneById(@Param('id') id: string) {
+    return this.geographieService.findCommuneById(id);
   }
 
   @Get('search')

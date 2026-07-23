@@ -492,4 +492,82 @@ export class GeographieService {
     };
   }
 
+
+  async getZoneSummary(type: string, id: string) {
+    const normalizedType = type.toLowerCase();
+
+    let tableName: string;
+    let label: string;
+
+    if (normalizedType === 'region' || normalizedType === 'regions') {
+      tableName = 'regions';
+      label = 'region';
+    } else if (normalizedType === 'district' || normalizedType === 'districts') {
+      tableName = 'districts';
+      label = 'district';
+    } else if (normalizedType === 'commune' || normalizedType === 'communes') {
+      tableName = 'communes';
+      label = 'commune';
+    } else {
+      throw new NotFoundException('Type de zone inconnu');
+    }
+
+    const zone = await this.regionsRepository.query(
+      `
+      SELECT
+        id,
+        code,
+        nom,
+        ST_Area(geom::geography) / 1000000 AS area_km2
+      FROM ${tableName}
+      WHERE id = $1
+      LIMIT 1
+      `,
+      [id],
+    );
+
+    if (!zone || zone.length === 0) {
+      throw new NotFoundException('Zone introuvable');
+    }
+
+    const latestRaster = await this.regionsRepository.query(
+      `
+      SELECT updated_at
+      FROM raster_layers
+      WHERE type = 'RISK_INDEX'
+      AND is_active = true
+      ORDER BY updated_at DESC
+      LIMIT 1
+      `,
+    );
+
+    const areaKm2 = Number(zone[0].area_km2 ?? 0);
+
+    /**
+     * Population exposée :
+     * Version temporaire basée sur une estimation proportionnelle à la superficie.
+     * Cette estimation sera remplacée plus tard par une vraie agrégation WorldPop.
+     */
+    const estimatedPopulation = Math.round(areaKm2 * 65);
+
+    /**
+     * Alertes actives :
+     * Version temporaire en attendant le module alertes-risk-thresholds.
+     */
+    const activeAlerts = 0;
+
+    return {
+      zone: {
+        id: zone[0].id,
+        code: zone[0].code,
+        nom: zone[0].nom,
+        type: label,
+      },
+      populationExposed: estimatedPopulation,
+      areaKm2: Number(areaKm2.toFixed(2)),
+      activeAlerts,
+      lastUpdated: latestRaster?.[0]?.updated_at ?? null,
+    };
+  }
+
 }
