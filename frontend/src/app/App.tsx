@@ -4,6 +4,7 @@ import AlertesPage from '../modules/alertes/pages/AlertesPage';
 import LoginPage from '../modules/auth/pages/LoginPage';
 import CartePage from '../modules/cartographie/pages/CartePage';
 import DashboardPage from '../modules/dashboard/pages/DashboardPage';
+import AnalyseMulticriterePage from '../modules/analyse/pages/AnalyseMulticriterePage';
 import PlaceholderPage from '../shared/components/PlaceholderPage';
 import UsersPage from '../modules/administration/pages/UsersPage';
 import AccountRequestsPage from '../modules/administration/pages/AccountRequestsPage';
@@ -33,7 +34,7 @@ export default function App() {
           <Route element={<MainLayout />}>
             <Route path="/" element={<DashboardPage />} />
             <Route path="/carte" element={<CartePage />} />
-            <Route path="/analyse" element={<PlaceholderPage title="Analyse multicritère" />} />
+            <Route path="/analyse" element={<AnalyseMulticriterePage />} />
             <Route path="/alertes" element={<AlertesPage />} />
             <Route path="/donnees" element={<PlaceholderPage title="Gestion des données" />} />
             <Route path="/rapports" element={<PlaceholderPage title="Rapports" />} />
