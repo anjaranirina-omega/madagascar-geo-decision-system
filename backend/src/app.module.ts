@@ -13,6 +13,7 @@ import { InterventionsModule } from './modules/interventions/interventions.modul
 import { RastersModule } from './modules/rasters/rasters.module';
 import { SigModule } from './modules/sig/sig.module';
 import { UsersModule } from './modules/users/users.module';
+import { RisquesModule } from './modules/risques/risques.module';
 
 @Module({
   imports: [
@@ -32,6 +33,7 @@ import { UsersModule } from './modules/users/users.module';
     InterventionsModule,
     AccountRequestsModule,
     RastersModule,
+    RisquesModule,
     CollecteModule,
     SigModule,
     DashboardModule,
