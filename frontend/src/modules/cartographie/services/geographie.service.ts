@@ -34,6 +34,19 @@ export type SearchResponse = {
   communes: SearchResultItem[];
 };
 
+export type ZoneSummary = {
+  zone: {
+    id: string;
+    code: string;
+    nom: string;
+    type: string;
+  };
+  populationExposed: number;
+  areaKm2: number;
+  activeAlerts: number;
+  lastUpdated: string | null;
+};
+
 export const geographieFrontendService = {
   async getGeoJson(level: BoundaryLevel) {
     const response = await api.get(`/geographie/${level}/geojson`);
@@ -42,6 +55,26 @@ export const geographieFrontendService = {
 
   async getFeature(level: BoundaryLevel, id: string) {
     const response = await api.get(`/geographie/${level}/${id}`);
+    return response.data;
+  },
+
+  async getSummary(type: BoundaryLevel | string, id: string) {
+    const normalizedType =
+      type === 'regions'
+        ? 'region'
+        : type === 'districts'
+          ? 'district'
+          : type === 'communes'
+            ? 'commune'
+            : type;
+
+    const response = await api.get<ZoneSummary>('/geographie/summary', {
+      params: {
+        type: normalizedType,
+        id,
+      },
+    });
+
     return response.data;
   },
 

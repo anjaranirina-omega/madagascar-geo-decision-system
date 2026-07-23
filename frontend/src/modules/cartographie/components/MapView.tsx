@@ -43,6 +43,7 @@ import type {
 import type {
   BoundaryLevel,
   LocatedZone,
+  ZoneSummary,
   SearchResultItem,
 } from '../services/geographie.service';
 import { geographieFrontendService } from '../services/geographie.service';
@@ -121,6 +122,7 @@ export default function MapView() {
   );
 
   const [locatedZone, setLocatedZone] = useState<LocatedZone | null>(null);
+  const [zoneSummary, setZoneSummary] = useState<ZoneSummary | null>(null);
   const [locating, setLocating] = useState(false);
   const [selectedRisk, setSelectedRisk] = useState<RiskSelection | null>(null);
 
@@ -160,12 +162,32 @@ export default function MapView() {
     selectedBoundaryFeature?.properties?.nom ??
     'Madagascar';
 
+  const loadZoneSummary = useCallback(async (type: string, id: string) => {
+    try {
+      const summary = await geographieFrontendService.getSummary(type, id);
+      setZoneSummary(summary);
+    } catch (error) {
+      console.error('[MapView] Erreur chargement résumé zone:', error);
+      setZoneSummary(null);
+    }
+  }, []);
+
   const locateMarker = useCallback(async (lat: number, lng: number) => {
     setLocating(true);
 
     try {
       const result = await geographieFrontendService.locate(lat, lng);
       setLocatedZone(result);
+
+      if (result.commune) {
+        await loadZoneSummary('commune', result.commune.id);
+      } else if (result.district) {
+        await loadZoneSummary('district', result.district.id);
+      } else if (result.region) {
+        await loadZoneSummary('region', result.region.id);
+      } else {
+        setZoneSummary(null);
+      }
 
       setTimeout(() => {
         markerRef.current?.openPopup();
@@ -176,7 +198,7 @@ export default function MapView() {
     } finally {
       setLocating(false);
     }
-  }, []);
+  }, [loadZoneSummary]);
 
   useEffect(() => {
     locateMarker(markerLatLng.lat, markerLatLng.lng);
@@ -269,6 +291,7 @@ export default function MapView() {
       );
 
       setSelectedBoundaryFeature(feature);
+      await loadZoneSummary(result.level, result.id);
     } catch (error) {
       console.error('[MapView] Erreur chargement feature sélectionnée:', error);
     }
@@ -601,27 +624,27 @@ export default function MapView() {
             <InfoCard
               icon={<Users size={20} />}
               label="Population exposée"
-              value="1.25M"
+              value={formatPopulation(zoneSummary?.populationExposed)}
               sub="habitants"
             />
             <InfoCard
               icon={<Ruler size={20} />}
               label="Superficie"
-              value="1 620"
+              value={formatArea(zoneSummary?.areaKm2)}
               sub="km²"
             />
             <InfoCard
               icon={<AlertTriangle size={20} />}
               label="Alertes actives"
-              value="3"
+              value={String(zoneSummary?.activeAlerts ?? 0)}
               sub="voir détails"
               danger
             />
             <InfoCard
               icon={<Clock size={20} />}
               label="Dernière mise à jour"
-              value="23/07/2026"
-              sub="10:30"
+              value={formatDateOnly(zoneSummary?.lastUpdated)}
+              sub={formatTimeOnly(zoneSummary?.lastUpdated)}
             />
           </div>
 
@@ -988,4 +1011,49 @@ function MapToolButton({
       {icon}
     </button>
   );
+}
+
+function formatPopulation(value?: number) {
+  if (!value || value <= 0) {
+    return '—';
+  }
+
+  if (value >= 1_000_000) {
+    return `${(value / 1_000_000).toFixed(2)}M`;
+  }
+
+  if (value >= 1_000) {
+    return `${(value / 1_000).toFixed(1)}K`;
+  }
+
+  return String(value);
+}
+
+function formatArea(value?: number) {
+  if (!value || value <= 0) {
+    return '—';
+  }
+
+  return new Intl.NumberFormat('fr-FR', {
+    maximumFractionDigits: 0,
+  }).format(value);
+}
+
+function formatDateOnly(value?: string | null) {
+  if (!value) {
+    return '—';
+  }
+
+  return new Intl.DateTimeFormat('fr-FR').format(new Date(value));
+}
+
+function formatTimeOnly(value?: string | null) {
+  if (!value) {
+    return '—';
+  }
+
+  return new Intl.DateTimeFormat('fr-FR', {
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(value));
 }
