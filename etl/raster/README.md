@@ -410,3 +410,16 @@ python raster/worldpop/process_worldpop.py
 python raster/worldpop/normalize_worldpop.py
 
 Cette couche remplace la population simulée dans le calcul du raster de risque.
+
+## Intégration ESA WorldCover landcover
+
+La couche `landcover_norm.tif` peut être produite à partir d’une vraie source raster d’occupation du sol : ESA WorldCover.
+
+Commandes :
+
+```bash
+python raster/worldcover/build_worldcover_vrt.py
+python raster/worldcover/process_worldcover.py
+python raster/worldcover/reclassify_worldcover.py
+
+Cette couche remplace l’occupation du sol simulée dans le calcul du raster de risque.

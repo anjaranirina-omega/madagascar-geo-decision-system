@@ -79,3 +79,10 @@ etl/data/raster/**/*.nc
 etl/data/raster/raw/worldpop/*.tif
 etl/data/raster/raw/worldpop/*.zip
 etl/data/raster/processed/worldpop/*.tif
+
+# Données ESA WorldCover locales
+etl/data/raster/raw/worldcover/*.tif
+etl/data/raster/raw/worldcover/tiles/*.tif
+etl/data/raster/raw/worldcover/*.zip
+etl/data/raster/processed/worldcover/*.tif
+etl/data/raster/raw/worldcover/tiles/*.skip
