@@ -22,9 +22,36 @@ export type LocatedZone = {
   };
 };
 
+export type SearchResultItem = {
+  id: string;
+  code: string;
+  nom: string;
+};
+
+export type SearchResponse = {
+  regions: SearchResultItem[];
+  districts: SearchResultItem[];
+  communes: SearchResultItem[];
+};
+
 export const geographieFrontendService = {
   async getGeoJson(level: BoundaryLevel) {
     const response = await api.get(`/geographie/${level}/geojson`);
+    return response.data;
+  },
+
+  async getFeature(level: BoundaryLevel, id: string) {
+    const response = await api.get(`/geographie/${level}/${id}`);
+    return response.data;
+  },
+
+  async search(query: string) {
+    const response = await api.get<SearchResponse>('/geographie/search', {
+      params: {
+        q: query,
+      },
+    });
+
     return response.data;
   },
 

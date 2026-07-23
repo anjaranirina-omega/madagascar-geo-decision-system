@@ -10,23 +10,31 @@ type AdminBoundariesLayerProps = {
 
 const styleByLevel = {
   regions: {
-    color: '#111827',
-    weight: 1.4,
+    color: '#2563eb',
+    weight: 1.6,
     fillOpacity: 0,
-    opacity: 0.75,
+    opacity: 0.85,
   },
   districts: {
-    color: '#2563eb',
-    weight: 0.9,
+    color: '#0f766e',
+    weight: 1,
+    fillOpacity: 0,
+    opacity: 0.7,
+  },
+  communes: {
+    color: '#64748b',
+    weight: 0.55,
     fillOpacity: 0,
     opacity: 0.55,
   },
-  communes: {
-    color: '#16a34a',
-    weight: 0.45,
-    fillOpacity: 0,
-    opacity: 0.45,
-  },
+};
+
+const hoverStyle = {
+  color: '#f97316',
+  weight: 2.4,
+  opacity: 0.95,
+  fillOpacity: 0.08,
+  fillColor: '#f97316',
 };
 
 export default function AdminBoundariesLayer({
@@ -81,16 +89,15 @@ export default function AdminBoundariesLayer({
           {
             sticky: true,
             direction: 'top',
+            className: 'admin-boundary-tooltip',
           },
         );
 
         layer.on({
           mouseover: (event) => {
             const target = event.target;
-            target.setStyle({
-              weight: 2.4,
-              color: '#ef4444',
-            });
+            target.setStyle(hoverStyle);
+            target.bringToFront?.();
           },
           mouseout: (event) => {
             const target = event.target;
