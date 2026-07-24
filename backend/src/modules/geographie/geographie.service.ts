@@ -541,20 +541,28 @@ export class GeographieService {
       `,
     );
 
-    const areaKm2 = Number(zone[0].area_km2 ?? 0);
+    const indicator = await this.regionsRepository.query(
+      `
+      SELECT
+        population_exposed,
+        area_km2,
+        risk_mean,
+        risk_max,
+        risk_level,
+        updated_at
+      FROM zone_indicators
+      WHERE zone_type = $1
+      AND zone_id = $2
+      LIMIT 1
+      `,
+      [label, id],
+    );
 
-    /**
-     * Population exposée :
-     * Version temporaire basée sur une estimation proportionnelle à la superficie.
-     * Cette estimation sera remplacée plus tard par une vraie agrégation WorldPop.
-     */
-    const estimatedPopulation = Math.round(areaKm2 * 65);
-
-    /**
-     * Alertes actives :
-     * Version temporaire en attendant le module alertes-risk-thresholds.
-     */
-    const activeAlerts = 0;
+    const areaKm2 =
+      indicator?.[0]?.area_km2 !== undefined &&
+      indicator?.[0]?.area_km2 !== null
+        ? Number(indicator[0].area_km2)
+        : Number(zone[0].area_km2 ?? 0);
 
     return {
       zone: {
@@ -563,10 +571,28 @@ export class GeographieService {
         nom: zone[0].nom,
         type: label,
       },
-      populationExposed: estimatedPopulation,
+      populationExposed:
+        indicator?.[0]?.population_exposed !== undefined &&
+        indicator?.[0]?.population_exposed !== null
+          ? Number(indicator[0].population_exposed)
+          : null,
       areaKm2: Number(areaKm2.toFixed(2)),
-      activeAlerts,
-      lastUpdated: latestRaster?.[0]?.updated_at ?? null,
+      riskMean:
+        indicator?.[0]?.risk_mean !== undefined &&
+        indicator?.[0]?.risk_mean !== null
+          ? Number(indicator[0].risk_mean)
+          : null,
+      riskMax:
+        indicator?.[0]?.risk_max !== undefined &&
+        indicator?.[0]?.risk_max !== null
+          ? Number(indicator[0].risk_max)
+          : null,
+      riskLevel: indicator?.[0]?.risk_level ?? null,
+      activeAlerts: 0,
+      lastUpdated:
+        indicator?.[0]?.updated_at ??
+        latestRaster?.[0]?.updated_at ??
+        null,
     };
   }
 
