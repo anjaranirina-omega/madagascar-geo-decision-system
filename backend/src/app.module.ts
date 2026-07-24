@@ -13,6 +13,7 @@ import { InterventionsModule } from './modules/interventions/interventions.modul
 import { RastersModule } from './modules/rasters/rasters.module';
 import { SigModule } from './modules/sig/sig.module';
 import { UsersModule } from './modules/users/users.module';
+import { ZoneIndicatorsModule } from './modules/zone-indicators/zone-indicators.module';
 import { RisquesModule } from './modules/risques/risques.module';
 
 @Module({
@@ -29,6 +30,7 @@ import { RisquesModule } from './modules/risques/risques.module';
     }),
     AuthModule,
     UsersModule,
+    ZoneIndicatorsModule,
     GeographieModule,
     InterventionsModule,
     AccountRequestsModule,
