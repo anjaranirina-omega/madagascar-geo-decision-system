@@ -1,0 +1,54 @@
+import { api } from '../../services/api';
+
+export type AlerteNiveau = 'FAIBLE' | 'MOYEN' | 'ELEVE' | 'CRITIQUE';
+export type AlerteStatus = 'ACTIVE' | 'RESOLUE' | 'IGNOREE';
+
+export type Alerte = {
+  id: string;
+  type: string;
+  niveau: AlerteNiveau;
+  titre: string;
+  message: string;
+  zoneType?: string;
+  zoneId?: string;
+  zoneNom?: string;
+  riskValue?: number;
+  riskMean?: number;
+  populationExposed?: number;
+  status: AlerteStatus;
+  resolvedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export const alertesService = {
+  async findAll() {
+    const response = await api.get<Alerte[]>('/alertes');
+    return response.data;
+  },
+
+  async findActive() {
+    const response = await api.get<Alerte[]>('/alertes/active');
+    return response.data;
+  },
+
+  async generateFromRisk(zoneType = 'region') {
+    const response = await api.post('/alertes/generate-from-risk', {
+      zoneType,
+      thresholdEleve: 61,
+      thresholdCritique: 81,
+    });
+
+    return response.data;
+  },
+
+  async resolve(id: string) {
+    const response = await api.patch<Alerte>(`/alertes/${id}/resolve`);
+    return response.data;
+  },
+
+  async ignore(id: string) {
+    const response = await api.patch<Alerte>(`/alertes/${id}/ignore`);
+    return response.data;
+  },
+};

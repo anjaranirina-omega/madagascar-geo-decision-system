@@ -595,7 +595,7 @@ export default function MapView() {
             ].join(' ')}
           >
             <div className="text-sm font-extrabold">
-              Indice de risque global
+              Risque local
             </div>
 
             <div className="mt-3 flex items-end gap-2">
