@@ -86,3 +86,9 @@ etl/data/raster/raw/worldcover/tiles/*.tif
 etl/data/raster/raw/worldcover/*.zip
 etl/data/raster/processed/worldcover/*.tif
 etl/data/raster/raw/worldcover/tiles/*.skip
+
+# CHIRPS daily dynamiques
+etl/data/raster/raw/chirps/daily/*.gz
+etl/data/raster/raw/chirps/daily/*.tif
+etl/data/raster/processed/chirps/rainfall_chirps_latest.tif
+etl/data/raster/processed/chirps/chirps_latest_metadata.txt
