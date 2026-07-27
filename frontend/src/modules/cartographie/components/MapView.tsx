@@ -49,6 +49,7 @@ import type {
 import { geographieFrontendService } from '../services/geographie.service';
 import AdminBoundariesLayer from './AdminBoundariesLayer';
 import RasterRiskLayer from './RasterRiskLayer';
+import { meteoService, type CurrentWeather } from '../../meteo/services/meteo.service';
 import RiskClickHandler, { RiskSelection } from './RiskClickHandler';
 
 const MADAGASCAR_CENTER: LatLngExpression = [-18.8792, 47.5079];
@@ -124,6 +125,9 @@ export default function MapView() {
   const [locatedZone, setLocatedZone] = useState<LocatedZone | null>(null);
   const [zoneSummary, setZoneSummary] = useState<ZoneSummary | null>(null);
   const [locating, setLocating] = useState(false);
+  const [currentWeather, setCurrentWeather] = useState<CurrentWeather | null>(null);
+  const [weatherLoading, setWeatherLoading] = useState(false);
+  const [weatherError, setWeatherError] = useState('');
   const [selectedRisk, setSelectedRisk] = useState<RiskSelection | null>(null);
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -172,6 +176,22 @@ export default function MapView() {
     }
   }, []);
 
+  const loadWeather = useCallback(async (lat: number, lng: number) => {
+    setWeatherLoading(true);
+    setWeatherError('');
+
+    try {
+      const weather = await meteoService.getCurrent(lat, lng);
+      setCurrentWeather(weather);
+    } catch (error) {
+      console.error('[MapView] Erreur météo temps réel:', error);
+      setCurrentWeather(null);
+      setWeatherError('Météo indisponible');
+    } finally {
+      setWeatherLoading(false);
+    }
+  }, []);
+
   const locateMarker = useCallback(async (lat: number, lng: number) => {
     setLocating(true);
 
@@ -202,6 +222,7 @@ export default function MapView() {
 
   useEffect(() => {
     locateMarker(markerLatLng.lat, markerLatLng.lng);
+    loadWeather(markerLatLng.lat, markerLatLng.lng);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -266,9 +287,10 @@ export default function MapView() {
         const position = marker.getLatLng();
         setMarkerPosition([position.lat, position.lng]);
         locateMarker(position.lat, position.lng);
+        loadWeather(position.lat, position.lng);
       },
     }),
-    [locateMarker],
+    [locateMarker, loadWeather],
   );
 
   const toggleRiskLayer = (key: RiskLayerKey, value: boolean) => {
@@ -646,6 +668,83 @@ export default function MapView() {
               value={formatDateOnly(zoneSummary?.lastUpdated)}
               sub={formatTimeOnly(zoneSummary?.lastUpdated)}
             />
+          </div>
+
+          <div className="mb-5 rounded-3xl border border-sky-100 bg-sky-50 p-5 dark:border-sky-900 dark:bg-sky-950/30">
+            <div className="mb-4 flex items-center justify-between">
+              <div className="font-extrabold text-slate-900 dark:text-white">
+                Météo actuelle
+              </div>
+
+              <button
+                type="button"
+                onClick={() => loadWeather(markerLatLng.lat, markerLatLng.lng)}
+                className="rounded-lg bg-white px-3 py-1 text-xs font-bold text-sky-700 shadow-sm transition hover:bg-sky-100 dark:bg-slate-900 dark:text-sky-200"
+              >
+                Actualiser
+              </button>
+            </div>
+
+            {weatherLoading ? (
+              <div className="text-sm font-semibold text-sky-700">
+                Chargement météo...
+              </div>
+            ) : weatherError ? (
+              <div className="text-sm font-semibold text-red-600">
+                {weatherError}
+              </div>
+            ) : currentWeather ? (
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <WeatherItem
+                  label="Température"
+                  value={
+                    typeof currentWeather.temperature === 'number'
+                      ? `${currentWeather.temperature.toFixed(1)} °C`
+                      : '—'
+                  }
+                />
+                <WeatherItem
+                  label="Humidité"
+                  value={
+                    typeof currentWeather.humidity === 'number'
+                      ? `${currentWeather.humidity} %`
+                      : '—'
+                  }
+                />
+                <WeatherItem
+                  label="Vent"
+                  value={
+                    typeof currentWeather.windSpeed === 'number'
+                      ? `${(currentWeather.windSpeed * 3.6).toFixed(1)} km/h`
+                      : '—'
+                  }
+                />
+                <WeatherItem
+                  label="Pluie"
+                  value={
+                    typeof currentWeather.rainfall === 'number'
+                      ? `${currentWeather.rainfall.toFixed(1)} mm`
+                      : '0 mm'
+                  }
+                />
+
+                <div className="col-span-2 rounded-xl bg-white/70 p-3 dark:bg-slate-900">
+                  <div className="text-xs font-bold text-slate-500">
+                    Conditions
+                  </div>
+                  <div className="mt-1 font-semibold text-slate-800 dark:text-slate-100">
+                    {currentWeather.weatherDescription ?? currentWeather.weatherMain ?? '—'}
+                  </div>
+                  <div className="mt-1 text-xs text-slate-500">
+                    Observation : {formatDateTime(currentWeather.observedAt)}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="text-sm text-slate-500">
+                Déplacez le marqueur pour charger la météo.
+              </div>
+            )}
           </div>
 
           <div className="rounded-3xl border border-yellow-100 bg-yellow-50 p-5 dark:border-yellow-900 dark:bg-yellow-950/30">
@@ -1055,5 +1154,33 @@ function formatTimeOnly(value?: string | null) {
   return new Intl.DateTimeFormat('fr-FR', {
     hour: '2-digit',
     minute: '2-digit',
+  }).format(new Date(value));
+}
+
+function WeatherItem({
+  label,
+  value,
+}: {
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="rounded-xl bg-white/70 p-3 dark:bg-slate-900">
+      <div className="text-xs font-bold text-slate-500">{label}</div>
+      <div className="mt-1 font-extrabold text-slate-900 dark:text-white">
+        {value}
+      </div>
+    </div>
+  );
+}
+
+function formatDateTime(value?: string) {
+  if (!value) {
+    return '—';
+  }
+
+  return new Intl.DateTimeFormat('fr-FR', {
+    dateStyle: 'short',
+    timeStyle: 'short',
   }).format(new Date(value));
 }
