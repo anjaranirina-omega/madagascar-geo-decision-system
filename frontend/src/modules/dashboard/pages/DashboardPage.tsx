@@ -8,47 +8,198 @@ import {
   UploadCloud,
   Wind,
 } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import {
+  DashboardSummary,
+  RiskDistribution,
+  TopRiskZone,
+  dashboardService,
+} from '../services/dashboard.service';
 
-const kpis = [
-  {
-    title: 'Risque moyen national',
-    value: '56.4',
-    suffix: '/100',
-    subtitle: 'Niveau : Moyen',
-    icon: TrendingUp,
-  },
-  {
-    title: 'Zones critiques',
-    value: '24',
-    suffix: '',
-    subtitle: 'Zones',
-    icon: AlertTriangle,
-  },
-  {
-    title: 'Alertes actives',
-    value: '8',
-    suffix: '',
-    subtitle: 'Alertes',
-    icon: Bell,
-  },
-  {
-    title: 'Données mises à jour',
-    value: '10:15',
-    suffix: '',
-    subtitle: "Aujourd'hui",
-    icon: UploadCloud,
-  },
-];
+function formatDate(value?: string | null) {
+  if (!value) return '—';
 
-const regions = [
-  ['Atsimo Andrefana', 72.8, 'bg-red-500'],
-  ['Vatovavy Fitovinany', 68.3, 'bg-orange-500'],
-  ['Sofia', 63.1, 'bg-yellow-500'],
-  ['Boeny', 59.4, 'bg-yellow-400'],
-  ['Analanjirofo', 55.2, 'bg-green-500'],
-];
+  return new Intl.DateTimeFormat('fr-FR', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(new Date(value));
+}
+
+function riskLabel(level?: string) {
+  const labels = {
+    FAIBLE: 'Faible',
+    MOYEN: 'Moyen',
+    ELEVE: 'Élevé',
+    CRITIQUE: 'Critique',
+  };
+
+  return labels[level as keyof typeof labels] ?? '—';
+}
+
+
+function buildRiskDistributionGradient(distribution: RiskDistribution | null) {
+  if (!distribution) {
+    return 'conic-gradient(#e5e7eb 0deg 360deg)';
+  }
+
+  const values = [
+    { key: 'FAIBLE', color: '#22c55e', value: distribution.FAIBLE },
+    { key: 'MOYEN', color: '#eab308', value: distribution.MOYEN },
+    { key: 'ELEVE', color: '#f97316', value: distribution.ELEVE },
+    { key: 'CRITIQUE', color: '#ef4444', value: distribution.CRITIQUE },
+  ];
+
+  const total = values.reduce((sum, item) => sum + item.value, 0);
+
+  if (total === 0) {
+    return 'conic-gradient(#e5e7eb 0deg 360deg)';
+  }
+
+  let currentAngle = 0;
+
+  const parts = values
+    .filter((item) => item.value > 0)
+    .map((item) => {
+      const angle = (item.value / total) * 360;
+      const start = currentAngle;
+      const end = currentAngle + angle;
+      currentAngle = end;
+
+      return `${item.color} ${start.toFixed(2)}deg ${end.toFixed(2)}deg`;
+    });
+
+  return `conic-gradient(${parts.join(', ')})`;
+}
+
+function getRiskDistributionItems(distribution: RiskDistribution | null) {
+  return [
+    {
+      key: 'FAIBLE',
+      label: 'Faible',
+      count: distribution?.FAIBLE ?? 0,
+      color: 'bg-green-500',
+    },
+    {
+      key: 'MOYEN',
+      label: 'Moyen',
+      count: distribution?.MOYEN ?? 0,
+      color: 'bg-yellow-500',
+    },
+    {
+      key: 'ELEVE',
+      label: 'Élevé',
+      count: distribution?.ELEVE ?? 0,
+      color: 'bg-orange-500',
+    },
+    {
+      key: 'CRITIQUE',
+      label: 'Critique',
+      count: distribution?.CRITIQUE ?? 0,
+      color: 'bg-red-500',
+    },
+  ];
+}
+
+function riskColor(level?: string) {
+  const colors = {
+    FAIBLE: 'bg-green-500',
+    MOYEN: 'bg-yellow-500',
+    ELEVE: 'bg-orange-500',
+    CRITIQUE: 'bg-red-500',
+  };
+
+  return colors[level as keyof typeof colors] ?? 'bg-slate-400';
+}
 
 export default function DashboardPage() {
+  const [summary, setSummary] = useState<DashboardSummary | null>(null);
+  const [topZones, setTopZones] = useState<TopRiskZone[]>([]);
+  const [distribution, setDistribution] = useState<RiskDistribution | null>(null);
+  const [climate, setClimate] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  const loadDashboard = async () => {
+    setLoading(true);
+
+    try {
+      const [
+        summaryData,
+        topRiskZonesData,
+        riskDistributionData,
+        climateData,
+      ] = await Promise.all([
+        dashboardService.getSummary(),
+        dashboardService.getTopRiskZones(),
+        dashboardService.getRiskDistribution(),
+        dashboardService.getClimateIndicators(),
+      ]);
+
+      setSummary(summaryData);
+      setTopZones(topRiskZonesData);
+      setDistribution(riskDistributionData);
+      setClimate(climateData);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadDashboard();
+  }, []);
+
+  const distributionTotal = useMemo(() => {
+    if (!distribution) return 0;
+
+    return (
+      distribution.FAIBLE +
+      distribution.MOYEN +
+      distribution.ELEVE +
+      distribution.CRITIQUE
+    );
+  }, [distribution]);
+
+  const riskDistributionGradient = buildRiskDistributionGradient(distribution);
+  const riskDistributionItems = getRiskDistributionItems(distribution);
+
+  if (loading) {
+    return (
+      <div className="flex h-96 items-center justify-center text-slate-500">
+        Chargement du tableau de bord...
+      </div>
+    );
+  }
+
+  const kpis = [
+    {
+      title: 'Risque moyen national',
+      value: (summary?.riskMeanNational ?? 0).toFixed(1),
+      suffix: '/100',
+      subtitle: 'Moyenne des régions',
+      icon: TrendingUp,
+    },
+    {
+      title: 'Zones critiques',
+      value: String(summary?.criticalZones ?? 0),
+      suffix: '',
+      subtitle: `${summary?.highZones ?? 0} zones élevées`,
+      icon: AlertTriangle,
+    },
+    {
+      title: 'Alertes actives',
+      value: String(summary?.activeAlerts ?? 0),
+      suffix: '',
+      subtitle: `${summary?.criticalAlerts ?? 0} critiques`,
+      icon: Bell,
+    },
+    {
+      title: 'Dernière mise à jour',
+      value: summary?.lastUpdate ? 'OK' : '—',
+      suffix: '',
+      subtitle: formatDate(summary?.lastUpdate),
+      icon: UploadCloud,
+    },
+  ];
+
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
@@ -63,13 +214,13 @@ export default function DashboardPage() {
 
               <div className="flex items-center justify-between">
                 <div>
-                  <span className="text-4xl font-black text-slate-900">
+                  <span className="text-4xl font-black text-slate-900 dark:text-white">
                     {kpi.value}
                   </span>
                   <span className="ml-1 text-slate-500">{kpi.suffix}</span>
                 </div>
 
-                <div className="rounded-2xl bg-slate-50 p-3 text-riskgreen">
+                <div className="rounded-2xl bg-slate-50 p-3 text-riskgreen dark:bg-slate-800">
                   <Icon size={28} />
                 </div>
               </div>
@@ -84,36 +235,55 @@ export default function DashboardPage() {
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[0.9fr_1.4fr]">
         <div className="card p-6">
-          <h2 className="mb-6 font-extrabold">Répartition des niveaux de risque</h2>
+          <h2 className="mb-6 font-extrabold text-slate-900 dark:text-white">
+            Répartition des niveaux de risque
+          </h2>
 
           <div className="grid grid-cols-[150px_1fr] items-center gap-5">
-            <div className="relative h-36 w-36 rounded-full bg-[conic-gradient(#22c55e_0_22%,#eab308_22%_63%,#f97316_63%_89%,#ef4444_89%_100%)]">
-              <div className="absolute inset-9 rounded-full bg-white" />
+            <div
+              className="relative h-36 w-36 rounded-full"
+              style={{ background: riskDistributionGradient }}
+            >
+              <div className="absolute inset-9 rounded-full bg-white dark:bg-slate-900" />
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="text-center">
+                  <div className="text-2xl font-black text-slate-900 dark:text-white">
+                    {distributionTotal}
+                  </div>
+                  <div className="text-[10px] font-semibold text-slate-500">
+                    zones
+                  </div>
+                </div>
+              </div>
             </div>
 
             <div className="space-y-3 text-sm">
-              <div className="flex items-center justify-between">
-                <span><i className="mr-2 inline-block h-3 w-3 rounded-full bg-green-500" />Faible</span>
-                <strong>22%</strong>
-              </div>
-              <div className="flex items-center justify-between">
-                <span><i className="mr-2 inline-block h-3 w-3 rounded-full bg-yellow-500" />Moyen</span>
-                <strong>41%</strong>
-              </div>
-              <div className="flex items-center justify-between">
-                <span><i className="mr-2 inline-block h-3 w-3 rounded-full bg-orange-500" />Élevé</span>
-                <strong>26%</strong>
-              </div>
-              <div className="flex items-center justify-between">
-                <span><i className="mr-2 inline-block h-3 w-3 rounded-full bg-red-500" />Critique</span>
-                <strong>10%</strong>
-              </div>
+              {riskDistributionItems.map((item) => (
+                <div key={item.key} className="flex items-center justify-between">
+                  <span>
+                    <i className={`mr-2 inline-block h-3 w-3 rounded-full ${item.color}`} />
+                    {item.label}
+                  </span>
+                  <strong>{item.count}</strong>
+                </div>
+              ))}
             </div>
+          </div>
+
+          <div className="mt-4 text-xs text-slate-500">
+            Total zones analysées : {distributionTotal}
           </div>
         </div>
 
         <div className="card p-6">
-          <h2 className="mb-6 font-extrabold">Tendance des risques</h2>
+          <div className="mb-6 flex items-center justify-between">
+            <h2 className="font-extrabold text-slate-900 dark:text-white">
+              Tendance des risques
+            </h2>
+            <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-500 dark:bg-slate-800">
+              Historique à venir
+            </span>
+          </div>
 
           <svg viewBox="0 0 700 220" className="h-56 w-full">
             <line x1="0" y1="180" x2="700" y2="180" stroke="#e5e7eb" />
@@ -147,56 +317,70 @@ export default function DashboardPage() {
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1fr_1.4fr]">
         <div className="card p-6">
-          <h2 className="mb-6 font-extrabold">
+          <h2 className="mb-6 font-extrabold text-slate-900 dark:text-white">
             Top 5 des régions les plus à risque
           </h2>
 
           <div className="space-y-5">
-            {regions.map(([name, value, color], index) => (
+            {topZones.map((zone, index) => (
               <div
-                key={name}
-                className="grid grid-cols-[24px_1fr_54px] items-center gap-3"
+                key={zone.zoneId}
+                className="grid grid-cols-[24px_1fr_70px] items-center gap-3"
               >
                 <strong>{index + 1}</strong>
 
                 <div>
-                  <div className="mb-2 text-sm font-medium">{name}</div>
-                  <div className="h-2 rounded-full bg-slate-200">
+                  <div className="mb-2 flex items-center justify-between text-sm font-medium">
+                    <span>{zone.zoneNom}</span>
+                    <span className="text-xs text-slate-500">
+                      {riskLabel(zone.riskLevel)}
+                    </span>
+                  </div>
+
+                  <div className="h-2 rounded-full bg-slate-200 dark:bg-slate-800">
                     <div
-                      className={`h-full rounded-full ${color}`}
-                      style={{ width: `${value}%` }}
+                      className={`h-full rounded-full ${riskColor(zone.riskLevel)}`}
+                      style={{ width: `${zone.riskMax ?? 0}%` }}
                     />
                   </div>
                 </div>
 
-                <strong className="text-sm">{value}</strong>
+                <strong className="text-sm">
+                  {(zone.riskMax ?? 0).toFixed(1)}
+                </strong>
               </div>
             ))}
           </div>
         </div>
 
         <div className="card p-6">
-          <h2 className="mb-6 font-extrabold">
+          <h2 className="mb-6 font-extrabold text-slate-900 dark:text-white">
             Indicateurs climatiques
           </h2>
 
           <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-            {[
-              [CloudRain, 'Pluie', '45.2 mm'],
-              [Thermometer, 'Température', '27.6 °C'],
-              [Droplets, 'Humidité', '78 %'],
-              [Wind, 'Vent', '12.4 km/h'],
-            ].map(([Icon, label, value]) => {
-              const ClimateIcon = Icon as typeof CloudRain;
+            {climate &&
+              [
+                [CloudRain, climate.rainfall.label, `${climate.rainfall.value} ${climate.rainfall.unit}`, climate.rainfall.source],
+                [Thermometer, climate.temperature.label, `${climate.temperature.value} ${climate.temperature.unit}`, climate.temperature.source],
+                [Droplets, climate.humidity.label, `${climate.humidity.value} ${climate.humidity.unit}`, climate.humidity.source],
+                [Wind, climate.wind.label, `${climate.wind.value} ${climate.wind.unit}`, climate.wind.source],
+              ].map(([Icon, label, value, source]) => {
+                const ClimateIcon = Icon as typeof CloudRain;
 
-              return (
-                <div key={label as string} className="rounded-2xl bg-slate-50 p-5 text-center">
-                  <ClimateIcon className="mx-auto mb-3 text-sky-500" size={30} />
-                  <div className="text-sm text-slate-500">{label as string}</div>
-                  <div className="mt-1 text-2xl font-black">{value as string}</div>
-                </div>
-              );
-            })}
+                return (
+                  <div key={label as string} className="rounded-2xl bg-slate-50 p-5 text-center dark:bg-slate-800">
+                    <ClimateIcon className="mx-auto mb-3 text-sky-500" size={30} />
+                    <div className="text-sm text-slate-500">{label as string}</div>
+                    <div className="mt-1 text-2xl font-black text-slate-900 dark:text-white">
+                      {value as string}
+                    </div>
+                    <div className="mt-1 text-xs text-slate-400">
+                      {source as string}
+                    </div>
+                  </div>
+                );
+              })}
           </div>
         </div>
       </div>
