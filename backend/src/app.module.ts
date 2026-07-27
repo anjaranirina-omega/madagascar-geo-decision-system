@@ -9,7 +9,6 @@ import { AuthModule } from './modules/auth/auth.module';
 import { CollecteModule } from './modules/collecte/collecte.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { GeographieModule } from './modules/geographie/geographie.module';
-import { InterventionsModule } from './modules/interventions/interventions.module';
 import { RastersModule } from './modules/rasters/rasters.module';
 import { SigModule } from './modules/sig/sig.module';
 import { UsersModule } from './modules/users/users.module';
@@ -32,7 +31,6 @@ import { RisquesModule } from './modules/risques/risques.module';
     UsersModule,
     ZoneIndicatorsModule,
     GeographieModule,
-    InterventionsModule,
     AccountRequestsModule,
     RastersModule,
     RisquesModule,

@@ -19,7 +19,6 @@ import {
   ShieldCheck,
   UserCheck,
   Users,
-  Wrench,
 } from 'lucide-react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAppStore } from '../../app/store';
@@ -31,7 +30,6 @@ const menu = [
   { label: 'Analyse multicritère', path: '/analyse', icon: BarChart3 },
   { label: 'Alertes', path: '/alertes', icon: AlertTriangle, badge: 8 },
   { label: 'Données', path: '/donnees', icon: Database },
-  { label: 'Interventions', path: '/interventions', icon: Wrench },
   { label: 'Rapports', path: '/rapports', icon: FileText },
   { label: 'Paramètres', path: '/parametres', icon: Settings },
   { label: 'Utilisateurs', path: '/utilisateurs', icon: Users },
@@ -45,7 +43,6 @@ const titles: Record<string, string> = {
   '/analyse': 'Analyse multicritère',
   '/alertes': 'Alertes',
   '/donnees': 'Gestion des données',
-  '/interventions': 'Interventions',
   '/rapports': 'Rapports',
   '/parametres': 'Paramètres',
   '/utilisateurs': 'Gestion des utilisateurs',
@@ -59,7 +56,6 @@ const subtitles: Record<string, string> = {
   '/analyse': 'Pondération des critères et analyse multicritère',
   '/alertes': 'Suivi des alertes climatiques et zones critiques',
   '/donnees': 'Sources, imports et qualité des données',
-  '/interventions': 'Suivi des actions et interventions terrain',
   '/rapports': 'Rapports décisionnels et exports',
   '/parametres': 'Configuration générale de la plateforme',
   '/utilisateurs': 'Gestion des comptes et rôles',
