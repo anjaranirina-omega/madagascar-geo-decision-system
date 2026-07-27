@@ -63,3 +63,25 @@ python raster/raster_metadata.py
 ## Remarque
 
 Les fichiers CHIRPS téléchargés et générés ne sont pas versionnés dans Git.
+
+## Mode dynamique — dernière donnée disponible
+
+Le script `fetch_latest_chirps.py` recherche automatiquement la dernière donnée CHIRPS daily disponible dans les derniers jours.
+
+```bash
+python raster/chirps/fetch_latest_chirps.py
+
+Il met à jour :
+
+txt
+
+rainfall_chirps_latest.tif
+rainfall_norm.tif
+
+Un endpoint backend permet ensuite de lancer la synchronisation et le recalcul :
+
+txt
+
+POST /api/risques/sync-chirps-latest
+
+Cette approche remplace l’utilisation d’une période fixe CHIRPS_MONTHS pour les usages quasi temps réel.
