@@ -1,8 +1,10 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Not } from 'typeorm';
+import { Repository } from 'typeorm';
+import { MeteoService } from '../meteo/meteo.service';
 import { CreateAlerteDto } from './dto/create-alerte.dto';
 import { GenerateRiskAlertesDto } from './dto/generate-risk-alertes.dto';
+import { GenerateWeatherRiskAlertDto } from './dto/generate-weather-risk-alert.dto';
 import {
   Alerte,
   AlerteNiveau,
@@ -15,6 +17,8 @@ export class AlertesService {
   constructor(
     @InjectRepository(Alerte)
     private readonly alertesRepository: Repository<Alerte>,
+
+    private readonly meteoService: MeteoService,
   ) {}
 
   create(dto: CreateAlerteDto) {
@@ -90,6 +94,39 @@ export class AlertesService {
     return null;
   }
 
+  private buildGlobalRiskTitle(zoneNom: string, niveau: AlerteNiveau) {
+    return niveau === AlerteNiveau.CRITIQUE
+      ? `Risque climatique critique - ${zoneNom}`
+      : `Risque climatique élevé - ${zoneNom}`;
+  }
+
+  private buildGlobalRiskMessage(params: {
+    zoneNom: string;
+    riskMax: number;
+    riskMean?: number;
+    populationExposed?: number;
+    niveau: AlerteNiveau;
+  }) {
+    const populationText =
+      params.populationExposed !== undefined
+        ? ` Population exposée estimée : ${Math.round(params.populationExposed).toLocaleString('fr-FR')} habitants.`
+        : '';
+
+    const meanText =
+      params.riskMean !== undefined
+        ? ` Risque moyen de la zone : ${params.riskMean.toFixed(1)}/100.`
+        : '';
+
+    return params.niveau === AlerteNiveau.CRITIQUE
+      ? `La zone ${params.zoneNom} présente un risque climatique global critique avec un risque maximum de ${params.riskMax.toFixed(1)}/100.${meanText}${populationText} Une surveillance renforcée est recommandée.`
+      : `La zone ${params.zoneNom} présente un risque climatique global élevé avec un risque maximum de ${params.riskMax.toFixed(1)}/100.${meanText}${populationText} Une surveillance est recommandée.`;
+  }
+
+  /**
+   * Génère des alertes globales à partir des statistiques zonales réelles.
+   * Les alertes existantes sont mises à jour.
+   * Les alertes actives devenues obsolètes sont résolues automatiquement.
+   */
   async generateFromRisk(dto: GenerateRiskAlertesDto) {
     const zoneType = dto.zoneType ?? 'region';
     const thresholdEleve = dto.thresholdEleve ?? 61;
@@ -109,29 +146,31 @@ export class AlertesService {
       FROM zone_indicators
       WHERE zone_type = $1
       AND risk_max IS NOT NULL
-      AND risk_max >= $2
       ORDER BY risk_max DESC
       `,
-      [zoneType, thresholdEleve],
+      [zoneType],
     );
 
     const created: Alerte[] = [];
     const updated: Alerte[] = [];
+    const resolved: Alerte[] = [];
+
+    const zonesStillAlerted = new Set<string>();
 
     for (const indicator of indicators) {
       const riskMax = Number(indicator.risk_max);
       const riskMean =
         indicator.risk_mean !== null ? Number(indicator.risk_mean) : undefined;
+      const populationExposed =
+        indicator.population_exposed !== null
+          ? Number(indicator.population_exposed)
+          : undefined;
 
       const niveau = this.getNiveauFromRisk(
         riskMax,
         thresholdEleve,
         thresholdCritique,
       );
-
-      if (!niveau) {
-        continue;
-      }
 
       const existing = await this.alertesRepository.findOne({
         where: {
@@ -142,15 +181,26 @@ export class AlertesService {
         },
       });
 
-      const titre =
-        niveau === AlerteNiveau.CRITIQUE
-          ? `Risque critique détecté - ${indicator.zone_nom}`
-          : `Risque élevé détecté - ${indicator.zone_nom}`;
+      if (!niveau) {
+        if (existing) {
+          existing.status = AlerteStatus.RESOLUE;
+          existing.resolvedAt = new Date();
+          resolved.push(await this.alertesRepository.save(existing));
+        }
 
-      const message =
-        niveau === AlerteNiveau.CRITIQUE
-          ? `La zone ${indicator.zone_nom} présente un niveau de risque critique avec un risque maximum de ${riskMax.toFixed(1)}/100. Une surveillance renforcée ou une intervention préventive est recommandée.`
-          : `La zone ${indicator.zone_nom} présente un niveau de risque élevé avec un risque maximum de ${riskMax.toFixed(1)}/100. Une surveillance est recommandée.`;
+        continue;
+      }
+
+      zonesStillAlerted.add(indicator.zone_id);
+
+      const titre = this.buildGlobalRiskTitle(indicator.zone_nom, niveau);
+      const message = this.buildGlobalRiskMessage({
+        zoneNom: indicator.zone_nom,
+        riskMax,
+        riskMean,
+        populationExposed,
+        niveau,
+      });
 
       if (existing) {
         existing.niveau = niveau;
@@ -158,10 +208,7 @@ export class AlertesService {
         existing.message = message;
         existing.riskValue = riskMax;
         existing.riskMean = riskMean;
-        existing.populationExposed =
-          indicator.population_exposed !== null
-            ? Number(indicator.population_exposed)
-            : undefined;
+        existing.populationExposed = populationExposed;
 
         updated.push(await this.alertesRepository.save(existing));
         continue;
@@ -177,22 +224,278 @@ export class AlertesService {
         zoneNom: indicator.zone_nom,
         riskValue: riskMax,
         riskMean,
-        populationExposed:
-          indicator.population_exposed !== null
-            ? Number(indicator.population_exposed)
-            : undefined,
+        populationExposed,
         status: AlerteStatus.ACTIVE,
       });
 
       created.push(await this.alertesRepository.save(alerte));
     }
 
+    /**
+     * Résoudre les alertes actives qui ne correspondent plus aux zones en dépassement.
+     */
+    const activeGlobalAlerts = await this.alertesRepository.find({
+      where: {
+        zoneType,
+        type: AlerteType.RISQUE_GLOBAL,
+        status: AlerteStatus.ACTIVE,
+      },
+    });
+
+    for (const alerte of activeGlobalAlerts) {
+      if (!alerte.zoneId) {
+        continue;
+      }
+
+      if (!zonesStillAlerted.has(alerte.zoneId)) {
+        alerte.status = AlerteStatus.RESOLUE;
+        alerte.resolvedAt = new Date();
+        resolved.push(await this.alertesRepository.save(alerte));
+      }
+    }
+
     return {
-      message: `${created.length} alerte(s) créée(s), ${updated.length} mise(s) à jour.`,
+      message: `${created.length} alerte(s) créée(s), ${updated.length} mise(s) à jour, ${resolved.length} résolue(s).`,
       createdCount: created.length,
       updatedCount: updated.length,
+      resolvedCount: resolved.length,
       created,
       updated,
+      resolved,
+    };
+  }
+
+  /**
+   * Génère une alerte météo-risque globale.
+   *
+   * Important :
+   * On ne génère pas ici de type INONDATION ou CYCLONE.
+   * Les risques spécifiques seront ajoutés quand les modèles spécifiques existeront.
+   */
+  async generateWeatherRiskAlert(dto: GenerateWeatherRiskAlertDto) {
+    const zoneType = dto.zoneType ?? 'region';
+    const riskThreshold = dto.riskThreshold ?? 60;
+    const rainfallThreshold = dto.rainfallThreshold ?? 1;
+    const windThreshold = dto.windThreshold ?? 40;
+
+    const weather = await this.meteoService.getCurrentWeather(
+      dto.latitude,
+      dto.longitude,
+    );
+
+    const located = await this.alertesRepository.query(
+      `
+      SELECT *
+      FROM (
+        SELECT 'commune' AS zone_type, c.id AS zone_id, c.nom AS zone_nom, c.geom
+        FROM communes c
+        UNION ALL
+        SELECT 'district' AS zone_type, d.id AS zone_id, d.nom AS zone_nom, d.geom
+        FROM districts d
+        UNION ALL
+        SELECT 'region' AS zone_type, r.id AS zone_id, r.nom AS zone_nom, r.geom
+        FROM regions r
+      ) z
+      WHERE z.zone_type = $1
+      AND ST_Intersects(
+        z.geom,
+        ST_SetSRID(ST_Point($2, $3), 4326)
+      )
+      LIMIT 1
+      `,
+      [zoneType, dto.longitude, dto.latitude],
+    );
+
+    if (!located || located.length === 0) {
+      return {
+        message: 'Aucune zone trouvée pour ce point.',
+        weather,
+        created: null,
+      };
+    }
+
+    const zone = located[0];
+
+    const [indicator] = await this.alertesRepository.query(
+      `
+      SELECT *
+      FROM zone_indicators
+      WHERE zone_type = $1
+      AND zone_id = $2
+      LIMIT 1
+      `,
+      [zone.zone_type, zone.zone_id],
+    );
+
+    if (!indicator) {
+      return {
+        message: 'Aucun indicateur zonal disponible pour cette zone.',
+        weather,
+        zone,
+        created: null,
+      };
+    }
+
+    const riskMax = Number(indicator.risk_max ?? 0);
+    const riskMean =
+      indicator.risk_mean !== null ? Number(indicator.risk_mean) : undefined;
+    const populationExposed =
+      indicator.population_exposed !== null
+        ? Number(indicator.population_exposed)
+        : undefined;
+
+    const rainfall = Number(weather.rainfall ?? 0);
+    const windKmh = Number((Number(weather.windSpeed ?? 0) * 3.6).toFixed(1));
+
+    const rainfallAggravatesRisk =
+      rainfallThreshold > 0
+        ? rainfall >= rainfallThreshold
+        : rainfall > 0;
+
+    const windAggravatesRisk = windKmh >= windThreshold;
+
+    const weatherAggravatesRisk =
+      rainfallAggravatesRisk || windAggravatesRisk;
+
+    if (riskMax < riskThreshold || !weatherAggravatesRisk) {
+      return {
+        message:
+          'Aucune alerte générée : risque ou météo sous les seuils.',
+        weather,
+        zone,
+        indicator,
+        thresholds: {
+          riskThreshold,
+          rainfallThreshold,
+          windThreshold,
+        },
+        created: null,
+      };
+    }
+
+    const niveau =
+      riskMax >= 81 || rainfall >= 10 || windKmh >= 70
+        ? AlerteNiveau.CRITIQUE
+        : AlerteNiveau.ELEVE;
+
+    const existing = await this.alertesRepository.findOne({
+      where: {
+        zoneType: zone.zone_type,
+        zoneId: zone.zone_id,
+        type: AlerteType.RISQUE_GLOBAL,
+        status: AlerteStatus.ACTIVE,
+      },
+    });
+
+    const titre = `Alerte météo-risque - ${zone.zone_nom}`;
+
+    const message = `La zone ${zone.zone_nom} présente un risque climatique global de ${riskMax.toFixed(
+      1,
+    )}/100. Les conditions météo actuelles renforcent la vigilance : pluie ${rainfall.toFixed(
+      1,
+    )} mm, vent ${windKmh.toFixed(1)} km/h.`;
+
+    if (existing) {
+      existing.niveau = niveau;
+      existing.titre = titre;
+      existing.message = message;
+      existing.riskValue = riskMax;
+      existing.riskMean = riskMean;
+      existing.populationExposed = populationExposed;
+
+      const updated = await this.alertesRepository.save(existing);
+
+      return {
+        message: 'Alerte météo-risque existante mise à jour.',
+        weather,
+        zone,
+        indicator,
+        updated,
+      };
+    }
+
+    const alerte = this.alertesRepository.create({
+      type: AlerteType.RISQUE_GLOBAL,
+      niveau,
+      titre,
+      message,
+      zoneType: zone.zone_type,
+      zoneId: zone.zone_id,
+      zoneNom: zone.zone_nom,
+      riskValue: riskMax,
+      riskMean,
+      populationExposed,
+      status: AlerteStatus.ACTIVE,
+    });
+
+    const created = await this.alertesRepository.save(alerte);
+
+    return {
+      message: 'Alerte météo-risque générée.',
+      weather,
+      zone,
+      indicator,
+      created,
+    };
+  }
+
+  async autoGenerateWeatherRiskAlerts() {
+    const riskThreshold = Number(process.env.AUTO_ALERT_RISK_THRESHOLD ?? 60);
+    const rainfallThreshold = Number(process.env.AUTO_ALERT_RAINFALL_THRESHOLD ?? 1);
+    const windThreshold = Number(process.env.AUTO_ALERT_WIND_THRESHOLD ?? 40);
+    const limit = Number(process.env.AUTO_ALERT_ZONE_LIMIT ?? 10);
+
+    const zones = await this.alertesRepository.query(
+      `
+      SELECT
+        zi.zone_type,
+        zi.zone_id,
+        zi.zone_nom,
+        zi.population_exposed,
+        zi.risk_mean,
+        zi.risk_max,
+        ST_Y(ST_Centroid(z.geom)) AS latitude,
+        ST_X(ST_Centroid(z.geom)) AS longitude
+      FROM zone_indicators zi
+      JOIN regions z ON z.id = zi.zone_id
+      WHERE zi.zone_type = 'region'
+      AND zi.risk_max IS NOT NULL
+      AND zi.risk_max >= $1
+      ORDER BY zi.risk_max DESC
+      LIMIT $2
+      `,
+      [riskThreshold, limit],
+    );
+
+    const results: any[] = [];
+
+    for (const zone of zones) {
+      const latitude = Number(zone.latitude);
+      const longitude = Number(zone.longitude);
+
+      if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+        continue;
+      }
+
+      const result = await this.generateWeatherRiskAlert({
+        latitude,
+        longitude,
+        zoneType: 'region',
+        riskThreshold,
+        rainfallThreshold,
+        windThreshold,
+      });
+
+      results.push({
+        zone: zone.zone_nom,
+        result,
+      });
+    }
+
+    return {
+      message: 'Génération automatique météo-risque terminée.',
+      checkedZones: zones.length,
+      results,
     };
   }
 }

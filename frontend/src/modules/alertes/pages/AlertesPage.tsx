@@ -96,21 +96,23 @@ export default function AlertesPage() {
     };
   }, [alertes]);
 
-  const handleGenerate = async () => {
+  const handleAutoGenerateWeatherRisk = async () => {
     setActionLoading(true);
     setError('');
     setSuccess('');
 
     try {
-      const result: any = await alertesService.generateFromRisk(zoneType);
-      setSuccess(result.message ?? 'Alertes générées.');
+      const result: any = await alertesService.autoGenerateWeatherRisk();
+      setSuccess(result.message ?? 'Vérification météo-risque terminée.');
       await loadAlertes();
     } catch {
-      setError('Impossible de générer les alertes depuis les statistiques de risque.');
+      setError('Impossible de générer les alertes météo-risque.');
     } finally {
       setActionLoading(false);
     }
   };
+
+  
 
   const handleResolve = async (alerte: Alerte) => {
     setActionLoading(true);
@@ -158,8 +160,7 @@ export default function AlertesPage() {
             </h2>
 
             <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-500 dark:text-slate-400">
-              Les alertes sont générées à partir des statistiques zonales réelles
-              du raster de risque : risque maximum, risque moyen et population exposée.
+              Les alertes sont générées automatiquement à partir des niveaux de risque par zone, de la population exposée et des conditions météo récentes.
             </p>
           </div>
 
@@ -184,13 +185,15 @@ export default function AlertesPage() {
             </button>
 
             <button
-              onClick={handleGenerate}
+              onClick={handleAutoGenerateWeatherRisk}
               disabled={actionLoading}
-              className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-red-500 to-orange-500 px-4 text-sm font-extrabold text-white shadow-lg shadow-red-900/10 transition hover:scale-[1.01] disabled:opacity-60"
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-500 to-cyan-500 px-4 text-sm font-extrabold text-white shadow-lg shadow-blue-900/10 transition hover:scale-[1.01] disabled:opacity-60"
             >
               <Wand2 size={18} />
-              Générer depuis le risque
+              Vérifier maintenant
             </button>
+
+            
           </div>
         </div>
       </div>
@@ -242,7 +245,7 @@ export default function AlertesPage() {
               Aucune alerte trouvée
             </p>
             <p className="mt-1 text-sm text-slate-500">
-              Cliquez sur “Générer depuis le risque” pour créer les premières alertes.
+              Aucune alerte active pour le moment. Le système vérifie automatiquement les conditions de risque et de météo.
             </p>
           </div>
         ) : (
