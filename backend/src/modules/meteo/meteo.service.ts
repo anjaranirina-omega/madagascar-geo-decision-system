@@ -56,7 +56,24 @@ export class MeteoService {
     url.searchParams.set('units', 'metric');
     url.searchParams.set('lang', 'fr');
 
-    const response = await fetch(url.toString());
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15000);
+
+    let response: Response;
+
+    try {
+      response = await fetch(url.toString(), {
+        signal: controller.signal,
+      });
+    } catch (error) {
+      throw new InternalServerErrorException(
+        `OpenWeather indisponible ou délai dépassé: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    } finally {
+      clearTimeout(timeout);
+    }
 
     if (!response.ok) {
       const body = await response.text();
