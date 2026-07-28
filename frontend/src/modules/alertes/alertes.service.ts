@@ -51,4 +51,21 @@ export const alertesService = {
     const response = await api.patch<Alerte>(`/alertes/${id}/ignore`);
     return response.data;
   },
+
+  async generateWeatherRisk(payload: {
+    latitude: number;
+    longitude: number;
+    zoneType?: string;
+    riskThreshold?: number;
+    rainfallThreshold?: number;
+    windThreshold?: number;
+  }) {
+    const response = await api.post('/alertes/generate-weather-risk', payload);
+    return response.data;
+  },
+
+  async autoGenerateWeatherRisk() {
+    const response = await api.post('/alertes/auto-generate-weather-risk');
+    return response.data;
+  },
 };

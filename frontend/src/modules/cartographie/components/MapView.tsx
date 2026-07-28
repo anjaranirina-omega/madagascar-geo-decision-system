@@ -98,6 +98,82 @@ const riskBadgeClasses: Record<string, string> = {
   Critique: 'bg-red-100 text-red-700 border-red-200',
 };
 
+
+function classifyLocalRisk(value: number) {
+  if (value <= 30) {
+    return {
+      level: 'Faible' as const,
+      color: '#2f9e44',
+    };
+  }
+
+  if (value <= 60) {
+    return {
+      level: 'Moyen' as const,
+      color: '#eab308',
+    };
+  }
+
+  if (value <= 80) {
+    return {
+      level: 'Élevé' as const,
+      color: '#f97316',
+    };
+  }
+
+  return {
+    level: 'Critique' as const,
+    color: '#dc2626',
+  };
+}
+
+function sampleRasterValueAtPoint(georaster: any, lat: number, lng: number) {
+  if (!georaster) {
+    return null;
+  }
+
+  const xmin = Number(georaster.xmin);
+  const ymax = Number(georaster.ymax);
+  const pixelWidth = Math.abs(Number(georaster.pixelWidth));
+  const pixelHeight = Math.abs(Number(georaster.pixelHeight));
+  const width = Number(georaster.width);
+  const height = Number(georaster.height);
+  const noDataValue = georaster.noDataValue;
+
+  if (
+    !Number.isFinite(xmin) ||
+    !Number.isFinite(ymax) ||
+    !Number.isFinite(pixelWidth) ||
+    !Number.isFinite(pixelHeight) ||
+    !Number.isFinite(width) ||
+    !Number.isFinite(height)
+  ) {
+    return null;
+  }
+
+  const col = Math.floor((lng - xmin) / pixelWidth);
+  const row = Math.floor((ymax - lat) / pixelHeight);
+
+  if (row < 0 || col < 0 || row >= height || col >= width) {
+    return null;
+  }
+
+  const value = georaster.values?.[0]?.[row]?.[col];
+
+  if (
+    value === undefined ||
+    value === null ||
+    Number.isNaN(Number(value)) ||
+    value === noDataValue ||
+    Number(value) < 0 ||
+    Number(value) <= -9999
+  ) {
+    return null;
+  }
+
+  return Number(value);
+}
+
 export default function MapView() {
   const markerRef = useRef<LeafletMarker | null>(null);
 
@@ -277,6 +353,49 @@ export default function MapView() {
     setGeoraster(raster);
   }, []);
 
+  const updateRiskFromMarkerPosition = useCallback(
+    (lat: number, lng: number) => {
+      if (!georaster) {
+        return;
+      }
+
+      const value = sampleRasterValueAtPoint(georaster, lat, lng);
+
+      if (value === null) {
+        setSelectedRisk({
+          value: null,
+          latitude: lat,
+          longitude: lng,
+        });
+        return;
+      }
+
+      const risk = classifyLocalRisk(value);
+
+      setSelectedRisk({
+        value,
+        level: risk.level,
+        color: risk.color,
+        latitude: lat,
+        longitude: lng,
+      });
+    },
+    [georaster],
+  );
+
+  useEffect(() => {
+    if (!georaster) {
+      return;
+    }
+
+    updateRiskFromMarkerPosition(markerLatLng.lat, markerLatLng.lng);
+  }, [
+    georaster,
+    markerLatLng.lat,
+    markerLatLng.lng,
+    updateRiskFromMarkerPosition,
+  ]);
+
   const markerEventHandlers = useMemo(
     () => ({
       dragend() {
@@ -288,9 +407,10 @@ export default function MapView() {
         setMarkerPosition([position.lat, position.lng]);
         locateMarker(position.lat, position.lng);
         loadWeather(position.lat, position.lng);
+        updateRiskFromMarkerPosition(position.lat, position.lng);
       },
     }),
-    [locateMarker, loadWeather],
+    [locateMarker, loadWeather, updateRiskFromMarkerPosition],
   );
 
   const toggleRiskLayer = (key: RiskLayerKey, value: boolean) => {
