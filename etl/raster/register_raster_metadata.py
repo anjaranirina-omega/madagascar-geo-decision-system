@@ -17,6 +17,22 @@ API_BASE_URL = os.getenv("BACKEND_API_URL", "http://localhost:3001/api")
 
 
 RASTER_CONFIG = {
+    "risk/flood/flood_hazard_index.tif": {
+        "name": "Aléa d’inondation",
+        "type": "FLOOD_HAZARD_INDEX",
+        "description": "Raster d’aléa d’inondation basé sur les précipitations et la pente inversée.",
+    },
+    "risk/flood/flood_risk_index.tif": {
+        "name": "Risque d’inondation",
+        "type": "FLOOD_RISK_INDEX",
+        "description": "Raster spécifique du risque d’inondation.",
+    },
+    "risk/flood/flood_risk_classified.tif": {
+        "name": "Classes de risque d’inondation",
+        "type": "FLOOD_RISK_CLASSIFIED",
+        "description": "Raster classifié du risque d’inondation : faible, moyen, élevé, critique.",
+    },
+
     "normalized/rainfall_norm.tif": {
         "name": "Précipitations normalisées",
         "type": "RAINFALL",

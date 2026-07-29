@@ -92,3 +92,6 @@ etl/data/raster/raw/chirps/daily/*.gz
 etl/data/raster/raw/chirps/daily/*.tif
 etl/data/raster/processed/chirps/rainfall_chirps_latest.tif
 etl/data/raster/processed/chirps/chirps_latest_metadata.txt
+
+# Rasters spécifiques inondation
+etl/data/raster/risk/flood/*.tif
