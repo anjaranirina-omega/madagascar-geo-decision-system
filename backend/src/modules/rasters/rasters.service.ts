@@ -105,4 +105,25 @@ export class RastersService {
 
     return layer;
   }
+
+  async findLatestByType(type: RasterLayerType) {
+    const layer = await this.rasterLayersRepository.findOne({
+      where: {
+        type,
+        isActive: true,
+      },
+      order: {
+        createdAt: 'DESC',
+      },
+    });
+
+    if (!layer) {
+      throw new NotFoundException(
+        `Aucune couche raster disponible pour le type ${type}`,
+      );
+    }
+
+    return layer;
+  }
+
 }

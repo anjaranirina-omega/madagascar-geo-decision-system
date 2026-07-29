@@ -29,45 +29,68 @@ export class RastersController {
     return this.rastersService.findAll(type);
   }
 
+  /**
+   * Compatibilité avec l'ancien endpoint risque global.
+   */
   @Get('latest/risk')
   findLatestRisk() {
     return this.rastersService.findLatestRisk();
   }
 
+  /**
+   * Compatibilité avec l'ancien endpoint fichier risque global.
+   */
   @Get('latest/risk/file')
   async getLatestRiskFile(@Res() res: Response) {
     const layer = await this.rastersService.findLatestRisk();
+    return this.sendRasterFile(layer.filePath, res, 'risk_index.tif');
+  }
 
-    /**
-     * layer.filePath est enregistré sous forme relative, par exemple :
-     * etl/data/raster/risk/risk_index.tif
-     *
-     * process.cwd() est généralement :
-     * backend/
-     *
-     * donc le root projet est :
-     * backend/..
-     */
+  /**
+   * Endpoint générique :
+   * /api/rasters/latest/RISK_INDEX
+   * /api/rasters/latest/FLOOD_RISK_INDEX
+   */
+  @Get('latest/:type')
+  findLatestByType(@Param('type') type: RasterLayerType) {
+    return this.rastersService.findLatestByType(type);
+  }
+
+  /**
+   * Endpoint générique fichier :
+   * /api/rasters/latest/RISK_INDEX/file
+   * /api/rasters/latest/FLOOD_RISK_INDEX/file
+   */
+  @Get('latest/:type/file')
+  async getLatestFileByType(
+    @Param('type') type: RasterLayerType,
+    @Res() res: Response,
+  ) {
+    const layer = await this.rastersService.findLatestByType(type);
+    return this.sendRasterFile(layer.filePath, res, `${type}.tif`);
+  }
+
+  @Get(':id')
+  findOne(@Param('id') id: string) {
+    return this.rastersService.findOne(id);
+  }
+
+  private sendRasterFile(filePath: string, res: Response, filename: string) {
     const projectRoot = resolve(process.cwd(), '..');
-    const absolutePath = join(projectRoot, layer.filePath);
+    const absolutePath = join(projectRoot, filePath);
 
     if (!existsSync(absolutePath)) {
       throw new NotFoundException(
-        `Fichier raster introuvable : ${layer.filePath}`,
+        `Fichier raster introuvable : ${filePath}`,
       );
     }
 
     res.setHeader('Content-Type', 'image/tiff');
     res.setHeader(
       'Content-Disposition',
-      'inline; filename="risk_index.tif"',
+      `inline; filename="${filename}"`,
     );
 
     return res.sendFile(absolutePath);
-  }
-
-  @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.rastersService.findOne(id);
   }
 }
