@@ -13,6 +13,7 @@ RAINFALL_PATH = NORMALIZED_DIR / "rainfall_norm.tif"
 SLOPE_PATH = NORMALIZED_DIR / "slope_norm.tif"
 POPULATION_PATH = NORMALIZED_DIR / "population_norm.tif"
 LANDCOVER_PATH = NORMALIZED_DIR / "landcover_norm.tif"
+RIVER_PROXIMITY_PATH = NORMALIZED_DIR / "river_proximity_norm.tif"
 
 FLOOD_HAZARD_PATH = FLOOD_RISK_DIR / "flood_hazard_index.tif"
 FLOOD_RISK_PATH = FLOOD_RISK_DIR / "flood_risk_index.tif"

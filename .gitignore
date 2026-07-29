@@ -95,3 +95,15 @@ etl/data/raster/processed/chirps/chirps_latest_metadata.txt
 
 # Rasters spécifiques inondation
 etl/data/raster/risk/flood/*.tif
+
+# Données hydrologiques locales
+etl/data/hydrology/raw/*.zip
+etl/data/hydrology/raw/**/*.shp
+etl/data/hydrology/raw/**/*.dbf
+etl/data/hydrology/raw/**/*.shx
+etl/data/hydrology/raw/**/*.prj
+etl/data/hydrology/raw/**/*.cpg
+etl/data/hydrology/processed/*.geojson
+etl/data/hydrology/processed/*.gpkg
+etl/data/raster/processed/hydrology/*.tif
+etl/data/raster/normalized/river_proximity_norm.tif
