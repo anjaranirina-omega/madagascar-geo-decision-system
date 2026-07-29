@@ -225,10 +225,25 @@ export default function MapView() {
         lng: markerPosition.lng,
       };
 
-  const showRiskRaster = riskLayers.global;
+  const activeRiskLayerType = riskLayers.flood
+    ? 'FLOOD_RISK_INDEX'
+    : riskLayers.global
+      ? 'RISK_INDEX'
+      : null;
+
+  const activeRiskLayerLabel =
+    activeRiskLayerType === 'FLOOD_RISK_INDEX'
+      ? 'Risque inondation'
+      : 'Risque global';
+
+  const showRiskRaster = activeRiskLayerType !== null;
 
   const selectedLevel = selectedRisk?.level ?? 'Moyen';
-  const selectedValue = selectedRisk?.value ?? 56.4;
+
+  const selectedValue =
+    typeof selectedRisk?.value === 'number' ? selectedRisk.value : null;
+
+  const hasSelectedRiskValue = selectedValue !== null;
   const selectedZoneName =
     locatedZone?.commune?.nom ??
     locatedZone?.district?.nom ??
@@ -414,10 +429,20 @@ export default function MapView() {
   );
 
   const toggleRiskLayer = (key: RiskLayerKey, value: boolean) => {
-    setRiskLayers((current) => ({
-      ...current,
-      [key]: value,
-    }));
+    setRiskLayers((current) => {
+      if ((key === 'global' || key === 'flood') && value) {
+        return {
+          ...current,
+          global: key === 'global',
+          flood: key === 'flood',
+        };
+      }
+
+      return {
+        ...current,
+        [key]: value,
+      };
+    });
   };
 
   const handleSelectSearchResult = async (result: SearchResult) => {
@@ -488,9 +513,8 @@ export default function MapView() {
               checked={riskLayers.flood}
               onChange={(value) => toggleRiskLayer('flood', value)}
               label="Risque inondation"
-              subtitle="Couche spécifique à venir"
+              subtitle="HydroRIVERS + CHIRPS + pente + exposition"
               icon={<Waves size={16} />}
-              disabled
             />
 
             <LayerCheckbox
@@ -641,10 +665,14 @@ export default function MapView() {
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             />
 
-            <RasterRiskLayer
-              visible={showRiskRaster}
-              onRasterLoaded={handleRasterLoaded}
-            />
+            {activeRiskLayerType && (
+              <RasterRiskLayer
+                key={activeRiskLayerType}
+                visible={showRiskRaster}
+                rasterType={activeRiskLayerType}
+                onRasterLoaded={handleRasterLoaded}
+              />
+            )}
 
             <AdminBoundariesLayer
               visible={showBoundaries}
@@ -737,12 +765,12 @@ export default function MapView() {
             ].join(' ')}
           >
             <div className="text-sm font-extrabold">
-              Risque local
+              {activeRiskLayerLabel} local
             </div>
 
             <div className="mt-3 flex items-end gap-2">
               <div className="text-5xl font-black">
-                {selectedValue.toFixed(0)}
+                {hasSelectedRiskValue ? selectedValue.toFixed(0) : '—'}
               </div>
               <div className="mb-2 font-bold">/100</div>
 
@@ -752,13 +780,17 @@ export default function MapView() {
                   riskBadgeClasses[selectedLevel],
                 ].join(' ')}
               >
-                {selectedLevel}
+                {hasSelectedRiskValue ? selectedLevel : 'Non disponible'}
               </span>
             </div>
 
             <div className="mt-4 text-sm">
-              Tendance : <span className="font-bold">+12%</span> sur 7 derniers
-              jours
+              Source :{' '}
+              <span className="font-bold">
+                {activeRiskLayerType === 'FLOOD_RISK_INDEX'
+                  ? 'modèle inondation HydroRIVERS / CHIRPS / pente / exposition'
+                  : 'indice climatique composite'}
+              </span>
             </div>
           </div>
 
@@ -971,7 +1003,7 @@ function MapFilters({
         onChange={setRiskTypeFilter}
         options={[
           ['GLOBAL', 'Risque global'],
-          ['FLOOD', 'Inondation bientôt'],
+          ['FLOOD', 'Risque inondation'],
           ['CYCLONE', 'Cyclone bientôt'],
           ['DROUGHT', 'Sécheresse bientôt'],
         ]}

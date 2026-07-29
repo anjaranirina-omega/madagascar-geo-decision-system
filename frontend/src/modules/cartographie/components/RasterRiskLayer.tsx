@@ -3,8 +3,11 @@ import { useMap } from 'react-leaflet';
 import parseGeoraster from 'georaster';
 import GeoRasterLayer from 'georaster-layer-for-leaflet';
 
+export type RasterLayerType = 'RISK_INDEX' | 'FLOOD_RISK_INDEX';
+
 type RasterRiskLayerProps = {
   visible: boolean;
+  rasterType: RasterLayerType;
   onRasterLoaded?: (georaster: any | null) => void;
 };
 
@@ -36,8 +39,13 @@ function getRiskColor(value: number | null | undefined) {
   return 'rgba(220, 38, 38, 0.72)';
 }
 
+function getRasterUrl(rasterType: RasterLayerType) {
+  return `http://localhost:3001/api/rasters/latest/${rasterType}/file`;
+}
+
 export default function RasterRiskLayer({
   visible,
+  rasterType,
   onRasterLoaded,
 }: RasterRiskLayerProps) {
   const map = useMap();
@@ -54,13 +62,13 @@ export default function RasterRiskLayer({
 
     async function loadRaster() {
       try {
-        const response = await fetch(
-          'http://localhost:3001/api/rasters/latest/risk/file',
-        );
+        const rasterUrl = getRasterUrl(rasterType);
+
+        const response = await fetch(rasterUrl);
 
         if (!response.ok) {
           throw new Error(
-            `Impossible de charger le raster de risque. HTTP ${response.status}`,
+            `Impossible de charger le raster ${rasterType}. HTTP ${response.status}`,
           );
         }
 
@@ -91,6 +99,7 @@ export default function RasterRiskLayer({
         }
 
         console.log('[RasterRiskLayer] Raster chargé', {
+          rasterType,
           width: georaster.width,
           height: georaster.height,
           xmin: georaster.xmin,
@@ -117,7 +126,7 @@ export default function RasterRiskLayer({
       georasterRef.current = null;
       onRasterLoadedRef.current?.(null);
     };
-  }, [map]);
+  }, [map, rasterType, visible]);
 
   useEffect(() => {
     const layer = layerRef.current;
