@@ -35,19 +35,34 @@ export class EtlService {
     const etlDir = this.getEtlDir();
     const venvPython = join(etlDir, '.venv', 'bin', 'python');
 
-    return process.env.PYTHON_BIN ??
-      (existsSync(venvPython) ? venvPython : 'python3');
+    return process.env.PYTHON_BIN ?? (existsSync(venvPython) ? venvPython : 'python3');
   }
 
   private getBackendApiUrl() {
     const backendPort = process.env.BACKEND_PORT ?? 3001;
+
     return process.env.BACKEND_API_URL ?? `http://localhost:${backendPort}/api`;
+  }
+
+  private assertRequiredEtlFile(relativePath: string, label: string) {
+    const fullPath = join(this.getEtlDir(), relativePath);
+
+    if (!existsSync(fullPath)) {
+      throw new InternalServerErrorException({
+        message: `Fichier requis absent : ${label}`,
+        detail: `Le fichier ${relativePath} est introuvable. Exécute d'abord le pipeline de préparation correspondant.`,
+        missingFile: relativePath,
+      });
+    }
+  }
+
+  private shouldGenerateAlertsFromPipeline() {
+    return process.env.ETL_PIPELINE_GENERATE_ALERTS === 'true';
   }
 
   private async runPythonStep(step: EtlPipelineStep) {
     const pythonBin = this.getPythonBin();
     const etlDir = this.getEtlDir();
-
     const args = [step.script, ...(step.args ?? [])];
 
     const env = {
@@ -89,15 +104,39 @@ export class EtlService {
         script: step.script,
         status: 'FAILED',
         durationMs,
-        error:
-          error instanceof Error
-            ? error.message
-            : String(error),
+        error: error instanceof Error ? error.message : String(error),
       };
     }
   }
 
   async runRiskPipeline() {
+    /*
+     * Vérifications préalables.
+     *
+     * river_proximity_norm.tif est une donnée hydrographique semi-statique.
+     * Elle ne doit pas être recalculée à chaque pipeline automatique, car elle
+     * dépend de HydroRIVERS/HydroSHEDS et peut être lourde à produire.
+     */
+    this.assertRequiredEtlFile(
+      'data/raster/normalized/river_proximity_norm.tif',
+      'Proximité aux rivières HydroRIVERS',
+    );
+
+    this.assertRequiredEtlFile(
+      'data/raster/normalized/slope_norm.tif',
+      'Pente normalisée Copernicus DEM',
+    );
+
+    this.assertRequiredEtlFile(
+      'data/raster/normalized/population_norm.tif',
+      'Population normalisée WorldPop',
+    );
+
+    this.assertRequiredEtlFile(
+      'data/raster/normalized/landcover_norm.tif',
+      'Occupation du sol normalisée ESA WorldCover',
+    );
+
     const steps: EtlPipelineStep[] = [
       {
         name: 'Synchronisation CHIRPS latest',
@@ -109,20 +148,29 @@ export class EtlService {
         args: ['--scope', 'normalized'],
       },
       {
-        name: 'Recalcul du raster de risque',
+        name: 'Recalcul du raster de risque global',
         script: 'raster/weighted_overlay.py',
       },
       {
-        name: 'Masquage du raster de risque',
+        name: 'Masquage du raster de risque global',
         script: 'raster/mask_rasters_to_madagascar.py',
         args: ['--scope', 'risk'],
+      },
+      {
+        name: 'Recalcul du raster de risque inondation',
+        script: 'raster/risks/flood/compute_flood_risk.py',
+      },
+      {
+        name: 'Masquage des rasters de risque inondation',
+        script: 'raster/mask_rasters_to_madagascar.py',
+        args: ['--scope', 'flood'],
       },
       {
         name: 'Enregistrement des métadonnées raster',
         script: 'raster/register_raster_metadata.py',
       },
       {
-        name: 'Calcul des statistiques zonales',
+        name: 'Calcul des statistiques zonales globales',
         script: 'raster/zonal/compute_zone_indicators.py',
       },
     ];
@@ -131,6 +179,7 @@ export class EtlService {
 
     for (const step of steps) {
       const result = await this.runPythonStep(step);
+
       results.push(result);
 
       if (result.status === 'FAILED') {
@@ -143,25 +192,42 @@ export class EtlService {
 
     let alertResult: unknown = null;
     let alertWarning: string | null = null;
+    let alertSkipped = true;
 
-    try {
-      alertResult = await this.alertesService.autoGenerateWeatherRiskAlerts();
-    } catch (error) {
-      alertWarning =
-        error instanceof Error
-          ? error.message
-          : 'Erreur inconnue pendant la génération automatique des alertes.';
+    /*
+     * Les alertes ne sont PAS générées par défaut.
+     *
+     * Cela évite de produire des alertes spécifiques ou météo-risque tant que
+     * les modèles de risque et les statistiques zonales spécifiques ne sont pas
+     * entièrement validés.
+     *
+     * Pour réactiver plus tard :
+     * ETL_PIPELINE_GENERATE_ALERTS=true
+     */
+    if (this.shouldGenerateAlertsFromPipeline()) {
+      alertSkipped = false;
 
-      this.logger.warn(
-        `Pipeline terminé, mais génération météo-risque échouée : ${alertWarning}`,
-      );
+      try {
+        alertResult = await this.alertesService.autoGenerateWeatherRiskAlerts();
+      } catch (error) {
+        alertWarning =
+          error instanceof Error
+            ? error.message
+            : 'Erreur inconnue pendant la génération automatique des alertes.';
+
+        this.logger.warn(
+          `Pipeline terminé, mais génération météo-risque échouée : ${alertWarning}`,
+        );
+      }
     }
 
     return {
-      message: 'Pipeline de risque exécuté avec succès.',
+      message:
+        'Pipeline de risque exécuté avec succès : risque global et risque inondation recalculés.',
       steps: results,
       alertes: alertResult,
       alertWarning,
+      alertSkipped,
     };
   }
 }
