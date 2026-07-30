@@ -2,12 +2,17 @@ import {
   AlertCircle,
   CheckCircle2,
   Clock,
+  CloudSun,
   Database,
   PlayCircle,
   RefreshCw,
   WifiOff,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import {
+  ClimateSyncResponse,
+  climateFrontendService,
+} from '../services/climate.service';
 import {
   DataSourceItem,
   dataSourcesFrontendService,
@@ -17,7 +22,7 @@ import {
   etlFrontendService,
 } from '../services/etl.service';
 
-function extractPipelineErrorMessage(error: unknown) {
+function extractErrorMessage(error: unknown) {
   const maybeAxiosError = error as {
     response?: {
       data?: {
@@ -96,8 +101,15 @@ function getStatusIcon(status: DataSourceItem['status']) {
 
 export default function DonneesPage() {
   const [running, setRunning] = useState(false);
+  const [climateSyncing, setClimateSyncing] = useState(false);
+
   const [result, setResult] = useState<EtlRiskPipelineResponse | null>(null);
+  const [climateResult, setClimateResult] =
+    useState<ClimateSyncResponse | null>(null);
+
   const [error, setError] = useState('');
+  const [climateError, setClimateError] = useState('');
+
   const [sources, setSources] = useState<DataSourceItem[]>([]);
   const [sourcesLoading, setSourcesLoading] = useState(false);
   const [sourcesError, setSourcesError] = useState('');
@@ -135,7 +147,7 @@ export default function DonneesPage() {
     } catch (pipelineError) {
       console.error('[DonneesPage] Erreur pipeline ETL:', pipelineError);
 
-      const message = extractPipelineErrorMessage(pipelineError);
+      const message = extractErrorMessage(pipelineError);
 
       setError(
         message
@@ -146,6 +158,33 @@ export default function DonneesPage() {
       await loadSources();
     } finally {
       setRunning(false);
+    }
+  };
+
+  const syncNasaPower = async () => {
+    setClimateSyncing(true);
+    setClimateError('');
+    setClimateResult(null);
+
+    try {
+      const response = await climateFrontendService.syncNasaPower();
+
+      setClimateResult(response);
+      await loadSources();
+    } catch (syncError) {
+      console.error('[DonneesPage] Erreur NASA POWER:', syncError);
+
+      const message = extractErrorMessage(syncError);
+
+      setClimateError(
+        message
+          ? `Impossible de synchroniser NASA POWER : ${message}`
+          : 'Impossible de synchroniser NASA POWER.',
+      );
+
+      await loadSources();
+    } finally {
+      setClimateSyncing(false);
     }
   };
 
@@ -173,20 +212,39 @@ export default function DonneesPage() {
             </p>
           </div>
 
-          <button
-            type="button"
-            onClick={runPipeline}
-            disabled={running}
-            className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-green-500 to-blue-600 px-5 text-sm font-extrabold text-white shadow-lg shadow-blue-900/10 transition hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {running ? (
-              <RefreshCw className="animate-spin" size={20} />
-            ) : (
-              <PlayCircle size={20} />
-            )}
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <button
+              type="button"
+              onClick={syncNasaPower}
+              disabled={climateSyncing || running}
+              className="inline-flex h-12 items-center justify-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-5 text-sm font-extrabold text-blue-700 transition hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {climateSyncing ? (
+                <RefreshCw className="animate-spin" size={20} />
+              ) : (
+                <CloudSun size={20} />
+              )}
 
-            {running ? 'Pipeline en cours...' : 'Lancer le pipeline de risque'}
-          </button>
+              {climateSyncing
+                ? 'NASA POWER en cours...'
+                : 'Synchroniser NASA POWER'}
+            </button>
+
+            <button
+              type="button"
+              onClick={runPipeline}
+              disabled={running || climateSyncing}
+              className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-green-500 to-blue-600 px-5 text-sm font-extrabold text-white shadow-lg shadow-blue-900/10 transition hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {running ? (
+                <RefreshCw className="animate-spin" size={20} />
+              ) : (
+                <PlayCircle size={20} />
+              )}
+
+              {running ? 'Pipeline en cours...' : 'Lancer le pipeline de risque'}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -289,6 +347,30 @@ export default function DonneesPage() {
           )}
         </div>
       </div>
+
+      {climateError && (
+        <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
+          {climateError}
+        </div>
+      )}
+
+      {climateResult && (
+        <div className="rounded-3xl border border-blue-200 bg-blue-50 p-6 shadow-soft">
+          <h3 className="text-xl font-black text-blue-900">
+            Résultat NASA POWER
+          </h3>
+
+          <p className="mt-2 text-sm font-semibold text-blue-800">
+            {climateResult.message}
+          </p>
+
+          <div className="mt-3 text-xs text-blue-700">
+            Script : {climateResult.script}
+            <br />
+            Durée : {(climateResult.durationMs / 1000).toFixed(1)} s
+          </div>
+        </div>
+      )}
 
       {error && (
         <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
