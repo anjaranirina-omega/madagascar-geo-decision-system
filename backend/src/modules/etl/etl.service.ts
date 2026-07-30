@@ -8,6 +8,8 @@ import { existsSync } from 'fs';
 import { join, resolve } from 'path';
 import { promisify } from 'util';
 import { AlertesService } from '../alertes/alertes.service';
+import { DataSourcesService } from '../data-sources/data-sources.service';
+import { DataSourceCode } from '../data-sources/entities/data-source-status.entity';
 
 const execFileAsync = promisify(execFile);
 
@@ -21,7 +23,10 @@ export type EtlPipelineStep = {
 export class EtlService {
   private readonly logger = new Logger(EtlService.name);
 
-  constructor(private readonly alertesService: AlertesService) {}
+  constructor(
+    private readonly alertesService: AlertesService,
+    private readonly dataSourcesService: DataSourcesService,
+  ) {}
 
   private getProjectRoot() {
     return resolve(process.cwd(), '..');
@@ -58,6 +63,58 @@ export class EtlService {
 
   private shouldGenerateAlertsFromPipeline() {
     return process.env.ETL_PIPELINE_GENERATE_ALERTS === 'true';
+  }
+
+  private async updateDataSourceStatusAfterStep(
+    step: EtlPipelineStep,
+    result: { status: string; error?: string },
+  ) {
+    const stepSources: Record<string, DataSourceCode[]> = {
+      'Synchronisation CHIRPS latest': [DataSourceCode.CHIRPS],
+      'Masquage des rasters normalisés': [
+        DataSourceCode.CHIRPS,
+        DataSourceCode.COPERNICUS_DEM,
+        DataSourceCode.WORLDPOP,
+        DataSourceCode.ESA_WORLDCOVER,
+        DataSourceCode.HYDRORIVERS,
+      ],
+      'Recalcul du raster de risque global': [
+        DataSourceCode.CHIRPS,
+        DataSourceCode.COPERNICUS_DEM,
+        DataSourceCode.WORLDPOP,
+        DataSourceCode.ESA_WORLDCOVER,
+      ],
+      'Recalcul du raster de risque inondation': [
+        DataSourceCode.CHIRPS,
+        DataSourceCode.COPERNICUS_DEM,
+        DataSourceCode.WORLDPOP,
+        DataSourceCode.ESA_WORLDCOVER,
+        DataSourceCode.HYDRORIVERS,
+      ],
+    };
+
+    const sources = stepSources[step.name] ?? [];
+
+    for (const source of sources) {
+      try {
+        if (result.status === 'SUCCESS') {
+          await this.dataSourcesService.markSuccess(source, {
+            lastPipelineStep: step.name,
+          });
+        } else {
+          await this.dataSourcesService.markFailed(
+            source,
+            result.error ?? `Échec de l'étape ETL : ${step.name}`,
+          );
+        }
+      } catch (error) {
+        this.logger.warn(
+          `Impossible de mettre à jour le statut de la source ${source}: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        );
+      }
+    }
   }
 
   private async runPythonStep(step: EtlPipelineStep) {
@@ -185,6 +242,8 @@ export class EtlService {
       const result = await this.runPythonStep(step);
 
       results.push(result);
+
+      await this.updateDataSourceStatusAfterStep(step, result);
 
       if (result.status === 'FAILED') {
         throw new InternalServerErrorException({
