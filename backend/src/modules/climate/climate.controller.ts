@@ -1,11 +1,18 @@
-import { Controller, Get, Query } from '@nestjs/common';
+import { Controller, Get, Post, Query, UseGuards } from '@nestjs/common';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
 import { ZoneType } from '../zone-indicators/entities/zone-indicator.entity';
 import { ClimateService } from './climate.service';
+import { ClimateSyncService } from './climate-sync.service';
 import { ClimateDataSource } from './entities/climate-observation.entity';
 
 @Controller('climate')
 export class ClimateController {
-  constructor(private readonly climateService: ClimateService) {}
+  constructor(
+    private readonly climateService: ClimateService,
+    private readonly climateSyncService: ClimateSyncService,
+  ) {}
 
   @Get('observations')
   findAll(
@@ -39,5 +46,12 @@ export class ClimateController {
     @Query('source') source: ClimateDataSource = ClimateDataSource.NASA_POWER,
   ) {
     return this.climateService.summary(source);
+  }
+
+  @Post('sync-nasa-power')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN', 'ANALYSTE')
+  syncNasaPower() {
+    return this.climateSyncService.syncNasaPowerRegions();
   }
 }
