@@ -173,6 +173,10 @@ export class EtlService {
         name: 'Calcul des statistiques zonales globales',
         script: 'raster/zonal/compute_zone_indicators.py',
       },
+      {
+        name: 'Calcul des statistiques zonales inondation',
+        script: 'raster/zonal/compute_flood_zone_indicators.py',
+      },
     ];
 
     const results = [];
@@ -223,7 +227,7 @@ export class EtlService {
 
     return {
       message:
-        'Pipeline de risque exécuté avec succès : risque global et risque inondation recalculés.',
+        'Pipeline de risque exécuté avec succès : risque global, risque inondation et indicateurs zonaux recalculés.',
       steps: results,
       alertes: alertResult,
       alertWarning,
