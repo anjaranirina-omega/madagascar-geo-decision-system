@@ -7,6 +7,7 @@ import { AlertesModule } from './modules/alertes/alertes.module';
 import { AnalyseMulticritereModule } from './modules/analyse-multicritere/analyse-multicritere.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { CollecteModule } from './modules/collecte/collecte.module';
+import { ClimateModule } from './modules/climate/climate.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { DataSourcesModule } from './modules/data-sources/data-sources.module';
 import { GeographieModule } from './modules/geographie/geographie.module';
@@ -40,6 +41,7 @@ import { RisquesModule } from './modules/risques/risques.module';
     RastersModule,
     RisquesModule,
     CollecteModule,
+    ClimateModule,
     SigModule,
     DashboardModule,
     DataSourcesModule,
