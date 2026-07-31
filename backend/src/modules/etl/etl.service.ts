@@ -91,6 +91,12 @@ export class EtlService {
         DataSourceCode.ESA_WORLDCOVER,
         DataSourceCode.HYDRORIVERS,
       ],
+      'Recalcul du raster de risque sécheresse': [
+        DataSourceCode.CHIRPS,
+        DataSourceCode.NASA_POWER,
+        DataSourceCode.WORLDPOP,
+        DataSourceCode.ESA_WORLDCOVER,
+      ],
     };
 
     const sources = stepSources[step.name] ?? [];
@@ -223,6 +229,15 @@ export class EtlService {
         args: ['--scope', 'flood'],
       },
       {
+        name: 'Recalcul du raster de risque sécheresse',
+        script: 'raster/risks/drought/compute_drought_risk.py',
+      },
+      {
+        name: 'Masquage des rasters de risque sécheresse',
+        script: 'raster/mask_rasters_to_madagascar.py',
+        args: ['--scope', 'drought'],
+      },
+      {
         name: 'Enregistrement des métadonnées raster',
         script: 'raster/register_raster_metadata.py',
       },
@@ -286,7 +301,7 @@ export class EtlService {
 
     return {
       message:
-        'Pipeline de risque exécuté avec succès : risque global, risque inondation et indicateurs zonaux recalculés.',
+        'Pipeline de risque exécuté avec succès : risques global, inondation, sécheresse et indicateurs zonaux recalculés.',
       steps: results,
       alertes: alertResult,
       alertWarning,
