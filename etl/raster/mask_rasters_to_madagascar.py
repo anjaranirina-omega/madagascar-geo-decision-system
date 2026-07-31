@@ -29,6 +29,11 @@ SCOPES = {
         RASTER_ROOT / "risk" / "flood" / "flood_risk_index.tif",
         RASTER_ROOT / "risk" / "flood" / "flood_risk_classified.tif",
     ],
+        "drought": [
+            RASTER_ROOT / "risk" / "drought" / "drought_hazard_index.tif",
+            RASTER_ROOT / "risk" / "drought" / "drought_risk_index.tif",
+            RASTER_ROOT / "risk" / "drought" / "drought_risk_classified.tif",
+        ],
 }
 
 
@@ -103,7 +108,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--scope",
-        choices=["normalized", "risk", "flood", "all"],
+        choices=["normalized", "risk", "flood", "drought", "all"],
         default="all",
         help="Choisir les rasters à masquer.",
     )
@@ -111,7 +116,7 @@ def main():
     args = parser.parse_args()
 
     if args.scope == "all":
-        paths = SCOPES["normalized"] + SCOPES["risk"] + SCOPES["flood"]
+        paths = SCOPES["normalized"] + SCOPES["risk"] + SCOPES["flood"] + SCOPES["drought"]
     else:
         paths = SCOPES[args.scope]
 

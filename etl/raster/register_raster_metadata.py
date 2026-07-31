@@ -11,21 +11,22 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 RASTER_ROOT = PROJECT_ROOT / "etl" / "data" / "raster"
 
 load_dotenv(PROJECT_ROOT / ".env")
-load_dotenv(PROJECT_ROOT / "backend" / ".env")
+load_dotenv(PROJECT_ROOT / "backend" / ".env", override=True)
 
 API_BASE_URL = os.getenv("BACKEND_API_URL", "http://localhost:3001/api")
 
 
 RASTER_CONFIG = {
+    # Risque inondation
     "risk/flood/flood_hazard_index.tif": {
         "name": "Aléa d’inondation",
         "type": "FLOOD_HAZARD_INDEX",
-        "description": "Raster d’aléa d’inondation basé sur les précipitations et la pente inversée.",
+        "description": "Raster d’aléa d’inondation basé sur les précipitations, la pente inversée et la proximité hydrographique.",
     },
     "risk/flood/flood_risk_index.tif": {
         "name": "Risque d’inondation",
         "type": "FLOOD_RISK_INDEX",
-        "description": "Raster spécifique du risque d’inondation.",
+        "description": "Raster spécifique du risque d’inondation intégrant l’aléa, l’exposition humaine et l’occupation du sol.",
     },
     "risk/flood/flood_risk_classified.tif": {
         "name": "Classes de risque d’inondation",
@@ -33,35 +34,55 @@ RASTER_CONFIG = {
         "description": "Raster classifié du risque d’inondation : faible, moyen, élevé, critique.",
     },
 
+    # Risque sécheresse
+    "risk/drought/drought_hazard_index.tif": {
+        "name": "Aléa sécheresse",
+        "type": "DROUGHT_HAZARD_INDEX",
+        "description": "Raster d’aléa sécheresse basé sur le déficit pluviométrique récent, le stress thermique et la sensibilité du territoire.",
+    },
+    "risk/drought/drought_risk_index.tif": {
+        "name": "Risque sécheresse",
+        "type": "DROUGHT_RISK_INDEX",
+        "description": "Raster spécifique du risque sécheresse intégrant l’aléa, l’exposition humaine et la sensibilité de l’occupation du sol.",
+    },
+    "risk/drought/drought_risk_classified.tif": {
+        "name": "Classes de risque sécheresse",
+        "type": "DROUGHT_RISK_CLASSIFIED",
+        "description": "Raster classifié du risque sécheresse : faible, moyen, élevé, critique.",
+    },
+
+    # Couches normalisées
     "normalized/rainfall_norm.tif": {
         "name": "Précipitations normalisées",
         "type": "RAINFALL",
-        "description": "Couche raster de démonstration des précipitations normalisées entre 0 et 1.",
+        "description": "Couche raster des précipitations CHIRPS normalisées entre 0 et 1.",
     },
     "normalized/slope_norm.tif": {
         "name": "Pente normalisée",
         "type": "SLOPE",
-        "description": "Couche raster de démonstration de la pente normalisée entre 0 et 1.",
+        "description": "Couche raster de pente normalisée issue du DEM Copernicus GLO-30.",
     },
     "normalized/population_norm.tif": {
         "name": "Population normalisée",
         "type": "POPULATION",
-        "description": "Couche raster de démonstration de la population normalisée entre 0 et 1.",
+        "description": "Couche raster WorldPop normalisée entre 0 et 1.",
     },
     "normalized/landcover_norm.tif": {
         "name": "Occupation du sol normalisée",
         "type": "LANDCOVER",
-        "description": "Couche raster de démonstration de l'occupation du sol normalisée entre 0 et 1.",
+        "description": "Couche raster ESA WorldCover reclassifiée et normalisée entre 0 et 1.",
     },
+
+    # Risque global
     "risk/risk_index.tif": {
         "name": "Indice de risque climatique",
         "type": "RISK_INDEX",
-        "description": "Raster final d'indice de risque climatique calculé par overlay pondéré.",
+        "description": "Raster final d’indice de risque climatique global calculé par overlay pondéré.",
     },
     "risk/risk_classified.tif": {
         "name": "Classes de risque climatique",
         "type": "RISK_CLASSIFIED",
-        "description": "Raster classifié : 1 faible, 2 moyen, 3 élevé, 4 critique.",
+        "description": "Raster classifié du risque climatique global : 1 faible, 2 moyen, 3 élevé, 4 critique.",
     },
 }
 
@@ -74,15 +95,28 @@ def summarize_raster(path: Path):
         if nodata is not None:
             data = np.where(data == nodata, np.nan, data)
 
+        data = np.where(data <= -9999, np.nan, data)
+
         bounds = src.bounds
+
+        valid = data[np.isfinite(data)]
+
+        if valid.size == 0:
+            min_value = None
+            max_value = None
+            mean_value = None
+        else:
+            min_value = float(valid.min())
+            max_value = float(valid.max())
+            mean_value = float(valid.mean())
 
         return {
             "crs": str(src.crs),
             "resolutionX": float(src.res[0]),
             "resolutionY": float(src.res[1]),
-            "minValue": float(np.nanmin(data)),
-            "maxValue": float(np.nanmax(data)),
-            "meanValue": float(np.nanmean(data)),
+            "minValue": min_value,
+            "maxValue": max_value,
+            "meanValue": mean_value,
             "width": int(src.width),
             "height": int(src.height),
             "bounds": f"{bounds.left},{bounds.bottom},{bounds.right},{bounds.top}",
