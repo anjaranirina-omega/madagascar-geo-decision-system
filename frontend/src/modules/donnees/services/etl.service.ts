@@ -5,8 +5,6 @@ export type EtlPipelineStepResult = {
   script: string;
   status: 'SUCCESS' | 'FAILED' | string;
   durationMs: number;
-  stdout?: string;
-  stderr?: string;
   error?: string;
 };
 
@@ -24,7 +22,11 @@ export const etlFrontendService = {
       '/etl/risk-pipeline/run',
       undefined,
       {
-        timeout: 10 * 60 * 1000,
+        /**
+         * Le pipeline complet peut durer plusieurs minutes :
+         * CHIRPS + risques global/inondation/sécheresse + statistiques zonales.
+         */
+        timeout: 20 * 60 * 1000,
       },
     );
 
