@@ -8,6 +8,27 @@ export type EtlPipelineStepResult = {
   error?: string;
 };
 
+export type EtlPipelineJobStatus =
+  | 'PENDING'
+  | 'RUNNING'
+  | 'SUCCESS'
+  | 'FAILED';
+
+export type EtlPipelineJob = {
+  id: string;
+  type: 'RISK_PIPELINE' | string;
+  status: EtlPipelineJobStatus;
+  message?: string | null;
+  steps?: EtlPipelineStepResult[] | null;
+  alertWarning?: string | null;
+  error?: string | null;
+  startedAt?: string | null;
+  finishedAt?: string | null;
+  durationMs?: number | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type EtlRiskPipelineResponse = {
   message: string;
   steps: EtlPipelineStepResult[];
@@ -22,11 +43,34 @@ export const etlFrontendService = {
       '/etl/risk-pipeline/run',
       undefined,
       {
-        /**
-         * Le pipeline complet peut durer plusieurs minutes :
-         * CHIRPS + risques global/inondation/sécheresse + statistiques zonales.
-         */
         timeout: 20 * 60 * 1000,
+      },
+    );
+
+    return response.data;
+  },
+
+  async startRiskPipeline() {
+    const response = await api.post<EtlPipelineJob>('/etl/risk-pipeline/start');
+
+    return response.data;
+  },
+
+  async getRiskPipelineJob(id: string) {
+    const response = await api.get<EtlPipelineJob>(
+      `/etl/risk-pipeline/jobs/${id}`,
+    );
+
+    return response.data;
+  },
+
+  async getLatestRiskPipelineJobs(limit = 10) {
+    const response = await api.get<EtlPipelineJob[]>(
+      '/etl/risk-pipeline/jobs',
+      {
+        params: {
+          limit,
+        },
       },
     );
 

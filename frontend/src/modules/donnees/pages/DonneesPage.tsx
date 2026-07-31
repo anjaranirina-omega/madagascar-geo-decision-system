@@ -18,6 +18,7 @@ import {
   dataSourcesFrontendService,
 } from '../services/data-sources.service';
 import {
+  EtlPipelineJob,
   EtlRiskPipelineResponse,
   etlFrontendService,
 } from '../services/etl.service';
@@ -41,6 +42,10 @@ function extractErrorMessage(error: unknown) {
     maybeAxiosError.message ??
     null
   );
+}
+
+function sleep(ms: number) {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
 }
 
 function formatDateTime(value?: string | null) {
@@ -104,6 +109,7 @@ export default function DonneesPage() {
   const [climateSyncing, setClimateSyncing] = useState(false);
 
   const [result, setResult] = useState<EtlRiskPipelineResponse | null>(null);
+  const [pipelineJob, setPipelineJob] = useState<EtlPipelineJob | null>(null);
   const [climateResult, setClimateResult] =
     useState<ClimateSyncResponse | null>(null);
 
@@ -138,11 +144,40 @@ export default function DonneesPage() {
     setRunning(true);
     setError('');
     setResult(null);
+    setPipelineJob(null);
 
     try {
-      const response = await etlFrontendService.runRiskPipeline();
+      const startedJob = await etlFrontendService.startRiskPipeline();
+      setPipelineJob(startedJob);
 
-      setResult(response);
+      let currentJob = startedJob;
+
+      while (currentJob.status === 'PENDING' || currentJob.status === 'RUNNING') {
+        await sleep(2000);
+        currentJob = await etlFrontendService.getRiskPipelineJob(startedJob.id);
+        setPipelineJob(currentJob);
+      }
+
+      if (currentJob.status === 'SUCCESS') {
+        setResult({
+          message:
+            currentJob.message ??
+            'Pipeline de risque exécuté avec succès.',
+          steps: currentJob.steps ?? [],
+          alertWarning: currentJob.alertWarning ?? null,
+          alertSkipped: true,
+        });
+
+        await loadSources();
+        return;
+      }
+
+      setError(
+        currentJob.error
+          ? `Pipeline échoué : ${currentJob.error}`
+          : 'Pipeline échoué.',
+      );
+
       await loadSources();
     } catch (pipelineError) {
       console.error('[DonneesPage] Erreur pipeline ETL:', pipelineError);
@@ -368,6 +403,26 @@ export default function DonneesPage() {
             Script : {climateResult.script}
             <br />
             Durée : {(climateResult.durationMs / 1000).toFixed(1)} s
+          </div>
+        </div>
+      )}
+
+      {pipelineJob && (pipelineJob.status === 'PENDING' || pipelineJob.status === 'RUNNING') && (
+        <div className="rounded-3xl border border-blue-200 bg-blue-50 p-6 shadow-soft">
+          <h3 className="text-xl font-black text-blue-900">
+            Job ETL en cours
+          </h3>
+
+          <p className="mt-2 text-sm font-semibold text-blue-800">
+            {pipelineJob.message ?? 'Pipeline en cours...'}
+          </p>
+
+          <div className="mt-3 text-xs text-blue-700">
+            Identifiant : {pipelineJob.id}
+            <br />
+            Statut : {pipelineJob.status}
+            <br />
+            Étapes terminées : {pipelineJob.steps?.length ?? 0}
           </div>
         </div>
       )}
