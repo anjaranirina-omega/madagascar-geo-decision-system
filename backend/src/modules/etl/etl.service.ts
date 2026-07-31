@@ -149,13 +149,19 @@ export class EtlService {
 
       this.logger.log(`ETL step done: ${step.name} (${durationMs}ms)`);
 
+      if (stderr?.trim()) {
+        this.logger.warn(`ETL stderr ${step.name}: ${stderr.slice(-2000)}`);
+      }
+
+      if (stdout?.trim()) {
+        this.logger.log(`ETL stdout ${step.name}: ${stdout.slice(-2000)}`);
+      }
+
       return {
         name: step.name,
         script: step.script,
         status: 'SUCCESS',
         durationMs,
-        stdout,
-        stderr,
       };
     } catch (error) {
       const durationMs = Date.now() - startedAt;
@@ -248,6 +254,10 @@ export class EtlService {
       {
         name: 'Calcul des statistiques zonales inondation',
         script: 'raster/zonal/compute_flood_zone_indicators.py',
+      },
+      {
+        name: 'Calcul des statistiques zonales sécheresse',
+        script: 'raster/zonal/compute_drought_zone_indicators.py',
       },
     ];
 

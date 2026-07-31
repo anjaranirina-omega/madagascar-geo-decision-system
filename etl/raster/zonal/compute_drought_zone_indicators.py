@@ -1,0 +1,254 @@
+import os
+from pathlib import Path
+
+import geopandas as gpd
+import numpy as np
+import rasterio
+import requests
+from dotenv import load_dotenv
+from rasterio.mask import mask
+from sqlalchemy import create_engine
+
+
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
+
+load_dotenv(PROJECT_ROOT / ".env")
+load_dotenv(PROJECT_ROOT / "backend" / ".env", override=True)
+
+DATABASE_URL = os.getenv(
+    "DATABASE_URL",
+    "postgresql://geodecisionnel:geodecisionnel@localhost:5433/geodecisionnel",
+)
+
+if "@postgres-postgis:5432" in DATABASE_URL:
+    DATABASE_URL = DATABASE_URL.replace("@postgres-postgis:5432", "@localhost:5433")
+
+SQLALCHEMY_DATABASE_URL = DATABASE_URL.replace(
+    "postgresql://",
+    "postgresql+psycopg://",
+    1,
+)
+
+BACKEND_API_URL = os.getenv("BACKEND_API_URL", "http://localhost:3001/api")
+
+POPULATION_RASTER = (
+    PROJECT_ROOT
+    / "etl"
+    / "data"
+    / "raster"
+    / "processed"
+    / "worldpop"
+    / "population_worldpop_aligned.tif"
+)
+
+DROUGHT_RISK_RASTER = (
+    PROJECT_ROOT
+    / "etl"
+    / "data"
+    / "raster"
+    / "risk"
+    / "drought"
+    / "drought_risk_index.tif"
+)
+
+DROUGHT_HAZARD_RASTER = (
+    PROJECT_ROOT
+    / "etl"
+    / "data"
+    / "raster"
+    / "risk"
+    / "drought"
+    / "drought_hazard_index.tif"
+)
+
+TABLES = [
+    ("region", "regions"),
+    ("district", "districts"),
+    ("commune", "communes"),
+]
+
+
+def classify_risk(value: float | None):
+    if value is None:
+        return None
+    if value <= 30:
+        return "FAIBLE"
+    if value <= 60:
+        return "MOYEN"
+    if value <= 80:
+        return "ELEVE"
+    return "CRITIQUE"
+
+
+def read_zones(table_name: str) -> gpd.GeoDataFrame:
+    engine = create_engine(SQLALCHEMY_DATABASE_URL)
+
+    query = f"""
+    SELECT id, code, nom, geom
+    FROM {table_name}
+    WHERE geom IS NOT NULL
+    """
+
+    gdf = gpd.read_postgis(query, engine, geom_col="geom")
+
+    if "geom" in gdf.columns:
+        gdf = gdf.set_geometry("geom")
+
+    if gdf.crs is None:
+        gdf = gdf.set_crs(epsg=4326)
+
+    return gdf
+
+
+def clean_geometry(geometry):
+    if geometry is None or geometry.is_empty:
+        return None
+
+    if not geometry.is_valid:
+        geometry = geometry.buffer(0)
+
+    if geometry is None or geometry.is_empty:
+        return None
+
+    return geometry
+
+
+def mask_values(src, geometry):
+    geom = clean_geometry(geometry)
+
+    if geom is None:
+        return np.array([], dtype="float32")
+
+    geom = gpd.GeoSeries([geom], crs="EPSG:4326").to_crs(src.crs).iloc[0]
+
+    try:
+        out_image, _ = mask(
+            src,
+            [geom],
+            crop=True,
+            nodata=src.nodata if src.nodata is not None else -9999.0,
+            filled=True,
+        )
+    except ValueError:
+        return np.array([], dtype="float32")
+
+    data = out_image[0].astype("float32")
+    nodata = src.nodata
+
+    if nodata is not None:
+        data = np.where(data == nodata, np.nan, data)
+
+    data = np.where(data <= -9999, np.nan, data)
+    data = np.where(data < 0, np.nan, data)
+
+    return data[np.isfinite(data)]
+
+
+def compute_area_km2(geometry):
+    geom = clean_geometry(geometry)
+
+    if geom is None:
+        return 0.0
+
+    # EPSG:6933 = projection équivalente en surface.
+    gdf = gpd.GeoSeries([geom], crs="EPSG:4326").to_crs(epsg=6933)
+
+    return float(gdf.area.iloc[0] / 1_000_000)
+
+
+def upsert_drought_indicator(payload: dict):
+    url = f"{BACKEND_API_URL}/zone-indicators/risk/upsert"
+
+    response = requests.post(url, json=payload, timeout=30)
+
+    if response.status_code >= 400:
+        print("Erreur API:", response.status_code, response.text[:1000])
+        print("Payload envoyé:", payload)
+        response.raise_for_status()
+
+    return response.json()
+
+
+def process_table(zone_type: str, table_name: str):
+    print(f"\nTraitement sécheresse {zone_type} depuis table {table_name}")
+
+    zones = read_zones(table_name)
+
+    print(f"Nombre de zones : {len(zones)}")
+
+    with rasterio.open(POPULATION_RASTER) as pop_src, rasterio.open(
+        DROUGHT_RISK_RASTER
+    ) as drought_risk_src, rasterio.open(DROUGHT_HAZARD_RASTER) as drought_hazard_src:
+        for idx, row in zones.iterrows():
+            geometry = row["geom"]
+
+            population_values = mask_values(pop_src, geometry)
+            drought_risk_values = mask_values(drought_risk_src, geometry)
+            drought_hazard_values = mask_values(drought_hazard_src, geometry)
+
+            population_exposed = (
+                float(population_values.sum()) if population_values.size else 0.0
+            )
+
+            area_km2 = compute_area_km2(geometry)
+
+            risk_mean = (
+                float(drought_risk_values.mean()) if drought_risk_values.size else None
+            )
+            risk_max = (
+                float(drought_risk_values.max()) if drought_risk_values.size else None
+            )
+            hazard_mean = (
+                float(drought_hazard_values.mean())
+                if drought_hazard_values.size
+                else None
+            )
+
+            risk_level = classify_risk(risk_max)
+
+            payload = {
+                "riskType": "DROUGHT",
+                "zoneType": zone_type,
+                "zoneId": str(row["id"]),
+                "zoneCode": str(row["code"]) if row.get("code") is not None else None,
+                "zoneNom": str(row["nom"]) if row.get("nom") is not None else None,
+                "populationExposed": round(population_exposed, 2),
+                "areaKm2": round(area_km2, 2),
+                "riskMean": round(risk_mean, 2) if risk_mean is not None else None,
+                "riskMax": round(risk_max, 2) if risk_max is not None else None,
+                "hazardMean": round(hazard_mean, 2) if hazard_mean is not None else None,
+                "riskLevel": risk_level,
+            }
+
+            upsert_drought_indicator(payload)
+
+            if (idx + 1) % 25 == 0:
+                print(f"  {idx + 1}/{len(zones)} zones traitées")
+
+    print(f"Terminé : {zone_type}")
+
+
+def main():
+    required_files = [
+        ("Population raster", POPULATION_RASTER),
+        ("Drought risk raster", DROUGHT_RISK_RASTER),
+        ("Drought hazard raster", DROUGHT_HAZARD_RASTER),
+    ]
+
+    for label, path in required_files:
+        if not path.exists():
+            raise FileNotFoundError(f"{label} introuvable : {path}")
+
+    print(f"Population raster : {POPULATION_RASTER}")
+    print(f"Drought risk raster : {DROUGHT_RISK_RASTER}")
+    print(f"Drought hazard raster : {DROUGHT_HAZARD_RASTER}")
+    print(f"Backend API : {BACKEND_API_URL}")
+
+    for zone_type, table_name in TABLES:
+        process_table(zone_type, table_name)
+
+    print("Calcul des indicateurs zonaux sécheresse terminé.")
+
+
+if __name__ == "__main__":
+    main()
