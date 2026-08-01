@@ -97,6 +97,12 @@ export class EtlService {
         DataSourceCode.WORLDPOP,
         DataSourceCode.ESA_WORLDCOVER,
       ],
+      'Recalcul du raster de risque glissement de terrain': [
+        DataSourceCode.CHIRPS,
+        DataSourceCode.COPERNICUS_DEM,
+        DataSourceCode.WORLDPOP,
+        DataSourceCode.ESA_WORLDCOVER,
+      ],
     };
 
     const sources = stepSources[step.name] ?? [];
@@ -244,6 +250,15 @@ export class EtlService {
         args: ['--scope', 'drought'],
       },
       {
+        name: 'Recalcul du raster de risque glissement de terrain',
+        script: 'raster/risks/landslide/compute_landslide_risk.py',
+      },
+      {
+        name: 'Masquage des rasters de risque glissement de terrain',
+        script: 'raster/mask_rasters_to_madagascar.py',
+        args: ['--scope', 'landslide'],
+      },
+      {
         name: 'Enregistrement des métadonnées raster',
         script: 'raster/register_raster_metadata.py',
       },
@@ -311,7 +326,7 @@ export class EtlService {
 
     return {
       message:
-        'Pipeline de risque exécuté avec succès : risques global, inondation, sécheresse et indicateurs zonaux recalculés.',
+        'Pipeline de risque exécuté avec succès : risques global, inondation, sécheresse, glissement de terrain et indicateurs zonaux recalculés.',
       steps: results,
       alertes: alertResult,
       alertWarning,

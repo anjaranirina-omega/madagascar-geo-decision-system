@@ -51,6 +51,23 @@ RASTER_CONFIG = {
         "description": "Raster classifié du risque sécheresse : faible, moyen, élevé, critique.",
     },
 
+    # Risque glissement de terrain
+    "risk/landslide/landslide_hazard_index.tif": {
+        "name": "Aléa glissement de terrain",
+        "type": "LANDSLIDE_HAZARD_INDEX",
+        "description": "Raster d’aléa glissement de terrain basé sur la pente, la pluie récente et la sensibilité de l’occupation du sol.",
+    },
+    "risk/landslide/landslide_risk_index.tif": {
+        "name": "Risque glissement de terrain",
+        "type": "LANDSLIDE_RISK_INDEX",
+        "description": "Raster spécifique du risque glissement de terrain intégrant l’aléa, l’exposition humaine et l’occupation du sol.",
+    },
+    "risk/landslide/landslide_risk_classified.tif": {
+        "name": "Classes de risque glissement de terrain",
+        "type": "LANDSLIDE_RISK_CLASSIFIED",
+        "description": "Raster classifié du risque glissement de terrain : faible, moyen, élevé, critique.",
+    },
+
     # Couches normalisées
     "normalized/rainfall_norm.tif": {
         "name": "Précipitations normalisées",
