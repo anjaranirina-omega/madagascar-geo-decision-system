@@ -3,7 +3,10 @@ import { useMap } from 'react-leaflet';
 import parseGeoraster from 'georaster';
 import GeoRasterLayer from 'georaster-layer-for-leaflet';
 
-export type RasterLayerType = 'RISK_INDEX' | 'FLOOD_RISK_INDEX';
+export type RasterLayerType =
+  | 'RISK_INDEX'
+  | 'FLOOD_RISK_INDEX'
+  | 'DROUGHT_RISK_INDEX';
 
 type RasterRiskLayerProps = {
   visible: boolean;

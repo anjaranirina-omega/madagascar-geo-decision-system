@@ -225,16 +225,20 @@ export default function MapView() {
         lng: markerPosition.lng,
       };
 
-  const activeRiskLayerType = riskLayers.flood
-    ? 'FLOOD_RISK_INDEX'
-    : riskLayers.global
-      ? 'RISK_INDEX'
-      : null;
+  const activeRiskLayerType = riskLayers.drought
+    ? 'DROUGHT_RISK_INDEX'
+    : riskLayers.flood
+      ? 'FLOOD_RISK_INDEX'
+      : riskLayers.global
+        ? 'RISK_INDEX'
+        : null;
 
   const activeRiskLayerLabel =
-    activeRiskLayerType === 'FLOOD_RISK_INDEX'
-      ? 'Risque inondation'
-      : 'Risque global';
+    activeRiskLayerType === 'DROUGHT_RISK_INDEX'
+      ? 'Risque sécheresse'
+      : activeRiskLayerType === 'FLOOD_RISK_INDEX'
+        ? 'Risque inondation'
+        : 'Risque global';
 
   const showRiskRaster = activeRiskLayerType !== null;
 
@@ -429,12 +433,23 @@ export default function MapView() {
   );
 
   const toggleRiskLayer = (key: RiskLayerKey, value: boolean) => {
+    const riskFilterByLayer: Partial<Record<RiskLayerKey, string>> = {
+      global: 'GLOBAL',
+      flood: 'FLOOD',
+      drought: 'DROUGHT',
+    };
+
+    if (value && riskFilterByLayer[key]) {
+      setRiskTypeFilter(riskFilterByLayer[key]);
+    }
+
     setRiskLayers((current) => {
-      if ((key === 'global' || key === 'flood') && value) {
+      if ((key === 'global' || key === 'flood' || key === 'drought') && value) {
         return {
           ...current,
           global: key === 'global',
           flood: key === 'flood',
+          drought: key === 'drought',
         };
       }
 
@@ -530,9 +545,8 @@ export default function MapView() {
               checked={riskLayers.drought}
               onChange={(value) => toggleRiskLayer('drought', value)}
               label="Risque sécheresse"
-              subtitle="Couche spécifique à venir"
+              subtitle="NASA POWER + CHIRPS + occupation du sol + exposition"
               icon={<Droplets size={16} />}
-              disabled
             />
 
             <LayerCheckbox
@@ -787,9 +801,11 @@ export default function MapView() {
             <div className="mt-4 text-sm">
               Source :{' '}
               <span className="font-bold">
-                {activeRiskLayerType === 'FLOOD_RISK_INDEX'
-                  ? 'modèle inondation HydroRIVERS / CHIRPS / pente / exposition'
-                  : 'indice climatique composite'}
+                {activeRiskLayerType === 'DROUGHT_RISK_INDEX'
+                  ? 'modèle sécheresse NASA POWER / CHIRPS / occupation du sol / exposition'
+                  : activeRiskLayerType === 'FLOOD_RISK_INDEX'
+                    ? 'modèle inondation HydroRIVERS / CHIRPS / pente / exposition'
+                    : 'indice climatique composite'}
               </span>
             </div>
           </div>
@@ -1005,7 +1021,7 @@ function MapFilters({
           ['GLOBAL', 'Risque global'],
           ['FLOOD', 'Risque inondation'],
           ['CYCLONE', 'Cyclone bientôt'],
-          ['DROUGHT', 'Sécheresse bientôt'],
+          ['DROUGHT', 'Risque sécheresse'],
         ]}
       />
 
