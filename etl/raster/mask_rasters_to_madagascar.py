@@ -29,11 +29,16 @@ SCOPES = {
         RASTER_ROOT / "risk" / "flood" / "flood_risk_index.tif",
         RASTER_ROOT / "risk" / "flood" / "flood_risk_classified.tif",
     ],
-        "drought": [
-            RASTER_ROOT / "risk" / "drought" / "drought_hazard_index.tif",
-            RASTER_ROOT / "risk" / "drought" / "drought_risk_index.tif",
-            RASTER_ROOT / "risk" / "drought" / "drought_risk_classified.tif",
-        ],
+    "drought": [
+        RASTER_ROOT / "risk" / "drought" / "drought_hazard_index.tif",
+        RASTER_ROOT / "risk" / "drought" / "drought_risk_index.tif",
+        RASTER_ROOT / "risk" / "drought" / "drought_risk_classified.tif",
+    ],
+    "landslide": [
+        RASTER_ROOT / "risk" / "landslide" / "landslide_hazard_index.tif",
+        RASTER_ROOT / "risk" / "landslide" / "landslide_risk_index.tif",
+        RASTER_ROOT / "risk" / "landslide" / "landslide_risk_classified.tif",
+    ],
 }
 
 
@@ -55,10 +60,16 @@ def load_madagascar_boundary(target_crs):
 
     # Corriger les géométries si nécessaire
     gdf["geometry"] = gdf.geometry.apply(
-        lambda geom: geom.buffer(0) if geom is not None and not geom.is_valid else geom
+        lambda geom: geom.buffer(0)
+        if geom is not None and not geom.is_valid
+        else geom
     )
 
-    return [geom for geom in gdf.geometry if geom is not None and not geom.is_empty]
+    return [
+        geom
+        for geom in gdf.geometry
+        if geom is not None and not geom.is_empty
+    ]
 
 
 def mask_raster_in_place(path: Path):
@@ -108,7 +119,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--scope",
-        choices=["normalized", "risk", "flood", "drought", "all"],
+        choices=["normalized", "risk", "flood", "drought", "landslide", "all"],
         default="all",
         help="Choisir les rasters à masquer.",
     )
@@ -116,7 +127,13 @@ def main():
     args = parser.parse_args()
 
     if args.scope == "all":
-        paths = SCOPES["normalized"] + SCOPES["risk"] + SCOPES["flood"] + SCOPES["drought"]
+        paths = (
+            SCOPES["normalized"]
+            + SCOPES["risk"]
+            + SCOPES["flood"]
+            + SCOPES["drought"]
+            + SCOPES["landslide"]
+        )
     else:
         paths = SCOPES[args.scope]
 
