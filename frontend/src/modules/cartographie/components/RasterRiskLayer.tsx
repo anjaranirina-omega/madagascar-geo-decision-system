@@ -6,7 +6,8 @@ import GeoRasterLayer from 'georaster-layer-for-leaflet';
 export type RasterLayerType =
   | 'RISK_INDEX'
   | 'FLOOD_RISK_INDEX'
-  | 'DROUGHT_RISK_INDEX';
+  | 'DROUGHT_RISK_INDEX'
+  | 'LANDSLIDE_RISK_INDEX';
 
 type RasterRiskLayerProps = {
   visible: boolean;

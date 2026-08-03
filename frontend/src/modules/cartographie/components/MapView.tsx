@@ -225,20 +225,24 @@ export default function MapView() {
         lng: markerPosition.lng,
       };
 
-  const activeRiskLayerType = riskLayers.drought
-    ? 'DROUGHT_RISK_INDEX'
-    : riskLayers.flood
-      ? 'FLOOD_RISK_INDEX'
-      : riskLayers.global
-        ? 'RISK_INDEX'
-        : null;
+  const activeRiskLayerType = riskLayers.landslide
+    ? 'LANDSLIDE_RISK_INDEX'
+    : riskLayers.drought
+      ? 'DROUGHT_RISK_INDEX'
+      : riskLayers.flood
+        ? 'FLOOD_RISK_INDEX'
+        : riskLayers.global
+          ? 'RISK_INDEX'
+          : null;
 
   const activeRiskLayerLabel =
-    activeRiskLayerType === 'DROUGHT_RISK_INDEX'
-      ? 'Risque sécheresse'
-      : activeRiskLayerType === 'FLOOD_RISK_INDEX'
-        ? 'Risque inondation'
-        : 'Risque global';
+    activeRiskLayerType === 'LANDSLIDE_RISK_INDEX'
+      ? 'Risque glissement de terrain'
+      : activeRiskLayerType === 'DROUGHT_RISK_INDEX'
+        ? 'Risque sécheresse'
+        : activeRiskLayerType === 'FLOOD_RISK_INDEX'
+          ? 'Risque inondation'
+          : 'Risque global';
 
   const showRiskRaster = activeRiskLayerType !== null;
 
@@ -437,6 +441,7 @@ export default function MapView() {
       global: 'GLOBAL',
       flood: 'FLOOD',
       drought: 'DROUGHT',
+      landslide: 'LANDSLIDE',
     };
 
     if (value && riskFilterByLayer[key]) {
@@ -444,12 +449,19 @@ export default function MapView() {
     }
 
     setRiskLayers((current) => {
-      if ((key === 'global' || key === 'flood' || key === 'drought') && value) {
+      if (
+        (key === 'global' ||
+          key === 'flood' ||
+          key === 'drought' ||
+          key === 'landslide') &&
+        value
+      ) {
         return {
           ...current,
           global: key === 'global',
           flood: key === 'flood',
           drought: key === 'drought',
+          landslide: key === 'landslide',
         };
       }
 
@@ -553,9 +565,8 @@ export default function MapView() {
               checked={riskLayers.landslide}
               onChange={(value) => toggleRiskLayer('landslide', value)}
               label="Risque glissement de terrain"
-              subtitle="Couche spécifique à venir"
+              subtitle="Pente Copernicus + CHIRPS + occupation du sol + exposition"
               icon={<AlertTriangle size={16} />}
-              disabled
             />
 
             <LayerCheckbox
@@ -801,11 +812,13 @@ export default function MapView() {
             <div className="mt-4 text-sm">
               Source :{' '}
               <span className="font-bold">
-                {activeRiskLayerType === 'DROUGHT_RISK_INDEX'
-                  ? 'modèle sécheresse NASA POWER / CHIRPS / occupation du sol / exposition'
-                  : activeRiskLayerType === 'FLOOD_RISK_INDEX'
-                    ? 'modèle inondation HydroRIVERS / CHIRPS / pente / exposition'
-                    : 'indice climatique composite'}
+                {activeRiskLayerType === 'LANDSLIDE_RISK_INDEX'
+                  ? 'modèle glissement Copernicus DEM / CHIRPS / occupation du sol / exposition'
+                  : activeRiskLayerType === 'DROUGHT_RISK_INDEX'
+                    ? 'modèle sécheresse NASA POWER / CHIRPS / occupation du sol / exposition'
+                    : activeRiskLayerType === 'FLOOD_RISK_INDEX'
+                      ? 'modèle inondation HydroRIVERS / CHIRPS / pente / exposition'
+                      : 'indice climatique composite'}
               </span>
             </div>
           </div>
