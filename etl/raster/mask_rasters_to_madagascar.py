@@ -39,6 +39,12 @@ SCOPES = {
         RASTER_ROOT / "risk" / "landslide" / "landslide_risk_index.tif",
         RASTER_ROOT / "risk" / "landslide" / "landslide_risk_classified.tif",
     ],
+    "cyclone": [
+        RASTER_ROOT / "risk" / "cyclone" / "cyclone_track_hazard_norm.tif",
+        RASTER_ROOT / "risk" / "cyclone" / "cyclone_hazard_index.tif",
+        RASTER_ROOT / "risk" / "cyclone" / "cyclone_risk_index.tif",
+        RASTER_ROOT / "risk" / "cyclone" / "cyclone_risk_classified.tif",
+    ],
 }
 
 
@@ -58,7 +64,6 @@ def load_madagascar_boundary(target_crs):
 
     gdf = gdf.to_crs(target_crs)
 
-    # Corriger les géométries si nécessaire
     gdf["geometry"] = gdf.geometry.apply(
         lambda geom: geom.buffer(0)
         if geom is not None and not geom.is_valid
@@ -119,7 +124,15 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--scope",
-        choices=["normalized", "risk", "flood", "drought", "landslide", "all"],
+        choices=[
+            "normalized",
+            "risk",
+            "flood",
+            "drought",
+            "landslide",
+            "cyclone",
+            "all",
+        ],
         default="all",
         help="Choisir les rasters à masquer.",
     )
@@ -133,6 +146,7 @@ def main():
             + SCOPES["flood"]
             + SCOPES["drought"]
             + SCOPES["landslide"]
+            + SCOPES["cyclone"]
         )
     else:
         paths = SCOPES[args.scope]

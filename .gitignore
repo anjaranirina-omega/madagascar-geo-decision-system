@@ -107,3 +107,14 @@ etl/data/hydrology/processed/*.geojson
 etl/data/hydrology/processed/*.gpkg
 etl/data/raster/processed/hydrology/*.tif
 etl/data/raster/normalized/river_proximity_norm.tif
+
+# Cyclone / IBTrACS generated data
+etl/data/cyclone/raw/*.csv
+etl/data/cyclone/raw/*.zip
+etl/data/cyclone/processed/*.csv
+etl/data/cyclone/processed/*.geojson
+etl/data/cyclone/processed/*.gpkg
+etl/data/raster/risk/cyclone/*.tif
+etl/data/raster/risk/cyclone/*.tiff
+etl/data/raster/risk/cyclone/*.aux.xml
+etl/data/raster/risk/cyclone/*.ovr

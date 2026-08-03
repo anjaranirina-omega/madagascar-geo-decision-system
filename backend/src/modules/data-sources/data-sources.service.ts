@@ -108,6 +108,20 @@ const DEFAULT_DATA_SOURCES: SeedDataSource[] = [
     },
   },
   {
+    code: DataSourceCode.IBTRACS,
+    name: 'IBTrACS',
+    category: DataSourceCategory.CYCLONE,
+    provider: 'NOAA / NCEI',
+    description:
+      'Archive internationale des trajectoires cycloniques utilisée pour modéliser l’aléa cyclonique historique.',
+    url: 'https://www.ncei.noaa.gov/products/international-best-track-archive',
+    status: DataSourceStatus.PENDING,
+    metadata: {
+      basin: 'South Indian Ocean',
+      usage: ['cyclone_historical_hazard', 'cyclone_risk'],
+    },
+  },
+  {
     code: DataSourceCode.NASA_POWER,
     name: 'NASA POWER',
     category: DataSourceCategory.CLIMATE,
