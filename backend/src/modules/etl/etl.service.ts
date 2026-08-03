@@ -103,6 +103,12 @@ export class EtlService {
         DataSourceCode.WORLDPOP,
         DataSourceCode.ESA_WORLDCOVER,
       ],
+      'Recalcul du raster de risque cyclonique': [
+        DataSourceCode.IBTRACS,
+        DataSourceCode.CHIRPS,
+        DataSourceCode.WORLDPOP,
+        DataSourceCode.ESA_WORLDCOVER,
+      ],
     };
 
     const sources = stepSources[step.name] ?? [];
@@ -259,6 +265,15 @@ export class EtlService {
         args: ['--scope', 'landslide'],
       },
       {
+        name: 'Recalcul du raster de risque cyclonique',
+        script: 'raster/risks/cyclone/compute_cyclone_risk.py',
+      },
+      {
+        name: 'Masquage des rasters de risque cyclonique',
+        script: 'raster/mask_rasters_to_madagascar.py',
+        args: ['--scope', 'cyclone'],
+      },
+      {
         name: 'Enregistrement des métadonnées raster',
         script: 'raster/register_raster_metadata.py',
       },
@@ -330,7 +345,7 @@ export class EtlService {
 
     return {
       message:
-        'Pipeline de risque exécuté avec succès : risques global, inondation, sécheresse, glissement de terrain et indicateurs zonaux recalculés.',
+        'Pipeline de risque exécuté avec succès : risques global, inondation, sécheresse, glissement de terrain, cyclone et indicateurs zonaux recalculés.',
       steps: results,
       alertes: alertResult,
       alertWarning,

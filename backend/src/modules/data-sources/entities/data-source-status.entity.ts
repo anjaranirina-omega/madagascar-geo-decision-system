@@ -15,6 +15,7 @@ export enum DataSourceCode {
   HYDRORIVERS = 'HYDRORIVERS',
   OPENWEATHER = 'OPENWEATHER',
   NASA_POWER = 'NASA_POWER',
+  IBTRACS = 'IBTRACS',
 }
 
 export enum DataSourceCategory {
@@ -24,6 +25,7 @@ export enum DataSourceCategory {
   LANDCOVER = 'LANDCOVER',
   HYDROLOGY = 'HYDROLOGY',
   WEATHER = 'WEATHER',
+  CYCLONE = 'CYCLONE',
 }
 
 export enum DataSourceStatus {

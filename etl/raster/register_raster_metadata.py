@@ -68,6 +68,28 @@ RASTER_CONFIG = {
         "description": "Raster classifié du risque glissement de terrain : faible, moyen, élevé, critique.",
     },
 
+    # Risque cyclonique
+    "risk/cyclone/cyclone_track_hazard_norm.tif": {
+        "name": "Aléa historique cyclonique normalisé",
+        "type": "CYCLONE_HAZARD_INDEX",
+        "description": "Raster intermédiaire d’aléa cyclonique historique basé sur la proximité, densité et intensité des trajectoires IBTrACS.",
+    },
+    "risk/cyclone/cyclone_hazard_index.tif": {
+        "name": "Aléa cyclonique",
+        "type": "CYCLONE_HAZARD_INDEX",
+        "description": "Raster d’aléa cyclonique basé sur IBTrACS et les précipitations récentes CHIRPS.",
+    },
+    "risk/cyclone/cyclone_risk_index.tif": {
+        "name": "Risque cyclonique",
+        "type": "CYCLONE_RISK_INDEX",
+        "description": "Raster spécifique du risque cyclonique intégrant l’aléa historique, l’exposition humaine et la vulnérabilité de l’occupation du sol.",
+    },
+    "risk/cyclone/cyclone_risk_classified.tif": {
+        "name": "Classes de risque cyclonique",
+        "type": "CYCLONE_RISK_CLASSIFIED",
+        "description": "Raster classifié du risque cyclonique : faible, moyen, élevé, critique.",
+    },
+
     # Couches normalisées
     "normalized/rainfall_norm.tif": {
         "name": "Précipitations normalisées",
