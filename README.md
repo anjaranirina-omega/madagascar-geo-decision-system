@@ -38,3 +38,12 @@ Services prévus :
 7. Dashboard + rapports
 8. Alertes temps réel WebSocket
 9. BI/SOLAP avec Superset/Pentaho
+
+
+## Documentation méthodologique
+
+La documentation des modèles de risque et du pipeline raster est disponible dans :
+
+- `docs/risk-models-methodology.md`
+- `docs/raster-risk-pipeline.md`
+- `docs/future-improvements.md`
