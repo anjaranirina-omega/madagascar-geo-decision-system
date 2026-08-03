@@ -274,6 +274,10 @@ export class EtlService {
         name: 'Calcul des statistiques zonales sécheresse',
         script: 'raster/zonal/compute_drought_zone_indicators.py',
       },
+      {
+        name: 'Calcul des statistiques zonales glissement de terrain',
+        script: 'raster/zonal/compute_landslide_zone_indicators.py',
+      },
     ];
 
     const results = [];
