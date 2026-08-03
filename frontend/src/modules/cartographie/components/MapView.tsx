@@ -225,26 +225,44 @@ export default function MapView() {
         lng: markerPosition.lng,
       };
 
-  const activeRiskLayerType = riskLayers.landslide
-    ? 'LANDSLIDE_RISK_INDEX'
-    : riskLayers.drought
-      ? 'DROUGHT_RISK_INDEX'
-      : riskLayers.flood
-        ? 'FLOOD_RISK_INDEX'
-        : riskLayers.global
-          ? 'RISK_INDEX'
-          : null;
+  const activeRiskLayerType = riskLayers.cyclone
+    ? 'CYCLONE_RISK_INDEX'
+    : riskLayers.landslide
+      ? 'LANDSLIDE_RISK_INDEX'
+      : riskLayers.drought
+        ? 'DROUGHT_RISK_INDEX'
+        : riskLayers.flood
+          ? 'FLOOD_RISK_INDEX'
+          : riskLayers.global
+            ? 'RISK_INDEX'
+            : null;
 
   const activeRiskLayerLabel =
-    activeRiskLayerType === 'LANDSLIDE_RISK_INDEX'
-      ? 'Risque glissement de terrain'
-      : activeRiskLayerType === 'DROUGHT_RISK_INDEX'
-        ? 'Risque sécheresse'
-        : activeRiskLayerType === 'FLOOD_RISK_INDEX'
-          ? 'Risque inondation'
-          : 'Risque global';
+    activeRiskLayerType === 'CYCLONE_RISK_INDEX'
+      ? 'Risque cyclone'
+      : activeRiskLayerType === 'LANDSLIDE_RISK_INDEX'
+        ? 'Risque glissement de terrain'
+        : activeRiskLayerType === 'DROUGHT_RISK_INDEX'
+          ? 'Risque sécheresse'
+          : activeRiskLayerType === 'FLOOD_RISK_INDEX'
+            ? 'Risque inondation'
+            : 'Risque global';
 
   const showRiskRaster = activeRiskLayerType !== null;
+
+  useEffect(() => {
+    const riskTypeFilterByActiveLayer: Record<string, string> = {
+      RISK_INDEX: 'GLOBAL',
+      FLOOD_RISK_INDEX: 'FLOOD',
+      DROUGHT_RISK_INDEX: 'DROUGHT',
+      LANDSLIDE_RISK_INDEX: 'LANDSLIDE',
+      CYCLONE_RISK_INDEX: 'CYCLONE',
+    };
+
+    if (activeRiskLayerType) {
+      setRiskTypeFilter(riskTypeFilterByActiveLayer[activeRiskLayerType] ?? 'GLOBAL');
+    }
+  }, [activeRiskLayerType]);
 
   const selectedLevel = selectedRisk?.level ?? 'Moyen';
 
@@ -442,6 +460,7 @@ export default function MapView() {
       flood: 'FLOOD',
       drought: 'DROUGHT',
       landslide: 'LANDSLIDE',
+      cyclone: 'CYCLONE',
     };
 
     if (value && riskFilterByLayer[key]) {
@@ -453,7 +472,8 @@ export default function MapView() {
         (key === 'global' ||
           key === 'flood' ||
           key === 'drought' ||
-          key === 'landslide') &&
+          key === 'landslide' ||
+          key === 'cyclone') &&
         value
       ) {
         return {
@@ -462,6 +482,7 @@ export default function MapView() {
           flood: key === 'flood',
           drought: key === 'drought',
           landslide: key === 'landslide',
+          cyclone: key === 'cyclone',
         };
       }
 
@@ -548,9 +569,8 @@ export default function MapView() {
               checked={riskLayers.cyclone}
               onChange={(value) => toggleRiskLayer('cyclone', value)}
               label="Risque cyclone"
-              subtitle="Couche spécifique à venir"
+              subtitle="IBTrACS + CHIRPS + occupation du sol + exposition"
               icon={<Zap size={16} />}
-              disabled
             />
 
             <LayerCheckbox
@@ -812,13 +832,15 @@ export default function MapView() {
             <div className="mt-4 text-sm">
               Source :{' '}
               <span className="font-bold">
-                {activeRiskLayerType === 'LANDSLIDE_RISK_INDEX'
-                  ? 'modèle glissement Copernicus DEM / CHIRPS / occupation du sol / exposition'
-                  : activeRiskLayerType === 'DROUGHT_RISK_INDEX'
-                    ? 'modèle sécheresse NASA POWER / CHIRPS / occupation du sol / exposition'
-                    : activeRiskLayerType === 'FLOOD_RISK_INDEX'
-                      ? 'modèle inondation HydroRIVERS / CHIRPS / pente / exposition'
-                      : 'indice climatique composite'}
+                {activeRiskLayerType === 'CYCLONE_RISK_INDEX'
+                  ? 'modèle cyclone IBTrACS / CHIRPS / occupation du sol / exposition'
+                  : activeRiskLayerType === 'LANDSLIDE_RISK_INDEX'
+                    ? 'modèle glissement Copernicus DEM / CHIRPS / occupation du sol / exposition'
+                    : activeRiskLayerType === 'DROUGHT_RISK_INDEX'
+                      ? 'modèle sécheresse NASA POWER / CHIRPS / occupation du sol / exposition'
+                      : activeRiskLayerType === 'FLOOD_RISK_INDEX'
+                        ? 'modèle inondation HydroRIVERS / CHIRPS / pente / exposition'
+                        : 'indice climatique composite'}
               </span>
             </div>
           </div>
@@ -1033,8 +1055,9 @@ function MapFilters({
         options={[
           ['GLOBAL', 'Risque global'],
           ['FLOOD', 'Risque inondation'],
-          ['CYCLONE', 'Cyclone bientôt'],
           ['DROUGHT', 'Risque sécheresse'],
+          ['LANDSLIDE', 'Risque glissement'],
+          ['CYCLONE', 'Risque cyclone'],
         ]}
       />
 
