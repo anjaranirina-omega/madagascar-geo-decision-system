@@ -12,6 +12,7 @@ import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { DataSourcesModule } from './modules/data-sources/data-sources.module';
 import { GeographieModule } from './modules/geographie/geographie.module';
 import { RastersModule } from './modules/rasters/rasters.module';
+import { ReportsModule } from './modules/reports/reports.module';
 import { SigModule } from './modules/sig/sig.module';
 import { SolapModule } from './modules/solap/solap.module';
 import { UsersModule } from './modules/users/users.module';
@@ -40,6 +41,7 @@ import { RisquesModule } from './modules/risques/risques.module';
     GeographieModule,
     AccountRequestsModule,
     RastersModule,
+    ReportsModule,
     RisquesModule,
     CollecteModule,
     ClimateModule,

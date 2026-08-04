@@ -7,6 +7,7 @@ import DashboardPage from '../modules/dashboard/pages/DashboardPage';
 import AnalyseMulticriterePage from '../modules/analyse/pages/AnalyseMulticriterePage';
 import PlaceholderPage from '../shared/components/PlaceholderPage';
 import DonneesPage from '../modules/donnees/pages/DonneesPage';
+import RapportsPage from '../modules/rapports/pages/RapportsPage';
 import UsersPage from '../modules/administration/pages/UsersPage';
 import AccountRequestsPage from '../modules/administration/pages/AccountRequestsPage';
 import PrivateRoute from '../shared/guards/PrivateRoute';
@@ -38,7 +39,7 @@ export default function App() {
             <Route path="/analyse" element={<AnalyseMulticriterePage />} />
             <Route path="/alertes" element={<AlertesPage />} />
             <Route path="/donnees" element={<DonneesPage />} />
-            <Route path="/rapports" element={<PlaceholderPage title="Rapports" />} />
+            <Route path="/rapports" element={<RapportsPage />} />
             <Route path="/parametres" element={<PlaceholderPage title="Paramètres" />} />
             <Route path="/utilisateurs" element={<UsersPage />} />
             <Route path="/demandes-comptes" element={<AccountRequestsPage />} />
