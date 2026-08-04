@@ -297,6 +297,10 @@ export class EtlService {
         name: 'Calcul des statistiques zonales cyclone',
         script: 'raster/zonal/compute_cyclone_zone_indicators.py',
       },
+      {
+        name: 'Construction du data warehouse risque',
+        script: 'dwh/build_risk_star_schema.py',
+      },
     ];
 
     const results = [];
