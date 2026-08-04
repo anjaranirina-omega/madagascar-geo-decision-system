@@ -315,7 +315,13 @@ export class DashboardService {
       SELECT MAX(observed_date) AS latest_date
       FROM climate_observations
       WHERE source = 'NASA_POWER'
-    `);
+        AND (
+          temperature_mean IS NOT NULL
+          OR humidity_mean IS NOT NULL
+          OR wind_speed_mean IS NOT NULL
+          OR precipitation IS NOT NULL
+        )
+`);
 
     const latestDate = latestNasaDate?.latest_date;
 

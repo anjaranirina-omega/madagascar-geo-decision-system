@@ -240,6 +240,22 @@ def process_region(conn, region, start, end):
             f"{yyyymmdd[0:4]}-{yyyymmdd[4:6]}-{yyyymmdd[6:8]}"
         )
 
+        temperature_mean = to_float_or_none(t2m.get(yyyymmdd))
+        humidity_mean = to_float_or_none(rh2m.get(yyyymmdd))
+        wind_speed_mean = to_float_or_none(ws2m.get(yyyymmdd))
+        precipitation = to_float_or_none(prectotcorr.get(yyyymmdd))
+
+        # NASA POWER peut publier une date récente avec des valeurs manquantes.
+        # On ignore les lignes totalement vides pour éviter d'afficher une date
+        # récente mais inexploitable dans le dashboard.
+        if (
+            temperature_mean is None
+            and humidity_mean is None
+            and wind_speed_mean is None
+            and precipitation is None
+        ):
+            continue
+
         payload = {
             "source": SOURCE,
             "zone_type": "region",
@@ -249,10 +265,10 @@ def process_region(conn, region, start, end):
             "latitude": region["latitude"],
             "longitude": region["longitude"],
             "observed_date": observed_date,
-            "temperature_mean": to_float_or_none(t2m.get(yyyymmdd)),
-            "humidity_mean": to_float_or_none(rh2m.get(yyyymmdd)),
-            "wind_speed_mean": to_float_or_none(ws2m.get(yyyymmdd)),
-            "precipitation": to_float_or_none(prectotcorr.get(yyyymmdd)),
+            "temperature_mean": temperature_mean,
+            "humidity_mean": humidity_mean,
+            "wind_speed_mean": wind_speed_mean,
+            "precipitation": precipitation,
             "raw": json.dumps(
                 {
                     "T2M": t2m.get(yyyymmdd),
