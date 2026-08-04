@@ -16,18 +16,47 @@ export class DashboardController {
   }
 
   @Get('top-risk-zones')
-  getTopRiskZones(@Query('limit') limit?: string) {
-    return this.dashboardService.getTopRiskZones(Number(limit ?? 5));
+  getTopRiskZones(
+    @Query('limit') limit?: string,
+    @Query('riskType') riskType?: string,
+    @Query('zoneType') zoneType?: string,
+  ) {
+    return this.dashboardService.getTopRiskZones(
+      Number(limit ?? 10),
+      riskType,
+      zoneType ?? 'region',
+    );
   }
 
   @Get('risk-distribution')
-  getRiskDistribution() {
-    return this.dashboardService.getRiskDistribution();
+  getRiskDistribution(
+    @Query('riskType') riskType?: string,
+    @Query('zoneType') zoneType?: string,
+  ) {
+    return this.dashboardService.getRiskDistribution(
+      riskType,
+      zoneType ?? 'region',
+    );
   }
 
-  @Get('alerts-summary')
-  getAlertsSummary() {
-    return this.dashboardService.getAlertsSummary();
+  @Get('risk-by-region')
+  getRiskByRegion() {
+    return this.dashboardService.getRiskByRegion();
+  }
+
+  @Get('data-sources')
+  getDataSources() {
+    return this.dashboardService.getDataSources();
+  }
+
+  @Get('etl-jobs')
+  getLatestEtlJobs(@Query('limit') limit?: string) {
+    return this.dashboardService.getLatestEtlJobs(Number(limit ?? 5));
+  }
+
+  @Get('rasters')
+  getRasterSummary() {
+    return this.dashboardService.getRasterSummary();
   }
 
   @Get('climate-indicators')

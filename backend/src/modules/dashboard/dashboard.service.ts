@@ -1,6 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 
+type RiskDistribution = {
+  FAIBLE: number;
+  MOYEN: number;
+  ELEVE: number;
+  CRITIQUE: number;
+};
+
 @Injectable()
 export class DashboardService {
   constructor(private readonly dataSource: DataSource) {}
@@ -9,14 +16,75 @@ export class DashboardService {
     return this.dataSource.query(sql, params);
   }
 
+  private emptyDistribution(): RiskDistribution {
+    return {
+      FAIBLE: 0,
+      MOYEN: 0,
+      ELEVE: 0,
+      CRITIQUE: 0,
+    };
+  }
+
   async getSummary() {
-    const [riskStats] = await this.query(`
+    const [globalRisk] = await this.query(`
       SELECT
-        AVG(risk_mean) AS risk_mean_national,
-        COUNT(*) FILTER (WHERE risk_level = 'CRITIQUE') AS critical_zones,
-        COUNT(*) FILTER (WHERE risk_level = 'ELEVE') AS high_zones
-      FROM zone_indicators
-      WHERE zone_type = 'region'
+        AVG(f.risk_mean) AS risk_mean_national,
+        MAX(f.risk_max) AS risk_max_national,
+        SUM(f.population_exposed) AS population_exposed
+      FROM dwh.fact_risk_indicator f
+      JOIN dwh.dim_risk_type rt
+        ON rt.risk_type_key = f.risk_type_key
+      JOIN dwh.dim_zone z
+        ON z.zone_key = f.zone_key
+      WHERE rt.risk_type = 'GLOBAL'
+        AND z.zone_type = 'region'
+    `);
+
+    const [multiRisk] = await this.query(`
+      SELECT
+        COUNT(*) FILTER (WHERE f.risk_level = 'CRITIQUE') AS critical_zones,
+        COUNT(*) FILTER (WHERE f.risk_level = 'ELEVE') AS high_zones,
+        COUNT(*) FILTER (WHERE f.risk_level IN ('ELEVE', 'CRITIQUE')) AS elevated_or_critical_zones,
+        AVG(f.risk_mean) AS multi_risk_mean,
+        MAX(f.risk_max) AS multi_risk_max
+      FROM dwh.fact_risk_indicator f
+      JOIN dwh.dim_risk_type rt
+        ON rt.risk_type_key = f.risk_type_key
+      JOIN dwh.dim_zone z
+        ON z.zone_key = f.zone_key
+      WHERE z.zone_type = 'region'
+    `);
+
+    const [sourceStats] = await this.query(`
+      SELECT
+        COUNT(*) AS total_sources,
+        COUNT(*) FILTER (WHERE status = 'CONNECTED') AS connected_sources,
+        COUNT(*) FILTER (WHERE status = 'FAILED') AS failed_sources,
+        COUNT(*) FILTER (WHERE status = 'PENDING') AS pending_sources
+      FROM data_sources
+      WHERE is_active = true
+    `);
+
+    const [rasterStats] = await this.query(`
+      SELECT
+        COUNT(*) AS active_rasters,
+        MAX(updated_at) AS latest_raster_update
+      FROM raster_layers
+      WHERE is_active = true
+    `);
+
+    const [etlJob] = await this.query(`
+      SELECT
+        id,
+        status,
+        message,
+        started_at,
+        finished_at,
+        duration_ms,
+        updated_at
+      FROM etl_pipeline_jobs
+      ORDER BY created_at DESC
+      LIMIT 1
     `);
 
     const [alertStats] = await this.query(`
@@ -27,121 +95,313 @@ export class DashboardService {
       FROM alertes
     `);
 
-    const [lastRaster] = await this.query(`
-      SELECT updated_at
-      FROM raster_layers
-      WHERE type = 'RISK_INDEX'
-      AND is_active = true
-      ORDER BY updated_at DESC
-      LIMIT 1
-    `);
-
     return {
-      riskMeanNational: Number(riskStats?.risk_mean_national ?? 0),
-      criticalZones: Number(riskStats?.critical_zones ?? 0),
-      highZones: Number(riskStats?.high_zones ?? 0),
+      riskMeanNational: Number(globalRisk?.risk_mean_national ?? 0),
+      riskMaxNational: Number(globalRisk?.risk_max_national ?? 0),
+      multiRiskMean: Number(multiRisk?.multi_risk_mean ?? 0),
+      multiRiskMax: Number(multiRisk?.multi_risk_max ?? 0),
+      criticalZones: Number(multiRisk?.critical_zones ?? 0),
+      highZones: Number(multiRisk?.high_zones ?? 0),
+      elevatedOrCriticalZones: Number(
+        multiRisk?.elevated_or_critical_zones ?? 0,
+      ),
+      populationExposed: Number(globalRisk?.population_exposed ?? 0),
+      connectedSources: Number(sourceStats?.connected_sources ?? 0),
+      totalSources: Number(sourceStats?.total_sources ?? 0),
+      failedSources: Number(sourceStats?.failed_sources ?? 0),
+      pendingSources: Number(sourceStats?.pending_sources ?? 0),
+      activeRasters: Number(rasterStats?.active_rasters ?? 0),
+      latestRasterUpdate: rasterStats?.latest_raster_update ?? null,
+      latestEtlJob: etlJob ?? null,
       activeAlerts: Number(alertStats?.active_alerts ?? 0),
       criticalAlerts: Number(alertStats?.critical_alerts ?? 0),
       totalAlerts: Number(alertStats?.total_alerts ?? 0),
-      lastUpdate: lastRaster?.updated_at ?? null,
+      lastUpdate:
+        etlJob?.finished_at ??
+        rasterStats?.latest_raster_update ??
+        null,
     };
   }
 
-  async getTopRiskZones(limit = 5) {
+  async getTopRiskZones(limit = 10, riskType?: string, zoneType = 'region') {
+    const params: unknown[] = [zoneType];
+    const filters = ['z.zone_type = $1'];
+
+    if (riskType) {
+      params.push(riskType);
+      filters.push(`rt.risk_type = $${params.length}`);
+    }
+
+    params.push(Math.min(Math.max(Number(limit) || 10, 1), 50));
+    const limitParam = `$${params.length}`;
+
     return this.query(
       `
       SELECT
-        zone_type AS "zoneType",
-        zone_id AS "zoneId",
-        zone_nom AS "zoneNom",
-        population_exposed AS "populationExposed",
-        area_km2 AS "areaKm2",
-        risk_mean AS "riskMean",
-        risk_max AS "riskMax",
-        risk_level AS "riskLevel",
-        updated_at AS "updatedAt"
-      FROM zone_indicators
-      WHERE zone_type = 'region'
-      AND risk_max IS NOT NULL
-      ORDER BY risk_max DESC
-      LIMIT $1
+        rt.risk_type AS "riskType",
+        rt.label AS "riskLabel",
+        z.zone_type AS "zoneType",
+        z.zone_id AS "zoneId",
+        z.zone_code AS "zoneCode",
+        z.zone_nom AS "zoneNom",
+        f.population_exposed AS "populationExposed",
+        f.area_km2 AS "areaKm2",
+        f.risk_mean AS "riskMean",
+        f.risk_max AS "riskMax",
+        f.hazard_mean AS "hazardMean",
+        f.risk_level AS "riskLevel",
+        f.operational_updated_at AS "updatedAt"
+      FROM dwh.fact_risk_indicator f
+      JOIN dwh.dim_risk_type rt
+        ON rt.risk_type_key = f.risk_type_key
+      JOIN dwh.dim_zone z
+        ON z.zone_key = f.zone_key
+      WHERE ${filters.join(' AND ')}
+        AND f.risk_max IS NOT NULL
+      ORDER BY f.risk_max DESC NULLS LAST
+      LIMIT ${limitParam}
       `,
-      [limit],
+      params,
     );
   }
 
-  async getRiskDistribution() {
-    const rows = await this.query(`
-      SELECT
-        risk_level AS level,
-        COUNT(*) AS count
-      FROM zone_indicators
-      WHERE zone_type = 'region'
-      AND risk_level IS NOT NULL
-      GROUP BY risk_level
-    `);
+  async getRiskDistribution(riskType?: string, zoneType = 'region') {
+    const params: unknown[] = [zoneType];
+    const filters = ['z.zone_type = $1'];
 
-    const distribution: Record<string, number> = {
-      FAIBLE: 0,
-      MOYEN: 0,
-      ELEVE: 0,
-      CRITIQUE: 0,
-    };
+    if (riskType) {
+      params.push(riskType);
+      filters.push(`rt.risk_type = $${params.length}`);
+    }
+
+    const rows = await this.query(
+      `
+      SELECT
+        f.risk_level AS level,
+        COUNT(*) AS count
+      FROM dwh.fact_risk_indicator f
+      JOIN dwh.dim_risk_type rt
+        ON rt.risk_type_key = f.risk_type_key
+      JOIN dwh.dim_zone z
+        ON z.zone_key = f.zone_key
+      WHERE ${filters.join(' AND ')}
+        AND f.risk_level IS NOT NULL
+      GROUP BY f.risk_level
+      `,
+      params,
+    );
+
+    const distribution = this.emptyDistribution();
 
     for (const row of rows) {
-      distribution[row.level] = Number(row.count);
+      if (row.level in distribution) {
+        distribution[row.level as keyof RiskDistribution] = Number(row.count);
+      }
     }
 
     return distribution;
   }
 
-  async getAlertsSummary() {
-    const [stats] = await this.query(`
+  async getRiskByRegion() {
+    const rows = await this.query(`
       SELECT
-        COUNT(*) AS total,
-        COUNT(*) FILTER (WHERE status = 'ACTIVE') AS active,
-        COUNT(*) FILTER (WHERE status = 'RESOLUE') AS resolved,
-        COUNT(*) FILTER (WHERE status = 'IGNOREE') AS ignored,
-        COUNT(*) FILTER (WHERE niveau = 'CRITIQUE') AS critical,
-        COUNT(*) FILTER (WHERE niveau = 'ELEVE') AS high
-      FROM alertes
+        z.zone_id AS "zoneId",
+        z.zone_nom AS "zoneNom",
+        rt.risk_type AS "riskType",
+        AVG(f.risk_mean) AS "riskMean",
+        MAX(f.risk_max) AS "riskMax",
+        MAX(f.risk_level) AS "riskLevel"
+      FROM dwh.fact_risk_indicator f
+      JOIN dwh.dim_risk_type rt
+        ON rt.risk_type_key = f.risk_type_key
+      JOIN dwh.dim_zone z
+        ON z.zone_key = f.zone_key
+      WHERE z.zone_type = 'region'
+      GROUP BY
+        z.zone_id,
+        z.zone_nom,
+        rt.risk_type
+      ORDER BY
+        z.zone_nom,
+        rt.risk_type
     `);
 
-    return {
-      total: Number(stats?.total ?? 0),
-      active: Number(stats?.active ?? 0),
-      resolved: Number(stats?.resolved ?? 0),
-      ignored: Number(stats?.ignored ?? 0),
-      critical: Number(stats?.critical ?? 0),
-      high: Number(stats?.high ?? 0),
-    };
+    const grouped = new Map<string, any>();
+
+    for (const row of rows) {
+      const key = row.zoneId;
+
+      if (!grouped.has(key)) {
+        grouped.set(key, {
+          zoneId: row.zoneId,
+          zoneNom: row.zoneNom,
+          risks: {},
+        });
+      }
+
+      grouped.get(key).risks[row.riskType] = {
+        riskMean:
+          row.riskMean !== null && row.riskMean !== undefined
+            ? Number(row.riskMean)
+            : null,
+        riskMax:
+          row.riskMax !== null && row.riskMax !== undefined
+            ? Number(row.riskMax)
+            : null,
+        riskLevel: row.riskLevel ?? null,
+      };
+    }
+
+    return Array.from(grouped.values());
+  }
+
+  async getDataSources() {
+    return this.query(`
+      SELECT
+        code,
+        name,
+        category::text AS category,
+        provider,
+        status::text AS status,
+        last_sync_at AS "lastSyncAt",
+        last_success_at AS "lastSuccessAt",
+        last_error_at AS "lastErrorAt",
+        last_error_message AS "lastErrorMessage"
+      FROM data_sources
+      WHERE is_active = true
+      ORDER BY category, name
+    `);
+  }
+
+  async getLatestEtlJobs(limit = 5) {
+    return this.query(
+      `
+      SELECT
+        id,
+        type,
+        status,
+        message,
+        started_at AS "startedAt",
+        finished_at AS "finishedAt",
+        duration_ms AS "durationMs",
+        created_at AS "createdAt",
+        updated_at AS "updatedAt"
+      FROM etl_pipeline_jobs
+      ORDER BY created_at DESC
+      LIMIT $1
+      `,
+      [Math.min(Math.max(Number(limit) || 5, 1), 20)],
+    );
+  }
+
+  async getRasterSummary() {
+    return this.query(`
+      SELECT
+        type::text AS type,
+        name,
+        file_path AS "filePath",
+        min_value AS "minValue",
+        max_value AS "maxValue",
+        mean_value AS "meanValue",
+        updated_at AS "updatedAt"
+      FROM raster_layers
+      WHERE is_active = true
+      ORDER BY updated_at DESC
+    `);
   }
 
   async getClimateIndicators() {
+    const [latestNasaDate] = await this.query(`
+      SELECT MAX(observed_date) AS latest_date
+      FROM climate_observations
+      WHERE source = 'NASA_POWER'
+    `);
+
+    const latestDate = latestNasaDate?.latest_date;
+
+    if (!latestDate) {
+      return {
+        date: null,
+        temperature: {
+          label: 'Température moyenne',
+          value: null,
+          unit: '°C',
+          source: 'NASA POWER',
+        },
+        humidity: {
+          label: 'Humidité moyenne',
+          value: null,
+          unit: '%',
+          source: 'NASA POWER',
+        },
+        wind: {
+          label: 'Vitesse du vent moyenne',
+          value: null,
+          unit: 'm/s',
+          source: 'NASA POWER',
+        },
+        precipitation: {
+          label: 'Précipitations moyennes',
+          value: null,
+          unit: 'mm',
+          source: 'NASA POWER',
+        },
+      };
+    }
+
+    const [stats] = await this.query(
+      `
+      SELECT
+        AVG(temperature_mean) AS temperature_mean,
+        AVG(humidity_mean) AS humidity_mean,
+        AVG(wind_speed_mean) AS wind_speed_mean,
+        AVG(precipitation) AS precipitation
+      FROM climate_observations
+      WHERE source = 'NASA_POWER'
+        AND observed_date = $1
+      `,
+      [latestDate],
+    );
+
     return {
-      rainfall: {
-        label: 'Précipitations',
-        value: 45.2,
-        unit: 'mm',
-        source: 'CHIRPS',
-      },
+      date: latestDate,
       temperature: {
-        label: 'Température',
-        value: 27.6,
+        label: 'Température moyenne',
+        value:
+          stats?.temperature_mean !== null &&
+          stats?.temperature_mean !== undefined
+            ? Number(stats.temperature_mean)
+            : null,
         unit: '°C',
-        source: 'NASA POWER à venir',
+        source: 'NASA POWER',
       },
       humidity: {
-        label: 'Humidité',
-        value: 78,
+        label: 'Humidité moyenne',
+        value:
+          stats?.humidity_mean !== null && stats?.humidity_mean !== undefined
+            ? Number(stats.humidity_mean)
+            : null,
         unit: '%',
-        source: 'NASA POWER à venir',
+        source: 'NASA POWER',
       },
       wind: {
-        label: 'Vitesse du vent',
-        value: 12.4,
-        unit: 'km/h',
-        source: 'OpenWeather à venir',
+        label: 'Vitesse du vent moyenne',
+        value:
+          stats?.wind_speed_mean !== null &&
+          stats?.wind_speed_mean !== undefined
+            ? Number(stats.wind_speed_mean)
+            : null,
+        unit: 'm/s',
+        source: 'NASA POWER',
+      },
+      precipitation: {
+        label: 'Précipitations moyennes',
+        value:
+          stats?.precipitation !== null && stats?.precipitation !== undefined
+            ? Number(stats.precipitation)
+            : null,
+        unit: 'mm',
+        source: 'NASA POWER',
       },
     };
   }
