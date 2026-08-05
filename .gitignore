@@ -127,3 +127,6 @@ etl/data/hydrology/raw/**/*.pdf
 
 # Generated reports
 backend/uploads/reports/
+
+# Generated report map snapshots
+etl/data/reports/maps/

@@ -9,3 +9,5 @@ rasterio
 numpy
 matplotlib
 scipy
+
+Pillow
