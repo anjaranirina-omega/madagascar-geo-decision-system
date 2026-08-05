@@ -1,5 +1,21 @@
 import { api } from '../../../services/api';
 
+export type GeneratedReport = {
+  id: string;
+  title: string;
+  reportType: string;
+  format: string;
+  fileName: string;
+  mimeType: string;
+  filters?: Record<string, unknown> | null;
+  generatedBy?: string | null;
+  version: string;
+  status: string;
+  fileSizeBytes?: number | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
 function downloadBlob(blob: Blob, filename: string) {
   const url = window.URL.createObjectURL(blob);
   const link = document.createElement('a');
@@ -24,6 +40,27 @@ async function downloadReport(endpoint: string, filename: string, params?: unkno
 }
 
 export const reportsService = {
+  async getHistory(limit = 50) {
+    const response = await api.get<GeneratedReport[]>('/reports/history', {
+      params: {
+        limit,
+      },
+    });
+
+    return response.data;
+  },
+
+  async downloadHistory(report: GeneratedReport) {
+    return downloadReport(
+      `/reports/history/${report.id}/download`,
+      report.fileName,
+    );
+  },
+
+  async deleteHistory(id: string) {
+    await api.delete(`/reports/history/${id}`);
+  },
+
   downloadNationalPdf() {
     return downloadReport(
       '/reports/national-risk.pdf',

@@ -1,22 +1,16 @@
 import {
   BarChart3,
-  CalendarClock,
-  CheckCircle2,
   ChevronRight,
-  Clock,
   Database,
   Download,
   FileSpreadsheet,
   FileText,
   Layers,
-  Map,
   RadioTower,
-  Settings2,
   Sparkles,
-  Table,
 } from 'lucide-react';
-import { useMemo, useState } from 'react';
-import { reportsService } from '../services/reports.service';
+import { useEffect, useMemo, useState } from 'react';
+import { GeneratedReport, reportsService } from '../services/reports.service';
 
 type ReportAction = {
   title: string;
@@ -92,7 +86,13 @@ function SectionCard({
   );
 }
 
-function ReportCard({ report }: { report: ReportAction }) {
+function ReportCard({
+  report,
+  onDownloaded,
+}: {
+  report: ReportAction;
+  onDownloaded?: () => Promise<void> | void;
+}) {
   const [loading, setLoading] = useState(false);
   const Icon = report.icon;
 
@@ -101,6 +101,7 @@ function ReportCard({ report }: { report: ReportAction }) {
 
     try {
       await report.action();
+      await onDownloaded?.();
     } finally {
       setLoading(false);
     }
@@ -139,6 +140,42 @@ function ReportCard({ report }: { report: ReportAction }) {
   );
 }
 
+function formatReportDate(value?: string | null) {
+  if (!value) return '—';
+
+  /*
+   * Les dates venant de PostgreSQL peuvent arriver sans suffixe timezone.
+   * On les interprète comme UTC puis on les affiche explicitement en heure Madagascar.
+   */
+  const hasTimezone = /Z$|[+-]\d{2}:?\d{2}$/.test(value);
+  const normalizedValue = hasTimezone ? value : `${value}Z`;
+  const date = new Date(normalizedValue);
+
+  if (Number.isNaN(date.getTime())) {
+    return '—';
+  }
+
+  return new Intl.DateTimeFormat('fr-FR', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+    timeZone: 'Indian/Antananarivo',
+  }).format(date);
+}
+
+function formatFileSize(value?: number | null) {
+  if (!value) return '—';
+
+  if (value > 1024 * 1024) {
+    return `${(value / 1024 / 1024).toFixed(1)} MB`;
+  }
+
+  if (value > 1024) {
+    return `${(value / 1024).toFixed(1)} KB`;
+  }
+
+  return `${value} B`;
+}
+
 function ChoiceButton({
   active,
   label,
@@ -168,6 +205,8 @@ export default function RapportsPage() {
   const [wizardOpen, setWizardOpen] = useState(false);
   const [step, setStep] = useState<WizardStep>(1);
   const [loadingWizard, setLoadingWizard] = useState(false);
+  const [history, setHistory] = useState<GeneratedReport[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
 
   const [reportType, setReportType] = useState('national');
   const [period, setPeriod] = useState('30d');
@@ -180,6 +219,34 @@ export default function RapportsPage() {
   const [zoneLevel, setZoneLevel] = useState('madagascar');
   const [selectedElements, setSelectedElements] =
     useState<string[]>(elementOptions);
+
+  const loadHistory = async () => {
+    setHistoryLoading(true);
+
+    try {
+      const response = await reportsService.getHistory(50);
+      setHistory(response);
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadHistory();
+  }, []);
+
+  const downloadHistoryReport = async (report: GeneratedReport) => {
+    await reportsService.downloadHistory(report);
+  };
+
+  const deleteHistoryReport = async (id: string) => {
+    if (!window.confirm('Supprimer ce rapport de l’historique ?')) {
+      return;
+    }
+
+    await reportsService.deleteHistory(id);
+    await loadHistory();
+  };
 
   const reports: ReportAction[] = [
     {
@@ -320,6 +387,8 @@ export default function RapportsPage() {
         });
       }
 
+      await loadHistory();
+
       setWizardOpen(false);
       setStep(1);
     } finally {
@@ -360,21 +429,11 @@ export default function RapportsPage() {
               <Sparkles size={18} />
               Nouveau rapport
             </button>
-
-            <button
-              type="button"
-              disabled
-              className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl border border-white/15 bg-white/10 px-5 text-sm font-black text-white/70"
-              title="La planification sera ajoutée dans une prochaine feature."
-            >
-              <CalendarClock size={18} />
-              Génération automatique
-            </button>
           </div>
         </div>
       </section>
 
-      <section className="grid grid-cols-1 gap-5 md:grid-cols-3">
+      <section className="grid grid-cols-1 gap-5 md:grid-cols-2">
         <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
@@ -408,26 +467,6 @@ export default function RapportsPage() {
             </span>
           </div>
         </div>
-
-        <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-          <div className="text-sm font-bold text-slate-500">
-            Planification
-          </div>
-          <div className="mt-3 space-y-2 text-sm text-slate-600">
-            <div className="flex items-center gap-2">
-              <CheckCircle2 size={16} className="text-slate-300" />
-              Quotidien — prochaine feature
-            </div>
-            <div className="flex items-center gap-2">
-              <CheckCircle2 size={16} className="text-slate-300" />
-              Hebdomadaire — prochaine feature
-            </div>
-            <div className="flex items-center gap-2">
-              <CheckCircle2 size={16} className="text-slate-300" />
-              Mensuel — prochaine feature
-            </div>
-          </div>
-        </div>
       </section>
 
       <SectionCard
@@ -436,26 +475,98 @@ export default function RapportsPage() {
       >
         <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
           {reports.map((report) => (
-            <ReportCard key={`${report.title}-${report.format}`} report={report} />
+            <ReportCard
+              key={`${report.title}-${report.format}`}
+              report={report}
+              onDownloaded={loadHistory}
+            />
           ))}
         </div>
       </SectionCard>
 
       <section className="grid grid-cols-1 gap-6 xl:grid-cols-3">
         <SectionCard
-          title="Historique"
-          subtitle="L’historique persistant sera ajouté dans la prochaine feature."
+          title="Historique des rapports"
+          subtitle="Rapports réellement générés et stockés par la plateforme."
         >
-          <div className="space-y-3 text-sm">
-            {['National', 'Régional', 'District', 'Communal'].map((item) => (
-              <div
-                key={item}
-                className="flex items-center justify-between rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3"
-              >
-                <span className="font-bold text-slate-700">{item}</span>
-                <span className="text-xs text-slate-400">à venir</span>
+          <div className="mb-4 flex items-center justify-between">
+            <span className="text-xs font-bold text-slate-500">
+              {history.length} rapport(s)
+            </span>
+
+            <button
+              type="button"
+              onClick={loadHistory}
+              disabled={historyLoading}
+              className="rounded-xl border border-slate-200 px-3 py-2 text-xs font-bold text-slate-600 disabled:opacity-50"
+            >
+              {historyLoading ? 'Chargement...' : 'Actualiser'}
+            </button>
+          </div>
+
+          <div className="max-h-[360px] overflow-y-auto rounded-2xl border border-slate-100">
+            {history.length > 0 ? (
+              <table className="w-full text-left text-sm">
+                <thead className="sticky top-0 bg-slate-50 text-xs uppercase text-slate-400">
+                  <tr>
+                    <th className="px-3 py-3">Titre</th>
+                    <th className="px-3 py-3">Type</th>
+                    <th className="px-3 py-3">Format</th>
+                    <th className="px-3 py-3">Date</th>
+                    <th className="px-3 py-3">Taille</th>
+                    <th className="px-3 py-3 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {history.map((report) => (
+                    <tr
+                      key={report.id}
+                      className="border-t border-slate-100 hover:bg-slate-50"
+                    >
+                      <td className="px-3 py-3 font-bold text-slate-800">
+                        {report.title}
+                      </td>
+                      <td className="px-3 py-3 text-slate-500">
+                        {report.reportType}
+                      </td>
+                      <td className="px-3 py-3">
+                        <span className="rounded-full bg-blue-50 px-2 py-1 text-xs font-black text-blue-700">
+                          {report.format}
+                        </span>
+                      </td>
+                      <td className="px-3 py-3 text-slate-500">
+                        {formatReportDate(report.createdAt)}
+                      </td>
+                      <td className="px-3 py-3 text-slate-500">
+                        {formatFileSize(report.fileSizeBytes)}
+                      </td>
+                      <td className="px-3 py-3 text-right">
+                        <div className="flex justify-end gap-2">
+                          <button
+                            type="button"
+                            onClick={() => downloadHistoryReport(report)}
+                            className="rounded-lg bg-green-50 px-2 py-1 text-xs font-black text-green-700"
+                          >
+                            Télécharger
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => deleteHistoryReport(report.id)}
+                            className="rounded-lg bg-red-50 px-2 py-1 text-xs font-black text-red-700"
+                          >
+                            Supprimer
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <div className="p-6 text-center text-sm text-slate-500">
+                Aucun rapport généré pour le moment.
               </div>
-            ))}
+            )}
           </div>
         </SectionCard>
 

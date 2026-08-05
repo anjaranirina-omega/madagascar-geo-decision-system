@@ -124,3 +124,6 @@ etl/data/hydrology/raw/HydroRIVERS_v10_af_shp/
 etl/data/hydrology/raw/**/*.sbn
 etl/data/hydrology/raw/**/*.sbx
 etl/data/hydrology/raw/**/*.pdf
+
+# Generated reports
+backend/uploads/reports/
