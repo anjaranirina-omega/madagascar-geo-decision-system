@@ -35,6 +35,28 @@ const riskOptions = [
   { id: 'CYCLONE', label: 'Cyclone' },
 ];
 
+const reportTypeLabels: Record<string, string> = {
+  national: 'Rapport national',
+  region: 'Rapport régional',
+  district: 'Rapport par district',
+  commune: 'Rapport communal',
+  custom: 'Rapport personnalisé',
+};
+
+const periodLabels: Record<string, string> = {
+  today: "Aujourd'hui",
+  '7d': '7 derniers jours',
+  '30d': '30 derniers jours',
+  custom: 'Période personnalisée',
+};
+
+const zoneLevelLabels: Record<string, string> = {
+  madagascar: 'Madagascar',
+  region: 'Région',
+  district: 'District',
+  commune: 'Commune',
+};
+
 const elementOptions = [
   'Carte raster',
   'Carte administrative',
@@ -251,26 +273,49 @@ export default function RapportsPage() {
     );
   };
 
+  const getZoneTypeForReport = () => {
+    if (reportType === 'commune' || zoneLevel === 'commune') {
+      return 'commune';
+    }
+
+    if (reportType === 'district' || zoneLevel === 'district') {
+      return 'district';
+    }
+
+    return 'region';
+  };
+
+  const getRiskTypeForReport = () => {
+    if (selectedRisks.length === 1) {
+      return selectedRisks[0];
+    }
+
+    return undefined;
+  };
+
   const generateWizardReport = async () => {
     setLoadingWizard(true);
 
     try {
+      const zoneType = getZoneTypeForReport();
+      const riskType = getRiskTypeForReport();
+
       /*
        * V1 professionnelle :
-       * l'assistant collecte les paramètres et déclenche pour l'instant
-       * le rapport national multi-risques. Les paramètres seront exploités
-       * finement dans les features reports-history / reports-advanced-filters.
+       * - le rapport national génère le PDF national complet ;
+       * - les autres types génèrent un rapport PDF des zones exposées avec
+       *   filtrage par niveau administratif et par risque si un seul risque est choisi.
+       *
+       * Les filtres période, zone précise et éléments à intégrer sont conservés
+       * côté interface et seront exploités dans les prochaines features :
+       * reports-history, reports-comparison, report-raster-map-snapshots.
        */
-      if (reportType === 'national') {
+      if (reportType === 'national' && zoneLevel === 'madagascar') {
         await reportsService.downloadNationalPdf();
       } else {
         await reportsService.downloadTopRiskZonesPdf({
-          zoneType:
-            zoneLevel === 'commune'
-              ? 'commune'
-              : zoneLevel === 'district'
-                ? 'district'
-                : 'region',
+          zoneType,
+          riskType,
           limit: 100,
         });
       }
@@ -615,11 +660,15 @@ export default function RapportsPage() {
                     Résumé de configuration
                   </div>
                   <div className="mt-2 space-y-1">
-                    <div>Type : {reportType}</div>
-                    <div>Période : {period}</div>
-                    <div>Risques : {selectedRisksLabel}</div>
-                    <div>Zone : {zoneLevel}</div>
+                    <div>Type : {reportTypeLabels[reportType] ?? reportType}</div>
+                    <div>Période : {periodLabels[period] ?? period}</div>
+                    <div>Risques : {selectedRisksLabel || 'Tous risques'}</div>
+                    <div>Zone : {zoneLevelLabels[zoneLevel] ?? zoneLevel}</div>
                     <div>Éléments : {selectedElements.length} sélectionnés</div>
+                  </div>
+
+                  <div className="mt-3 rounded-xl bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-700">
+                    Les filtres avancés seront exploités plus finement dans les prochaines versions du module rapports.
                   </div>
                 </div>
               </div>
@@ -652,7 +701,11 @@ export default function RapportsPage() {
                   className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-green-500 to-blue-600 px-5 py-2 text-sm font-black text-white disabled:opacity-60"
                 >
                   <Download size={17} />
-                  {loadingWizard ? 'Génération...' : 'Générer le rapport'}
+                  {loadingWizard
+                    ? 'Génération...'
+                    : reportType === 'national' && zoneLevel === 'madagascar'
+                      ? 'Générer le rapport national'
+                      : 'Générer le rapport des zones exposées'}
                 </button>
               )}
             </div>

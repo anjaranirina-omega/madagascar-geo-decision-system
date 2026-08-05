@@ -273,25 +273,31 @@ export class ReportsService {
   }
 
   async getNationalRiskPdf() {
-    const [riskSummary, topZones, dataSources, etlJobs, rasters] =
+    const [riskSummaryRows, topZoneRows, dataSourceRows, etlJobRows, rasterRows] =
       await Promise.all([
         this.getRiskSummaryRows(),
         this.getTopRiskZonesRows({
           zoneType: 'region',
-          limit: 12,
+          limit: 20,
         }),
         this.getDataSourcesRows(),
         this.getEtlJobsRows(5),
         this.getRasterRows(),
       ]);
 
+    const riskSummary = riskSummaryRows as Record<string, any>[];
+    const topZones = topZoneRows as Record<string, any>[];
+    const dataSources = dataSourceRows as Record<string, any>[];
+    const etlJobs = etlJobRows as Record<string, any>[];
+    const rasters = rasterRows as Record<string, any>[];
+
     const [climateStats] = await this.query(`
       SELECT
-        MAX(observed_date) AS latest_date,
-        AVG(temperature_mean) AS temperature_mean,
-        AVG(humidity_mean) AS humidity_mean,
-        AVG(wind_speed_mean) AS wind_speed_mean,
-        AVG(precipitation) AS precipitation
+        MAX(observed_date) AS "latestDate",
+        AVG(temperature_mean) AS "temperatureMean",
+        AVG(humidity_mean) AS "humidityMean",
+        AVG(wind_speed_mean) AS "windSpeedMean",
+        AVG(precipitation) AS "precipitation"
       FROM climate_observations
       WHERE source = 'NASA_POWER'
         AND observed_date = (
@@ -311,324 +317,724 @@ export class ReportsService {
       SELECT
         COUNT(*) AS total,
         COUNT(*) FILTER (WHERE status = 'ACTIVE') AS active,
-        COUNT(*) FILTER (WHERE niveau = 'CRITIQUE') AS critical
+        COUNT(*) FILTER (WHERE niveau = 'CRITIQUE') AS critical,
+        COUNT(*) FILTER (WHERE niveau = 'ELEVE') AS high,
+        COUNT(*) FILTER (WHERE niveau = 'MOYEN') AS medium
       FROM alertes
     `);
 
-    const dominantRisk = [...riskSummary]
-      .filter((row) => row.zoneType === 'region')
-      .sort((a, b) => Number(b.riskMax ?? 0) - Number(a.riskMax ?? 0))[0];
+    const [zoneStats] = await this.query(`
+      SELECT
+        COUNT(*) FILTER (WHERE zone_type = 'region') AS regions,
+        COUNT(*) FILTER (WHERE zone_type = 'district') AS districts,
+        COUNT(*) FILTER (WHERE zone_type = 'commune') AS communes,
+        SUM(area_km2) FILTER (WHERE zone_type = 'region') AS area_km2
+      FROM dwh.dim_zone
+    `);
 
-    const topRegionNames = topZones
-      .slice(0, 3)
-      .map((row: Record<string, any>) => row.zoneNom)
-      .filter(Boolean)
-      .join(', ');
+    const globalRegion = riskSummary.find(
+      (row: Record<string, any>) =>
+        row.riskType === 'GLOBAL' && row.zoneType === 'region',
+    );
+
+    const regionalRows = riskSummary.filter(
+      (row: Record<string, any>) => row.zoneType === 'region',
+    );
+
+    const dominantRisk = [...regionalRows].sort(
+      (a: Record<string, any>, b: Record<string, any>) =>
+        Number(b.riskMax ?? 0) - Number(a.riskMax ?? 0),
+    )[0];
+
+    const uniqueTopRegions = Array.from(
+      new Set(
+        topZones
+          .map((row: Record<string, any>) => row.zoneNom)
+          .filter(Boolean),
+      ),
+    ).slice(0, 3);
+
+    const topRegionNames = uniqueTopRegions.join(', ');
+    const latestJob = etlJobs[0];
+
+    const riskLabel = (riskType: string) => {
+      const labels: Record<string, string> = {
+        GLOBAL: 'Global',
+        FLOOD: 'Inondation',
+        DROUGHT: 'Sécheresse',
+        LANDSLIDE: 'Glissement de terrain',
+        CYCLONE: 'Cyclone',
+      };
+
+      return labels[riskType] ?? riskType;
+    };
+
+    const levelFromScore = (value: unknown) => {
+      const score = Number(value ?? 0);
+
+      if (score <= 30) return 'FAIBLE';
+      if (score <= 60) return 'MOYEN';
+      if (score <= 80) return 'ÉLEVÉ';
+
+      return 'CRITIQUE';
+    };
 
     const recommendationForRisk = (riskType: string) => {
       switch (riskType) {
         case 'FLOOD':
-          return 'Renforcer la surveillance hydrologique, vérifier les zones basses et préparer les dispositifs de prévention communautaire.';
+          return [
+            'Renforcer la surveillance hydrologique.',
+            'Vérifier les zones basses et les communes proches des cours d’eau.',
+            'Préparer les dispositifs d’information communautaire.',
+          ];
         case 'DROUGHT':
-          return 'Renforcer le suivi hydrométéorologique, anticiper les besoins en eau et prioriser les zones agricoles sensibles.';
+          return [
+            'Renforcer le suivi hydrométéorologique.',
+            'Anticiper les besoins en eau.',
+            'Prioriser les zones agricoles sensibles.',
+          ];
         case 'LANDSLIDE':
-          return 'Surveiller les versants instables, limiter l’exposition dans les zones de forte pente et préparer les autorités locales.';
+          return [
+            'Surveiller les versants instables.',
+            'Limiter l’exposition dans les zones de forte pente.',
+            'Informer les autorités locales avant les épisodes pluvieux.',
+          ];
         case 'CYCLONE':
-          return 'Vérifier les plans de contingence, préparer les communications d’urgence et surveiller les bulletins cycloniques officiels.';
+          return [
+            'Vérifier les plans de contingence.',
+            'Surveiller les bulletins cycloniques officiels.',
+            'Préparer les communications d’urgence.',
+          ];
         default:
-          return 'Maintenir la veille multi-risques et prioriser les zones présentant les indices les plus élevés.';
+          return [
+            'Maintenir la veille multi-risques.',
+            'Prioriser les zones présentant les indices les plus élevés.',
+            'Mettre à jour les données après chaque pipeline ETL.',
+          ];
       }
     };
 
     return this.createPdfBuffer((doc) => {
       const pageWidth = doc.page.width;
       const pageHeight = doc.page.height;
+      const margin = 42;
+      const contentWidth = pageWidth - margin * 2;
+      let pageNumber = 1;
 
-      // Page de garde
+      const addPage = () => {
+        doc.addPage();
+        pageNumber += 1;
+        addHeader();
+        doc.y = 70;
+      };
+
+      const addHeader = () => {
+        doc
+          .fontSize(9)
+          .font('Helvetica-Bold')
+          .fillColor('#0f172a')
+          .text(
+            'RISKCLIM-MG — Rapport d’analyse des risques climatiques',
+            margin,
+            24,
+            {
+              width: contentWidth - 40,
+              lineBreak: false,
+            },
+          );
+
+        doc
+          .fontSize(9)
+          .font('Helvetica')
+          .fillColor('#64748b')
+          .text(String(pageNumber), pageWidth - 80, 24, {
+            width: 40,
+            align: 'right',
+            lineBreak: false,
+          });
+
+        doc
+          .moveTo(margin, 42)
+          .lineTo(pageWidth - margin, 42)
+          .strokeColor('#e2e8f0')
+          .stroke();
+
+        doc.x = margin;
+      };
+
+      const ensureSpace = (height = 80) => {
+        if (doc.y + height > pageHeight - 60) {
+          addPage();
+        }
+      };
+
+      const sectionTitle = (title: string) => {
+        ensureSpace(50);
+        doc.x = margin;
+        doc
+          .moveDown(0.8)
+          .fontSize(16)
+          .font('Helvetica-Bold')
+          .fillColor('#0f172a')
+          .text(title, margin, doc.y, {
+            width: contentWidth,
+          });
+        doc.moveDown(0.4);
+      };
+
+      const subTitle = (title: string) => {
+        ensureSpace(40);
+        doc.x = margin;
+        doc
+          .moveDown(0.4)
+          .fontSize(12)
+          .font('Helvetica-Bold')
+          .fillColor('#0f172a')
+          .text(title, margin, doc.y, {
+            width: contentWidth,
+          });
+        doc.moveDown(0.2);
+      };
+
+      const paragraph = (value: string) => {
+        ensureSpace(45);
+        doc.x = margin;
+        doc
+          .fontSize(10)
+          .font('Helvetica')
+          .fillColor('#334155')
+          .text(value, margin, doc.y, {
+            width: contentWidth,
+            lineGap: 4,
+          });
+        doc.moveDown(0.25);
+      };
+
+      const bullet = (value: string) => {
+        ensureSpace(25);
+        doc.x = margin;
+        doc
+          .fontSize(10)
+          .font('Helvetica')
+          .fillColor('#334155')
+          .text(`• ${value}`, margin + 10, doc.y, {
+            width: contentWidth - 10,
+            lineGap: 3,
+          });
+      };
+
+      const checkBullet = (value: string) => {
+        ensureSpace(25);
+        doc.x = margin;
+        doc
+          .fontSize(10)
+          .font('Helvetica')
+          .fillColor('#334155')
+          .text(`✓ ${value}`, margin + 10, doc.y, {
+            width: contentWidth - 10,
+            lineGap: 3,
+          });
+      };
+
+      const infoRow = (label: string, value: string) => {
+        ensureSpace(22);
+
+        const y = doc.y;
+
+        doc
+          .fontSize(9)
+          .font('Helvetica-Bold')
+          .fillColor('#475569')
+          .text(label, margin, y, {
+            width: 150,
+            lineBreak: false,
+          });
+
+        doc
+          .fontSize(9)
+          .font('Helvetica')
+          .fillColor('#0f172a')
+          .text(value, margin + 155, y, {
+            width: contentWidth - 155,
+          });
+
+        doc.y = Math.max(doc.y, y + 16);
+      };
+
+      const scoreBox = (
+        label: string,
+        score: unknown,
+        level: string,
+        x: number,
+        y: number,
+      ) => {
+        doc
+          .roundedRect(x, y, 250, 76, 12)
+          .fillAndStroke('#f8fafc', '#e2e8f0');
+
+        doc
+          .fontSize(9)
+          .font('Helvetica-Bold')
+          .fillColor('#64748b')
+          .text(label, x + 14, y + 12, {
+            width: 220,
+          });
+
+        doc
+          .fontSize(24)
+          .font('Helvetica-Bold')
+          .fillColor('#0f172a')
+          .text(`${this.formatNumber(score)}`, x + 14, y + 30, {
+            width: 80,
+            lineBreak: false,
+          });
+
+        doc
+          .fontSize(10)
+          .font('Helvetica')
+          .fillColor('#64748b')
+          .text('/100', x + 88, y + 40, {
+            width: 50,
+            lineBreak: false,
+          });
+
+        doc
+          .fontSize(9)
+          .font('Helvetica-Bold')
+          .fillColor('#2563eb')
+          .text(`Niveau : ${level}`, x + 145, y + 39, {
+            width: 90,
+          });
+
+        doc.x = margin;
+      };
+
+      const tableRow = (
+        values: string[],
+        widths: number[],
+        options?: {
+          header?: boolean;
+        },
+      ) => {
+        ensureSpace(28);
+
+        const y = doc.y;
+        let x = margin;
+
+        if (options?.header) {
+          doc.rect(margin, y - 3, contentWidth, 22).fill('#f1f5f9');
+        }
+
+        values.forEach((value, index) => {
+          doc
+            .fontSize(options?.header ? 8 : 9)
+            .font(options?.header ? 'Helvetica-Bold' : 'Helvetica')
+            .fillColor(options?.header ? '#475569' : '#0f172a')
+            .text(value, x + 4, y + 2, {
+              width: widths[index] - 8,
+              lineBreak: false,
+              ellipsis: true,
+            });
+
+          x += widths[index];
+        });
+
+        doc.y = y + 23;
+        doc
+          .moveTo(margin, doc.y)
+          .lineTo(pageWidth - margin, doc.y)
+          .strokeColor('#e2e8f0')
+          .stroke();
+      };
+
+      // PAGE 1 — Couverture
       doc.rect(0, 0, pageWidth, pageHeight).fill('#0f172a');
 
       doc
         .fillColor('#22c55e')
-        .fontSize(16)
+        .fontSize(18)
         .font('Helvetica-Bold')
-        .text('RISKCLIM-MG', 42, 70);
+        .text('RISKCLIM-MG', margin, 70, {
+          width: contentWidth,
+        });
+
+      doc
+        .fillColor('#cbd5e1')
+        .fontSize(11)
+        .font('Helvetica')
+        .text(
+          'Système géodécisionnel spatial d’aide à la décision climatique',
+          margin,
+          96,
+          {
+            width: contentWidth,
+          },
+        );
 
       doc
         .fillColor('#ffffff')
-        .fontSize(28)
+        .fontSize(26)
         .font('Helvetica-Bold')
-        .text('Rapport décisionnel', 42, 120);
+        .text('RAPPORT D’ANALYSE DES RISQUES CLIMATIQUES', margin, 150, {
+          width: contentWidth,
+          lineGap: 3,
+        });
 
       doc
-        .fontSize(18)
+        .fontSize(12)
         .font('Helvetica')
         .fillColor('#cbd5e1')
-        .text('Analyse des risques climatiques', 42, 160);
+        .text('Période', margin, 235, {
+          width: contentWidth,
+        })
+        .font('Helvetica-Bold')
+        .fillColor('#ffffff')
+        .text('Dernières données consolidées', margin, 252, {
+          width: contentWidth,
+        });
 
       doc
-        .fontSize(14)
-        .fillColor('#94a3b8')
-        .text('Madagascar', 42, 200)
-        .text(new Date().toLocaleDateString('fr-FR', {
-          month: 'long',
-          year: 'numeric',
-        }), 42, 222);
+        .font('Helvetica')
+        .fillColor('#cbd5e1')
+        .text('Zone', margin, 295, {
+          width: contentWidth,
+        })
+        .font('Helvetica-Bold')
+        .fillColor('#ffffff')
+        .text('Madagascar', margin, 312, {
+          width: contentWidth,
+        });
+
+      doc
+        .font('Helvetica')
+        .fillColor('#cbd5e1')
+        .text('Date de génération', margin, 355, {
+          width: contentWidth,
+        })
+        .font('Helvetica-Bold')
+        .fillColor('#ffffff')
+        .text(new Date().toLocaleDateString('fr-FR'), margin, 372, {
+          width: contentWidth,
+        });
 
       doc
         .fontSize(9)
-        .fillColor('#64748b')
+        .font('Helvetica')
+        .fillColor('#94a3b8')
         .text(
-          `Généré le ${new Date().toLocaleString('fr-FR')}`,
-          42,
+          'Document généré automatiquement par RISKCLIM-MG',
+          margin,
           pageHeight - 80,
+          {
+            width: contentWidth,
+          },
         );
 
-      doc.addPage();
+      // PAGE 2 — Sommaire
+      addPage();
 
-      // Sommaire
       doc
-        .fillColor('#0f172a')
-        .fontSize(20)
+        .fontSize(22)
         .font('Helvetica-Bold')
-        .text('Sommaire');
-
-      const summaryItems = [
-        '1. Contexte',
-        '2. Méthodologie',
-        '3. Sources de données',
-        '4. Résumé exécutif',
-        '5. Résultats multi-risques',
-        '6. Indicateurs climatiques',
-        '7. Recommandations',
-        '8. Métadonnées',
-      ];
+        .fillColor('#0f172a')
+        .text('Sommaire', margin, doc.y, {
+          width: contentWidth,
+        });
 
       doc.moveDown();
 
-      summaryItems.forEach((item) => {
-        doc.fontSize(11).font('Helvetica').text(item);
-      });
-
-      doc.addPage();
-
-      // Contexte
-      doc
-        .fontSize(18)
-        .font('Helvetica-Bold')
-        .fillColor('#0f172a')
-        .text('1. Contexte');
-
-      doc
-        .moveDown(0.5)
-        .fontSize(10)
-        .font('Helvetica')
-        .fillColor('#334155')
-        .text(
-          'Ce rapport présente une synthèse décisionnelle des risques climatiques à Madagascar. Il s’appuie sur les rasters de risque, les statistiques zonales, le data warehouse, les sources de données réelles et les derniers traitements ETL.',
-          { lineGap: 4 },
-        );
-
-      doc
-        .moveDown()
-        .fontSize(18)
-        .font('Helvetica-Bold')
-        .fillColor('#0f172a')
-        .text('2. Méthodologie');
-
-      doc
-        .moveDown(0.5)
-        .fontSize(10)
-        .font('Helvetica')
-        .fillColor('#334155')
-        .text(
-          'Les indices de risque sont exprimés sur une échelle de 0 à 100. Les risques spécifiques utilisent des modèles métier distincts : inondation, sécheresse, glissement de terrain et cyclone historique. Les indicateurs zonaux sont calculés directement à partir des pixels raster contenus dans chaque région, district ou commune.',
-          { lineGap: 4 },
-        );
-
-      doc
-        .moveDown()
-        .fontSize(18)
-        .font('Helvetica-Bold')
-        .fillColor('#0f172a')
-        .text('3. Sources de données');
-
-      doc.moveDown(0.5);
-
-      dataSources.forEach((source: Record<string, any>) => {
+      [
+        '1. Résumé exécutif',
+        '2. Présentation de la zone',
+        '3. Synthèse des risques',
+        '4. Analyse détaillée',
+        '5. Évolution temporelle',
+        '6. Carte des risques',
+        '7. Alertes',
+        '8. Recommandations',
+        '9. Sources de données',
+        '10. Annexes et métadonnées',
+      ].forEach((item) => {
         doc
-          .fontSize(9)
+          .fontSize(11)
           .font('Helvetica')
           .fillColor('#334155')
-          .text(
-            `${source.name} — ${source.provider ?? 'fournisseur non précisé'} — ${source.status}`,
-          );
+          .text(item, margin, doc.y, {
+            width: contentWidth,
+            lineGap: 8,
+          });
       });
 
-      doc.addPage();
+      // PAGE 3 — Résumé + zone + synthèse
+      addPage();
 
-      // Résumé exécutif
-      doc
-        .fontSize(18)
-        .font('Helvetica-Bold')
-        .fillColor('#0f172a')
-        .text('4. Résumé exécutif');
+      sectionTitle('1. Résumé exécutif');
 
-      doc.moveDown(0.5);
+      const globalScore = globalRegion?.riskMean ?? null;
+      const globalLevel = levelFromScore(globalScore);
 
-      doc
-        .fontSize(11)
-        .font('Helvetica')
-        .fillColor('#334155')
-        .text(
-          `Le risque dominant observé dans les indicateurs régionaux est : ${dominantRisk?.riskLabel ?? 'non déterminé'}.`,
-          { lineGap: 5 },
-        )
-        .text(
-          `Les régions les plus exposées sont : ${topRegionNames || 'non disponibles'}.`,
-          { lineGap: 5 },
-        )
-        .text(
-          `Alertes actives : ${this.formatNumber(alertStats?.active, 0)} ; alertes critiques : ${this.formatNumber(alertStats?.critical, 0)}.`,
-          { lineGap: 5 },
+      scoreBox('Risque global moyen', globalScore, globalLevel, margin, doc.y);
+
+      doc.y += 92;
+
+      paragraph(
+        `Le système identifie un risque global moyen national de ${this.formatNumber(
+          globalScore,
+        )}/100. Le risque dominant observé dans les indicateurs régionaux est : ${
+          dominantRisk?.riskLabel ?? 'non déterminé'
+        }.`,
+      );
+
+      paragraph(
+        `Les régions les plus exposées selon les derniers calculs sont : ${
+          topRegionNames || 'non disponibles'
+        }.`,
+      );
+
+      paragraph(
+        `Alertes actives : ${this.formatNumber(
+          alertStats?.active,
+          0,
+        )}. Alertes critiques : ${this.formatNumber(alertStats?.critical, 0)}.`,
+      );
+
+      paragraph(
+        'Recommandation générale : maintenir une veille multi-risques et prioriser les zones présentant les indices les plus élevés.',
+      );
+
+      sectionTitle('2. Présentation de la zone');
+
+      infoRow('Nom de la zone :', 'Madagascar');
+      infoRow('Surface estimée :', `${this.formatNumber(zoneStats?.area_km2, 0)} km²`);
+      infoRow('Nombre de régions :', this.formatNumber(zoneStats?.regions, 0));
+      infoRow('Nombre de districts :', this.formatNumber(zoneStats?.districts, 0));
+      infoRow('Nombre de communes :', this.formatNumber(zoneStats?.communes, 0));
+      infoRow('Date de calcul :', new Date().toLocaleDateString('fr-FR'));
+
+      sectionTitle('3. Synthèse des risques');
+
+      tableRow(['Risque', 'Score moyen', 'Score max', 'Niveau'], [190, 110, 110, 110], {
+        header: true,
+      });
+
+      regionalRows.forEach((row: Record<string, any>) => {
+        tableRow(
+          [
+            row.riskLabel ?? row.riskType,
+            this.formatNumber(row.riskMean),
+            this.formatNumber(row.riskMax),
+            levelFromScore(row.riskMax),
+          ],
+          [190, 110, 110, 110],
+        );
+      });
+
+      // PAGE 4 — Analyse détaillée
+      addPage();
+
+      sectionTitle('4. Analyse détaillée');
+
+      const modelDetails = [
+        {
+          riskType: 'FLOOD',
+          title: '4.1 Inondation',
+          criteria: [
+            'CHIRPS — pluie récente',
+            'HydroRIVERS — proximité hydrographique',
+            'Pente inversée — zones favorables à l’accumulation',
+            'WorldPop — population exposée',
+            'ESA WorldCover — occupation du sol',
+          ],
+        },
+        {
+          riskType: 'DROUGHT',
+          title: '4.2 Sécheresse',
+          criteria: [
+            'NASA POWER — déficit pluviométrique et température',
+            'CHIRPS — pluie récente',
+            'ESA WorldCover — sensibilité agricole et territoriale',
+            'WorldPop — exposition humaine',
+          ],
+        },
+        {
+          riskType: 'LANDSLIDE',
+          title: '4.3 Glissement de terrain',
+          criteria: [
+            'Copernicus DEM — pente',
+            'CHIRPS — pluie récente',
+            'ESA WorldCover — sensibilité de l’occupation du sol',
+            'WorldPop — exposition humaine',
+          ],
+        },
+        {
+          riskType: 'CYCLONE',
+          title: '4.4 Cyclone',
+          criteria: [
+            'IBTrACS — trajectoires cycloniques historiques',
+            'CHIRPS — pluie récente',
+            'ESA WorldCover — vulnérabilité de l’occupation du sol',
+            'WorldPop — exposition humaine',
+          ],
+        },
+      ];
+
+      modelDetails.forEach((model) => {
+        const row = regionalRows.find(
+          (item: Record<string, any>) => item.riskType === model.riskType,
         );
 
-      doc
-        .moveDown()
-        .fontSize(18)
-        .font('Helvetica-Bold')
-        .fillColor('#0f172a')
-        .text('5. Résultats multi-risques');
+        subTitle(model.title);
 
-      doc.moveDown(0.5);
+        paragraph(
+          `Score moyen : ${this.formatNumber(
+            row?.riskMean,
+          )}/100 — Score maximum : ${this.formatNumber(
+            row?.riskMax,
+          )}/100 — Niveau : ${levelFromScore(row?.riskMax)}.`,
+        );
 
-      riskSummary.slice(0, 18).forEach((row: Record<string, any>) => {
-        const barWidth = Math.min(Number(row.riskMax ?? 0) * 2.2, 220);
+        model.criteria.forEach((criterion) => bullet(criterion));
 
-        doc
-          .fontSize(9)
-          .font('Helvetica-Bold')
-          .fillColor('#0f172a')
-          .text(`${row.riskLabel} / ${row.zoneType}`);
-
-        doc
-          .fontSize(8)
-          .font('Helvetica')
-          .fillColor('#475569')
-          .text(
-            `Moyen ${this.formatNumber(row.riskMean)} — Max ${this.formatNumber(row.riskMax)} — Zones ${row.zoneCount}`,
-          );
-
-        const x = doc.x;
-        const y = doc.y + 3;
-
-        doc.rect(x, y, 230, 5).fill('#e2e8f0');
-        doc.rect(x, y, barWidth, 5).fill('#2563eb');
-
-        doc.moveDown(0.8);
+        paragraph(
+          `Interprétation : le modèle ${riskLabel(
+            model.riskType,
+          ).toLowerCase()} combine les facteurs physiques, environnementaux et d’exposition afin de produire un indice d’aide à la décision.`,
+        );
       });
 
-      doc.addPage();
+      // PAGE 5 — Évolution + cartes + alertes
+      addPage();
 
-      // Top zones
-      doc
-        .fontSize(18)
-        .font('Helvetica-Bold')
-        .fillColor('#0f172a')
-        .text('Top zones exposées');
+      sectionTitle('5. Évolution temporelle');
 
-      doc.moveDown(0.5);
-
-      topZones.forEach((row: Record<string, any>, index: number) => {
-        doc
-          .fontSize(10)
-          .font('Helvetica-Bold')
-          .fillColor('#0f172a')
-          .text(`${index + 1}. ${row.zoneNom} — ${row.riskLabel}`);
-
-        doc
-          .fontSize(9)
-          .font('Helvetica')
-          .fillColor('#475569')
-          .text(
-            `Niveau : ${row.riskLevel ?? '—'} | Moyen : ${this.formatNumber(row.riskMean)} | Max : ${this.formatNumber(row.riskMax)} | Population exposée : ${this.formatNumber(row.populationExposed, 0)}`,
-            { lineGap: 3 },
-          )
-          .moveDown(0.4);
-      });
+      paragraph(
+        'Les séries temporelles sont calculées à partir du data warehouse et des observations climatiques disponibles. Les graphiques temporels détaillés seront enrichis dans les futures versions du module rapports.',
+      );
 
       doc
-        .moveDown()
-        .fontSize(18)
-        .font('Helvetica-Bold')
-        .fillColor('#0f172a')
-        .text('6. Indicateurs climatiques');
-
-      doc.moveDown(0.5);
+        .roundedRect(margin, doc.y, contentWidth, 70, 12)
+        .fillAndStroke('#f8fafc', '#e2e8f0');
 
       doc
+        .fillColor('#475569')
         .fontSize(10)
         .font('Helvetica')
-        .fillColor('#334155')
-        .text(`Date NASA POWER : ${climateStats?.latest_date ?? '—'}`)
-        .text(`Température moyenne : ${this.formatNumber(climateStats?.temperature_mean)} °C`)
-        .text(`Humidité moyenne : ${this.formatNumber(climateStats?.humidity_mean)} %`)
-        .text(`Vent moyen : ${this.formatNumber(climateStats?.wind_speed_mean)} m/s`)
-        .text(`Précipitations moyennes : ${this.formatNumber(climateStats?.precipitation)} mm`);
+        .text(
+          'Graphiques prévus : évolution du risque global, précipitations, température, humidité et zones critiques.',
+          margin + 16,
+          doc.y + 23,
+          {
+            width: contentWidth - 32,
+          },
+        );
 
-      doc.addPage();
+      doc.y += 88;
 
-      // Recommandations
-      doc
-        .fontSize(18)
-        .font('Helvetica-Bold')
-        .fillColor('#0f172a')
-        .text('7. Recommandations automatiques');
+      sectionTitle('6. Carte des risques');
 
-      doc.moveDown(0.5);
+      paragraph(
+        'Les cartes raster suivantes sont disponibles dans la plateforme cartographique : risque global, inondation, sécheresse, glissement de terrain et cyclone. L’intégration automatique des cartes raster en image dans le PDF sera ajoutée dans la feature report-raster-map-snapshots.',
+      );
 
-      topZones.slice(0, 6).forEach((row: Record<string, any>) => {
+      const legendY = doc.y + 6;
+      ['Faible', 'Moyen', 'Élevé', 'Critique'].forEach((label, index) => {
+        const colors = ['#22c55e', '#eab308', '#f97316', '#ef4444'];
+        const x = margin + index * 110;
+
+        doc.rect(x, legendY, 14, 14).fill(colors[index]);
         doc
-          .fontSize(10)
-          .font('Helvetica-Bold')
-          .fillColor('#0f172a')
-          .text(`${row.zoneNom} — ${row.riskLabel}`);
-
-        doc
+          .fillColor('#334155')
           .fontSize(9)
           .font('Helvetica')
-          .fillColor('#475569')
-          .text(recommendationForRisk(row.riskType), { lineGap: 3 })
-          .moveDown(0.5);
+          .text(label, x + 20, legendY + 2, {
+            width: 80,
+          });
       });
 
+      doc.y = legendY + 35;
+
+      sectionTitle('7. Alertes');
+
+      infoRow('Total alertes :', this.formatNumber(alertStats?.total, 0));
+      infoRow('Alertes actives :', this.formatNumber(alertStats?.active, 0));
+      infoRow('Alertes critiques :', this.formatNumber(alertStats?.critical, 0));
+      infoRow('Alertes élevées :', this.formatNumber(alertStats?.high, 0));
+      infoRow('Alertes moyennes :', this.formatNumber(alertStats?.medium, 0));
+
+      // PAGE 6 — Recommandations + sources
+      addPage();
+
+      sectionTitle('8. Recommandations');
+
+      topZones.slice(0, 6).forEach((row: Record<string, any>) => {
+        ensureSpace(80);
+
+        doc
+          .fontSize(11)
+          .font('Helvetica-Bold')
+          .fillColor('#0f172a')
+          .text(`${row.zoneNom} — ${row.riskLabel}`, margin, doc.y, {
+            width: contentWidth,
+          });
+
+        recommendationForRisk(row.riskType).forEach((item) => {
+          checkBullet(item);
+        });
+
+        doc.moveDown(0.3);
+      });
+
+      sectionTitle('9. Sources de données');
+
+      dataSources.forEach((source: Record<string, any>) => {
+        bullet(
+          `${source.name} — ${source.provider ?? '—'} — statut : ${source.status}`,
+        );
+      });
+
+      subTitle('Informations pipeline');
+
+      infoRow('Dernier ETL :', latestJob?.status ?? '—');
+      infoRow('Message :', latestJob?.message ?? '—');
+      infoRow(
+        'Durée :',
+        latestJob?.durationMs
+          ? `${(latestJob.durationMs / 1000).toFixed(1)} s`
+          : '—',
+      );
+
+      // PAGE 7 — Annexes
+      addPage();
+
+      sectionTitle('10. Annexes et métadonnées');
+
+      bullet('Liste des régions, districts et communes intégrée dans la base géographique.');
+      bullet('Statistiques zonales calculées directement depuis les rasters.');
+      bullet('Poids dynamiques appliqués au risque global.');
+      bullet('Poids experts initiaux appliqués aux modèles spécifiques.');
+      bullet('Métadonnées raster enregistrées dans la table raster_layers.');
+      bullet('Logs ETL disponibles dans les jobs de pipeline.');
+
+      doc.moveDown();
+
+      infoRow('Date de génération :', new Date().toLocaleString('fr-FR'));
+      infoRow('Version du modèle :', 'V1 multi-risques documentée');
+      infoRow('Nombre de sources :', this.formatNumber(dataSources.length, 0));
+      infoRow('Nombre de rasters actifs :', this.formatNumber(rasters.length, 0));
+
       doc
-        .moveDown()
-        .fontSize(18)
+        .moveDown(2)
+        .fontSize(10)
         .font('Helvetica-Bold')
         .fillColor('#0f172a')
-        .text('8. Métadonnées');
-
-      doc.moveDown(0.5);
-
-      const latestJob = etlJobs[0];
-
-      doc
-        .fontSize(9)
-        .font('Helvetica')
-        .fillColor('#334155')
-        .text(`Date de génération : ${new Date().toLocaleString('fr-FR')}`)
-        .text(`Dernier ETL : ${latestJob?.status ?? '—'} — ${latestJob?.finishedAt ?? latestJob?.updatedAt ?? '—'}`)
-        .text(`Nombre de sources : ${dataSources.length}`)
-        .text(`Nombre de rasters actifs : ${rasters.length}`)
-        .text('Version du modèle : V1 multi-risques documentée');
-
-      doc
-        .moveDown()
-        .fontSize(9)
-        .fillColor('#64748b')
         .text(
-          'Ce rapport est généré automatiquement à partir de données réelles. Il constitue une aide à la décision et ne remplace pas l’expertise des autorités compétentes.',
-          { lineGap: 4 },
+          'Fin du rapport — Document généré automatiquement par RISKCLIM-MG',
+          margin,
+          doc.y,
+          {
+            width: contentWidth,
+            align: 'center',
+          },
         );
     });
   }
@@ -690,42 +1096,415 @@ export class ReportsService {
   }
 
   async getTopRiskZonesPdf(query: TopRiskQuery = {}) {
-    const rows = await this.getTopRiskZonesRows(query);
+    const [topZoneRows, dataSourceRows, etlJobRows] = await Promise.all([
+      this.getTopRiskZonesRows(query),
+      this.getDataSourcesRows(),
+      this.getEtlJobsRows(3),
+    ]);
+
+    const rows = topZoneRows as Record<string, any>[];
+    const dataSources = dataSourceRows as Record<string, any>[];
+    const etlJobs = etlJobRows as Record<string, any>[];
+
+    const riskLabel = (riskType: string) => {
+      const labels: Record<string, string> = {
+        GLOBAL: 'Global',
+        FLOOD: 'Inondation',
+        DROUGHT: 'Sécheresse',
+        LANDSLIDE: 'Glissement de terrain',
+        CYCLONE: 'Cyclone',
+      };
+
+      return labels[riskType] ?? riskType ?? 'Tous risques';
+    };
+
+    const levelFromScore = (value: unknown) => {
+      const score = Number(value ?? 0);
+
+      if (score <= 30) return 'FAIBLE';
+      if (score <= 60) return 'MOYEN';
+      if (score <= 80) return 'ÉLEVÉ';
+
+      return 'CRITIQUE';
+    };
+
+    const recommendationForRisk = (riskType: string) => {
+      switch (riskType) {
+        case 'FLOOD':
+          return 'Renforcer la surveillance hydrologique et prioriser les zones basses proches des cours d’eau.';
+        case 'DROUGHT':
+          return 'Anticiper les besoins en eau et prioriser le suivi des zones agricoles sensibles.';
+        case 'LANDSLIDE':
+          return 'Surveiller les versants instables et informer les autorités locales avant les épisodes pluvieux.';
+        case 'CYCLONE':
+          return 'Vérifier les plans de contingence et suivre les bulletins cycloniques officiels.';
+        default:
+          return 'Maintenir la veille multi-risques et prioriser les zones présentant les scores les plus élevés.';
+      }
+    };
 
     return this.createPdfBuffer((doc) => {
-      doc
-        .fontSize(18)
-        .font('Helvetica-Bold')
-        .text('RISKCLIM-MG — Top zones exposées');
+      const pageWidth = doc.page.width;
+      const pageHeight = doc.page.height;
+      const margin = 42;
+      const contentWidth = pageWidth - margin * 2;
+      let pageNumber = 1;
 
-      doc
-        .moveDown(0.5)
-        .fontSize(9)
-        .font('Helvetica')
-        .fillColor('#475569')
-        .text(`Généré le : ${new Date().toLocaleString('fr-FR')}`);
-
-      doc.moveDown().fillColor('#0f172a');
-
-      for (const row of rows) {
+      const addHeader = () => {
         doc
-          .fontSize(10)
+          .fontSize(9)
           .font('Helvetica-Bold')
-          .text(`${row.riskLabel} — ${row.zoneNom}`);
+          .fillColor('#0f172a')
+          .text('RISKCLIM-MG — Rapport des zones exposées', margin, 24, {
+            width: contentWidth - 40,
+            lineBreak: false,
+          });
 
         doc
           .fontSize(9)
           .font('Helvetica')
-          .text(
-            `Niveau : ${row.riskLevel ?? '—'} | Moyen : ${this.formatNumber(
-              row.riskMean,
-            )} | Max : ${this.formatNumber(row.riskMax)} | Population : ${this.formatNumber(
-              row.populationExposed,
-              0,
-            )}`,
-          )
-          .moveDown(0.4);
+          .fillColor('#64748b')
+          .text(String(pageNumber), pageWidth - 80, 24, {
+            width: 40,
+            align: 'right',
+            lineBreak: false,
+          });
+
+        doc
+          .moveTo(margin, 42)
+          .lineTo(pageWidth - margin, 42)
+          .strokeColor('#e2e8f0')
+          .stroke();
+
+        doc.x = margin;
+      };
+
+      const addPage = () => {
+        doc.addPage();
+        pageNumber += 1;
+        addHeader();
+        doc.y = 70;
+      };
+
+      const ensureSpace = (height = 70) => {
+        if (doc.y + height > pageHeight - 60) {
+          addPage();
+        }
+      };
+
+      const sectionTitle = (title: string) => {
+        ensureSpace(50);
+        doc.x = margin;
+        doc
+          .moveDown(0.7)
+          .fontSize(16)
+          .font('Helvetica-Bold')
+          .fillColor('#0f172a')
+          .text(title, margin, doc.y, {
+            width: contentWidth,
+          });
+        doc.moveDown(0.35);
+      };
+
+      const paragraph = (value: string) => {
+        ensureSpace(42);
+        doc.x = margin;
+        doc
+          .fontSize(10)
+          .font('Helvetica')
+          .fillColor('#334155')
+          .text(value, margin, doc.y, {
+            width: contentWidth,
+            lineGap: 4,
+          });
+        doc.moveDown(0.25);
+      };
+
+      const infoRow = (label: string, value: string) => {
+        ensureSpace(22);
+
+        const y = doc.y;
+
+        doc
+          .fontSize(9)
+          .font('Helvetica-Bold')
+          .fillColor('#475569')
+          .text(label, margin, y, {
+            width: 145,
+            lineBreak: false,
+          });
+
+        doc
+          .fontSize(9)
+          .font('Helvetica')
+          .fillColor('#0f172a')
+          .text(value, margin + 150, y, {
+            width: contentWidth - 150,
+          });
+
+        doc.y = Math.max(doc.y, y + 16);
+      };
+
+      const tableRow = (
+        values: string[],
+        widths: number[],
+        options?: {
+          header?: boolean;
+        },
+      ) => {
+        ensureSpace(30);
+
+        const y = doc.y;
+        let x = margin;
+
+        if (options?.header) {
+          doc.rect(margin, y - 3, contentWidth, 24).fill('#f1f5f9');
+        }
+
+        values.forEach((value, index) => {
+          doc
+            .fontSize(options?.header ? 8 : 8.5)
+            .font(options?.header ? 'Helvetica-Bold' : 'Helvetica')
+            .fillColor(options?.header ? '#475569' : '#0f172a')
+            .text(value, x + 4, y + 3, {
+              width: widths[index] - 8,
+              lineBreak: false,
+              ellipsis: true,
+            });
+
+          x += widths[index];
+        });
+
+        doc.y = y + 25;
+        doc
+          .moveTo(margin, doc.y)
+          .lineTo(pageWidth - margin, doc.y)
+          .strokeColor('#e2e8f0')
+          .stroke();
+      };
+
+      const bullet = (value: string) => {
+        ensureSpace(24);
+        doc
+          .fontSize(9.5)
+          .font('Helvetica')
+          .fillColor('#334155')
+          .text(`• ${value}`, margin + 10, doc.y, {
+            width: contentWidth - 10,
+            lineGap: 3,
+          });
+      };
+
+      const mainRiskLabel = query.riskType
+        ? riskLabel(query.riskType)
+        : 'Tous risques';
+      const zoneTypeLabel = query.zoneType ?? 'region';
+
+      // Page de garde
+      doc.rect(0, 0, pageWidth, pageHeight).fill('#0f172a');
+
+      doc
+        .fillColor('#22c55e')
+        .fontSize(18)
+        .font('Helvetica-Bold')
+        .text('RISKCLIM-MG', margin, 70, {
+          width: contentWidth,
+        });
+
+      doc
+        .fillColor('#cbd5e1')
+        .fontSize(11)
+        .font('Helvetica')
+        .text(
+          'Système géodécisionnel spatial d’aide à la décision climatique',
+          margin,
+          96,
+          {
+            width: contentWidth,
+          },
+        );
+
+      doc
+        .fillColor('#ffffff')
+        .fontSize(25)
+        .font('Helvetica-Bold')
+        .text('RAPPORT DES ZONES EXPOSÉES', margin, 150, {
+          width: contentWidth,
+          lineGap: 3,
+        });
+
+      doc
+        .fontSize(12)
+        .font('Helvetica')
+        .fillColor('#cbd5e1')
+        .text('Type de risque', margin, 235, {
+          width: contentWidth,
+        })
+        .font('Helvetica-Bold')
+        .fillColor('#ffffff')
+        .text(mainRiskLabel, margin, 252, {
+          width: contentWidth,
+        });
+
+      doc
+        .font('Helvetica')
+        .fillColor('#cbd5e1')
+        .text('Niveau administratif', margin, 295, {
+          width: contentWidth,
+        })
+        .font('Helvetica-Bold')
+        .fillColor('#ffffff')
+        .text(zoneTypeLabel, margin, 312, {
+          width: contentWidth,
+        });
+
+      doc
+        .font('Helvetica')
+        .fillColor('#cbd5e1')
+        .text('Date de génération', margin, 355, {
+          width: contentWidth,
+        })
+        .font('Helvetica-Bold')
+        .fillColor('#ffffff')
+        .text(new Date().toLocaleDateString('fr-FR'), margin, 372, {
+          width: contentWidth,
+        });
+
+      doc
+        .fontSize(9)
+        .font('Helvetica')
+        .fillColor('#94a3b8')
+        .text(
+          'Document généré automatiquement par RISKCLIM-MG',
+          margin,
+          pageHeight - 80,
+          {
+            width: contentWidth,
+          },
+        );
+
+      // Page contenu
+      addPage();
+
+      sectionTitle('1. Contexte');
+
+      paragraph(
+        'Ce rapport présente les zones administratives les plus exposées selon les derniers indicateurs de risque disponibles dans le data warehouse RISKCLIM-MG.',
+      );
+
+      paragraph(
+        'Les résultats sont calculés à partir des rasters de risque, des statistiques zonales, des sources de données réelles et du pipeline ETL.',
+      );
+
+      sectionTitle('2. Paramètres du rapport');
+
+      infoRow('Risque :', mainRiskLabel);
+      infoRow('Niveau administratif :', zoneTypeLabel);
+      infoRow('Nombre de lignes :', this.formatNumber(rows.length, 0));
+      infoRow('Date de génération :', new Date().toLocaleString('fr-FR'));
+
+      sectionTitle('3. Résumé exécutif');
+
+      if (rows.length > 0) {
+        const top = rows[0];
+
+        paragraph(
+          `La zone la plus exposée est ${top.zoneNom ?? '—'} pour le risque ${
+            top.riskLabel ?? mainRiskLabel
+          }, avec un score maximum de ${this.formatNumber(
+            top.riskMax,
+          )}/100 et un niveau ${top.riskLevel ?? levelFromScore(top.riskMax)}.`,
+        );
+
+        const distinctZones = Array.from(
+          new Set(rows.map((row) => row.zoneNom).filter(Boolean)),
+        ).slice(0, 5);
+
+        paragraph(
+          `Les principales zones à surveiller sont : ${
+            distinctZones.join(', ') || 'non disponibles'
+          }.`,
+        );
+      } else {
+        paragraph('Aucune zone exposée n’est disponible pour les paramètres sélectionnés.');
       }
+
+      sectionTitle('4. Tableau statistique');
+
+      tableRow(
+        ['#', 'Risque', 'Zone', 'Moyen', 'Max', 'Niveau', 'Population'],
+        [35, 95, 135, 60, 60, 70, 55],
+        { header: true },
+      );
+
+      rows.forEach((row: Record<string, any>, index: number) => {
+        tableRow(
+          [
+            String(index + 1),
+            row.riskLabel ?? riskLabel(row.riskType),
+            row.zoneNom ?? '—',
+            this.formatNumber(row.riskMean),
+            this.formatNumber(row.riskMax),
+            row.riskLevel ?? levelFromScore(row.riskMax),
+            this.formatNumber(row.populationExposed, 0),
+          ],
+          [35, 95, 135, 60, 60, 70, 55],
+        );
+      });
+
+      sectionTitle('5. Recommandations');
+
+      rows.slice(0, 8).forEach((row: Record<string, any>) => {
+        ensureSpace(50);
+
+        doc
+          .fontSize(10)
+          .font('Helvetica-Bold')
+          .fillColor('#0f172a')
+          .text(`${row.zoneNom ?? 'Zone'} — ${row.riskLabel ?? riskLabel(row.riskType)}`, margin, doc.y, {
+            width: contentWidth,
+          });
+
+        bullet(recommendationForRisk(row.riskType));
+        doc.moveDown(0.3);
+      });
+
+      sectionTitle('6. Sources de données');
+
+      dataSources.forEach((source: Record<string, any>) => {
+        bullet(
+          `${source.name} — ${source.provider ?? '—'} — statut : ${source.status}`,
+        );
+      });
+
+      sectionTitle('7. Métadonnées');
+
+      const latestJob = etlJobs[0];
+
+      infoRow('Dernier ETL :', latestJob?.status ?? '—');
+      infoRow('Message ETL :', latestJob?.message ?? '—');
+      infoRow(
+        'Durée ETL :',
+        latestJob?.durationMs
+          ? `${(latestJob.durationMs / 1000).toFixed(1)} s`
+          : '—',
+      );
+      infoRow('Version du rapport :', '1.0');
+
+      doc
+        .moveDown(1.5)
+        .fontSize(10)
+        .font('Helvetica-Bold')
+        .fillColor('#0f172a')
+        .text(
+          'Fin du rapport — Document généré automatiquement par RISKCLIM-MG',
+          margin,
+          doc.y,
+          {
+            width: contentWidth,
+            align: 'center',
+          },
+        );
     });
   }
 
