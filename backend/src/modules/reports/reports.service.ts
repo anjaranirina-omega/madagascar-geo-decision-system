@@ -1,5 +1,9 @@
-import { Injectable } from '@nestjs/common';
-import { DataSource } from 'typeorm';
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { existsSync, mkdirSync, unlinkSync, writeFileSync } from 'fs';
+import { join, resolve } from 'path';
+import { DataSource, Repository } from 'typeorm';
+import { GeneratedReport } from './entities/generated-report.entity';
 import ExcelJS = require('exceljs');
 import PDFDocument = require('pdfkit');
 
@@ -11,7 +15,12 @@ type TopRiskQuery = {
 
 @Injectable()
 export class ReportsService {
-  constructor(private readonly dataSource: DataSource) {}
+  constructor(
+    private readonly dataSource: DataSource,
+
+    @InjectRepository(GeneratedReport)
+    private readonly generatedReportsRepository: Repository<GeneratedReport>,
+  ) {}
 
   private query(sql: string, params: unknown[] = []) {
     return this.dataSource.query(sql, params);
@@ -140,6 +149,96 @@ export class ReportsService {
     return numberValue.toLocaleString('fr-FR', {
       maximumFractionDigits: digits,
     });
+  }
+
+  private getReportsDir() {
+    const projectRoot = resolve(process.cwd(), '..');
+    const reportsDir = join(projectRoot, 'backend', 'uploads', 'reports');
+
+    if (!existsSync(reportsDir)) {
+      mkdirSync(reportsDir, { recursive: true });
+    }
+
+    return reportsDir;
+  }
+
+  async saveGeneratedReport(payload: {
+    title: string;
+    reportType: string;
+    format: string;
+    fileName: string;
+    mimeType: string;
+    content: Buffer | string;
+    filters?: Record<string, unknown> | null;
+    generatedBy?: string | null;
+  }) {
+    const reportsDir = this.getReportsDir();
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const safeFileName = `${timestamp}-${payload.fileName}`.replace(/\s+/g, '-');
+    const absolutePath = join(reportsDir, safeFileName);
+
+    const buffer =
+      typeof payload.content === 'string'
+        ? Buffer.from(payload.content, 'utf8')
+        : payload.content;
+
+    writeFileSync(absolutePath, buffer);
+
+    const relativePath = `backend/uploads/reports/${safeFileName}`;
+
+    return this.generatedReportsRepository.save(
+      this.generatedReportsRepository.create({
+        title: payload.title,
+        reportType: payload.reportType,
+        format: payload.format,
+        fileName: payload.fileName,
+        filePath: relativePath,
+        mimeType: payload.mimeType,
+        filters: payload.filters ?? null,
+        generatedBy: payload.generatedBy ?? null,
+        version: '1.0',
+        status: 'GENERATED',
+        fileSizeBytes: buffer.length,
+      }),
+    );
+  }
+
+  findHistory(limit = 50) {
+    return this.generatedReportsRepository.find({
+      order: {
+        createdAt: 'DESC',
+      },
+      take: Math.min(Math.max(Number(limit) || 50, 1), 200),
+    });
+  }
+
+  async findGeneratedReport(id: string) {
+    const report = await this.generatedReportsRepository.findOne({
+      where: { id },
+    });
+
+    if (!report) {
+      throw new NotFoundException('Rapport introuvable.');
+    }
+
+    return report;
+  }
+
+  async deleteGeneratedReport(id: string) {
+    const report = await this.findGeneratedReport(id);
+    const projectRoot = resolve(process.cwd(), '..');
+    const absolutePath = join(projectRoot, report.filePath);
+
+    if (existsSync(absolutePath)) {
+      unlinkSync(absolutePath);
+    }
+
+    await this.generatedReportsRepository.delete(id);
+
+    return {
+      deleted: true,
+      id,
+    };
   }
 
   async getRiskSummaryRows() {

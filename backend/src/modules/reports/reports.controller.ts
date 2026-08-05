@@ -1,5 +1,15 @@
-import { Controller, Get, Query, Res, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Query,
+  Res,
+  UseGuards,
+} from '@nestjs/common';
 import { Response } from 'express';
+import { existsSync } from 'fs';
+import { join, resolve } from 'path';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -34,28 +44,100 @@ export class ReportsController {
     return res.send(content);
   }
 
+  @Get('history')
+  @Roles('ADMIN', 'ANALYSTE')
+  getHistory(@Query('limit') limit?: string) {
+    return this.reportsService.findHistory(Number(limit ?? 50));
+  }
+
+  @Get('history/:id/download')
+  @Roles('ADMIN', 'ANALYSTE')
+  async downloadHistory(@Param('id') id: string, @Res() res: Response) {
+    const report = await this.reportsService.findGeneratedReport(id);
+    const projectRoot = resolve(process.cwd(), '..');
+    const absolutePath = join(projectRoot, report.filePath);
+
+    if (!existsSync(absolutePath)) {
+      res.status(404).json({
+        message: 'Fichier du rapport introuvable.',
+      });
+      return;
+    }
+
+    res.setHeader('Content-Type', report.mimeType);
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${report.fileName}"`,
+    );
+
+    return res.sendFile(absolutePath);
+  }
+
+  @Delete('history/:id')
+  @Roles('ADMIN', 'ANALYSTE')
+  deleteHistory(@Param('id') id: string) {
+    return this.reportsService.deleteGeneratedReport(id);
+  }
+
   @Get('national-risk.pdf')
   @Roles('ADMIN', 'ANALYSTE')
   async nationalRiskPdf(@Res() res: Response) {
+    const fileName = 'riskclim-mg-rapport-national.pdf';
     const content = await this.reportsService.getNationalRiskPdf();
 
-    return this.sendPdf(res, 'riskclim-mg-rapport-national.pdf', content);
+    await this.reportsService.saveGeneratedReport({
+      title: 'Rapport national multi-risques',
+      reportType: 'NATIONAL',
+      format: 'PDF',
+      fileName,
+      mimeType: 'application/pdf',
+      content,
+      filters: {
+        scope: 'national',
+      },
+    });
+
+    return this.sendPdf(res, fileName, content);
   }
 
   @Get('national-risk.xlsx')
   @Roles('ADMIN', 'ANALYSTE')
   async nationalRiskExcel(@Res() res: Response) {
+    const fileName = 'riskclim-mg-rapport-national.xlsx';
     const content = await this.reportsService.getNationalRiskExcel();
 
-    return this.sendXlsx(res, 'riskclim-mg-rapport-national.xlsx', content);
+    await this.reportsService.saveGeneratedReport({
+      title: 'Classeur national multi-risques',
+      reportType: 'NATIONAL',
+      format: 'XLSX',
+      fileName,
+      mimeType:
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      content,
+      filters: {
+        scope: 'national',
+      },
+    });
+
+    return this.sendXlsx(res, fileName, content);
   }
 
   @Get('risk-summary.csv')
   @Roles('ADMIN', 'ANALYSTE')
   async riskSummaryCsv(@Res() res: Response) {
+    const fileName = 'risk-summary.csv';
     const content = await this.reportsService.getRiskSummaryCsv();
 
-    return this.sendCsv(res, 'risk-summary.csv', content);
+    await this.reportsService.saveGeneratedReport({
+      title: 'Synthèse des risques',
+      reportType: 'RISK_SUMMARY',
+      format: 'CSV',
+      fileName,
+      mimeType: 'text/csv',
+      content: '\uFEFF' + content,
+    });
+
+    return this.sendCsv(res, fileName, content);
   }
 
   @Get('top-risk-zones.csv')
@@ -66,13 +148,25 @@ export class ReportsController {
     @Query('zoneType') zoneType?: string,
     @Query('limit') limit?: string,
   ) {
-    const content = await this.reportsService.getTopRiskZonesCsv({
+    const fileName = 'top-risk-zones.csv';
+    const filters = {
       riskType,
       zoneType,
       limit: Number(limit ?? 100),
+    };
+    const content = await this.reportsService.getTopRiskZonesCsv(filters);
+
+    await this.reportsService.saveGeneratedReport({
+      title: 'Top zones exposées',
+      reportType: 'TOP_RISK_ZONES',
+      format: 'CSV',
+      fileName,
+      mimeType: 'text/csv',
+      content: '\uFEFF' + content,
+      filters,
     });
 
-    return this.sendCsv(res, 'top-risk-zones.csv', content);
+    return this.sendCsv(res, fileName, content);
   }
 
   @Get('top-risk-zones.xlsx')
@@ -83,13 +177,26 @@ export class ReportsController {
     @Query('zoneType') zoneType?: string,
     @Query('limit') limit?: string,
   ) {
-    const content = await this.reportsService.getTopRiskZonesExcel({
+    const fileName = 'top-risk-zones.xlsx';
+    const filters = {
       riskType,
       zoneType,
       limit: Number(limit ?? 100),
+    };
+    const content = await this.reportsService.getTopRiskZonesExcel(filters);
+
+    await this.reportsService.saveGeneratedReport({
+      title: 'Top zones exposées',
+      reportType: 'TOP_RISK_ZONES',
+      format: 'XLSX',
+      fileName,
+      mimeType:
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      content,
+      filters,
     });
 
-    return this.sendXlsx(res, 'top-risk-zones.xlsx', content);
+    return this.sendXlsx(res, fileName, content);
   }
 
   @Get('top-risk-zones.pdf')
@@ -100,44 +207,98 @@ export class ReportsController {
     @Query('zoneType') zoneType?: string,
     @Query('limit') limit?: string,
   ) {
-    const content = await this.reportsService.getTopRiskZonesPdf({
+    const fileName = 'top-risk-zones.pdf';
+    const filters = {
       riskType,
       zoneType,
       limit: Number(limit ?? 50),
+    };
+    const content = await this.reportsService.getTopRiskZonesPdf(filters);
+
+    await this.reportsService.saveGeneratedReport({
+      title: 'Top zones exposées',
+      reportType: 'TOP_RISK_ZONES',
+      format: 'PDF',
+      fileName,
+      mimeType: 'application/pdf',
+      content,
+      filters,
     });
 
-    return this.sendPdf(res, 'top-risk-zones.pdf', content);
+    return this.sendPdf(res, fileName, content);
   }
 
   @Get('data-sources.csv')
   @Roles('ADMIN', 'ANALYSTE')
   async dataSourcesCsv(@Res() res: Response) {
+    const fileName = 'data-sources.csv';
     const content = await this.reportsService.getDataSourcesCsv();
 
-    return this.sendCsv(res, 'data-sources.csv', content);
+    await this.reportsService.saveGeneratedReport({
+      title: 'Sources de données',
+      reportType: 'DATA_SOURCES',
+      format: 'CSV',
+      fileName,
+      mimeType: 'text/csv',
+      content: '\uFEFF' + content,
+    });
+
+    return this.sendCsv(res, fileName, content);
   }
 
   @Get('data-sources.xlsx')
   @Roles('ADMIN', 'ANALYSTE')
   async dataSourcesExcel(@Res() res: Response) {
+    const fileName = 'data-sources.xlsx';
     const content = await this.reportsService.getDataSourcesExcel();
 
-    return this.sendXlsx(res, 'data-sources.xlsx', content);
+    await this.reportsService.saveGeneratedReport({
+      title: 'Sources de données',
+      reportType: 'DATA_SOURCES',
+      format: 'XLSX',
+      fileName,
+      mimeType:
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      content,
+    });
+
+    return this.sendXlsx(res, fileName, content);
   }
 
   @Get('etl-jobs.csv')
   @Roles('ADMIN', 'ANALYSTE')
   async etlJobsCsv(@Res() res: Response) {
+    const fileName = 'etl-jobs.csv';
     const content = await this.reportsService.getEtlJobsCsv();
 
-    return this.sendCsv(res, 'etl-jobs.csv', content);
+    await this.reportsService.saveGeneratedReport({
+      title: 'Jobs ETL récents',
+      reportType: 'ETL_JOBS',
+      format: 'CSV',
+      fileName,
+      mimeType: 'text/csv',
+      content: '\uFEFF' + content,
+    });
+
+    return this.sendCsv(res, fileName, content);
   }
 
   @Get('etl-jobs.xlsx')
   @Roles('ADMIN', 'ANALYSTE')
   async etlJobsExcel(@Res() res: Response) {
+    const fileName = 'etl-jobs.xlsx';
     const content = await this.reportsService.getEtlJobsExcel();
 
-    return this.sendXlsx(res, 'etl-jobs.xlsx', content);
+    await this.reportsService.saveGeneratedReport({
+      title: 'Jobs ETL récents',
+      reportType: 'ETL_JOBS',
+      format: 'XLSX',
+      fileName,
+      mimeType:
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      content,
+    });
+
+    return this.sendXlsx(res, fileName, content);
   }
 }
