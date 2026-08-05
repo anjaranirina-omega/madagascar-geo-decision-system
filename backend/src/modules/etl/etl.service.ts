@@ -278,6 +278,10 @@ export class EtlService {
         script: 'raster/register_raster_metadata.py',
       },
       {
+        name: 'Génération des cartes raster pour rapports',
+        script: 'reports/generate_raster_map_snapshots.py',
+      },
+      {
         name: 'Calcul des statistiques zonales globales',
         script: 'raster/zonal/compute_zone_indicators.py',
       },

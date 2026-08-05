@@ -144,11 +144,18 @@ function formatReportDate(value?: string | null) {
   if (!value) return '—';
 
   /*
-   * Les dates venant de PostgreSQL peuvent arriver sans suffixe timezone.
-   * On les interprète comme UTC puis on les affiche explicitement en heure Madagascar.
+   * Les dates PostgreSQL / TypeORM peuvent arriver :
+   * - avec Z : 2026-08-05T07:21:00.000Z
+   * - sans Z : 2026-08-05T07:21:00.000
+   * - avec espace : 2026-08-05 07:21:00.000
+   *
+   * On normalise en UTC si aucune timezone n'est indiquée,
+   * puis on affiche explicitement en heure Madagascar.
    */
-  const hasTimezone = /Z$|[+-]\d{2}:?\d{2}$/.test(value);
-  const normalizedValue = hasTimezone ? value : `${value}Z`;
+  const cleanedValue = String(value).trim().replace(' ', 'T');
+  const hasTimezone = /Z$|[+-]\d{2}:?\d{2}$/.test(cleanedValue);
+  const normalizedValue = hasTimezone ? cleanedValue : `${cleanedValue}Z`;
+
   const date = new Date(normalizedValue);
 
   if (Number.isNaN(date.getTime())) {
@@ -535,7 +542,7 @@ export default function RapportsPage() {
                         </span>
                       </td>
                       <td className="px-3 py-3 text-slate-500">
-                        {formatReportDate(report.createdAt)}
+                        {report.generatedAtLocal ?? formatReportDate(report.createdAt)}
                       </td>
                       <td className="px-3 py-3 text-slate-500">
                         {formatFileSize(report.fileSizeBytes)}

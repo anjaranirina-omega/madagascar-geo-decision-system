@@ -35,6 +35,9 @@ export class GeneratedReport {
   @Column({ name: 'generated_by', type: 'varchar', length: 180, nullable: true })
   generatedBy?: string | null;
 
+  @Column({ name: 'generated_at_local', type: 'varchar', length: 80, nullable: true })
+  generatedAtLocal?: string | null;
+
   @Column({ type: 'varchar', length: 40, default: '1.0' })
   version!: string;
 

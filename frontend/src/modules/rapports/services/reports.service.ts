@@ -9,6 +9,7 @@ export type GeneratedReport = {
   mimeType: string;
   filters?: Record<string, unknown> | null;
   generatedBy?: string | null;
+  generatedAtLocal?: string | null;
   version: string;
   status: string;
   fileSizeBytes?: number | null;

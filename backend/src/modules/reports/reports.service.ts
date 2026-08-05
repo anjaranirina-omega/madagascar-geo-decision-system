@@ -151,6 +151,14 @@ export class ReportsService {
     });
   }
 
+  private getLocalGeneratedAt() {
+    return new Intl.DateTimeFormat('fr-FR', {
+      dateStyle: 'short',
+      timeStyle: 'medium',
+      timeZone: 'Indian/Antananarivo',
+    }).format(new Date());
+  }
+
   private getReportsDir() {
     const projectRoot = resolve(process.cwd(), '..');
     const reportsDir = join(projectRoot, 'backend', 'uploads', 'reports');
@@ -196,6 +204,7 @@ export class ReportsService {
         mimeType: payload.mimeType,
         filters: payload.filters ?? null,
         generatedBy: payload.generatedBy ?? null,
+        generatedAtLocal: this.getLocalGeneratedAt(),
         version: '1.0',
         status: 'GENERATED',
         fileSizeBytes: buffer.length,
@@ -239,6 +248,60 @@ export class ReportsService {
       deleted: true,
       id,
     };
+  }
+
+  private getRasterMapSnapshots() {
+    const projectRoot = resolve(process.cwd(), '..');
+    const mapsDir = join(projectRoot, 'etl', 'data', 'reports', 'maps');
+
+    const maps = [
+      {
+        title: 'Carte du risque global',
+        path: join(mapsDir, 'risk_global.png'),
+      },
+      {
+        title: 'Carte du risque d’inondation',
+        path: join(mapsDir, 'risk_flood.png'),
+      },
+      {
+        title: 'Carte du risque sécheresse',
+        path: join(mapsDir, 'risk_drought.png'),
+      },
+      {
+        title: 'Carte du risque glissement de terrain',
+        path: join(mapsDir, 'risk_landslide.png'),
+      },
+      {
+        title: 'Carte du risque cyclonique',
+        path: join(mapsDir, 'risk_cyclone.png'),
+      },
+    ];
+
+    return maps.filter((item) => existsSync(item.path));
+  }
+
+  private getRasterMapSnapshotsForRisk(riskType?: string) {
+    const maps = this.getRasterMapSnapshots();
+
+    if (!riskType) {
+      return maps;
+    }
+
+    const expectedTitleByRiskType: Record<string, string> = {
+      GLOBAL: 'Carte du risque global',
+      FLOOD: 'Carte du risque d’inondation',
+      DROUGHT: 'Carte du risque sécheresse',
+      LANDSLIDE: 'Carte du risque glissement de terrain',
+      CYCLONE: 'Carte du risque cyclonique',
+    };
+
+    const expectedTitle = expectedTitleByRiskType[riskType];
+
+    if (!expectedTitle) {
+      return maps;
+    }
+
+    return maps.filter((map) => map.title === expectedTitle);
   }
 
   async getRiskSummaryRows() {
@@ -1029,28 +1092,40 @@ export class ReportsService {
 
       doc.y += 88;
 
-      sectionTitle('6. Carte des risques');
+      sectionTitle('6. Cartes des risques');
 
-      paragraph(
-        'Les cartes raster suivantes sont disponibles dans la plateforme cartographique : risque global, inondation, sécheresse, glissement de terrain et cyclone. L’intégration automatique des cartes raster en image dans le PDF sera ajoutée dans la feature report-raster-map-snapshots.',
-      );
+      const rasterMaps = this.getRasterMapSnapshots();
 
-      const legendY = doc.y + 6;
-      ['Faible', 'Moyen', 'Élevé', 'Critique'].forEach((label, index) => {
-        const colors = ['#22c55e', '#eab308', '#f97316', '#ef4444'];
-        const x = margin + index * 110;
+      if (rasterMaps.length > 0) {
+        paragraph(
+          'Les cartes ci-dessous sont générées automatiquement à partir des rasters de risque disponibles dans la plateforme.',
+        );
 
-        doc.rect(x, legendY, 14, 14).fill(colors[index]);
-        doc
-          .fillColor('#334155')
-          .fontSize(9)
-          .font('Helvetica')
-          .text(label, x + 20, legendY + 2, {
-            width: 80,
+        rasterMaps.forEach((map) => {
+          ensureSpace(310);
+
+          doc
+            .fontSize(11)
+            .font('Helvetica-Bold')
+            .fillColor('#0f172a')
+            .text(map.title, margin, doc.y, {
+              width: contentWidth,
+            });
+
+          doc.moveDown(0.3);
+
+          doc.image(map.path, margin, doc.y, {
+            fit: [contentWidth, 260],
+            align: 'center',
           });
-      });
 
-      doc.y = legendY + 35;
+          doc.y += 270;
+        });
+      } else {
+        paragraph(
+          'Les cartes raster sont disponibles dans la plateforme cartographique. Aucune image de carte générée pour rapport n’a été trouvée. Exécuter le script reports/generate_raster_map_snapshots.py pour produire les cartes PNG.',
+        );
+      }
 
       sectionTitle('7. Alertes');
 
@@ -1528,7 +1603,44 @@ export class ReportsService {
         paragraph('Aucune zone exposée n’est disponible pour les paramètres sélectionnés.');
       }
 
-      sectionTitle('4. Tableau statistique');
+      sectionTitle('4. Cartes des risques');
+
+      const reportMaps = this.getRasterMapSnapshotsForRisk(query.riskType);
+
+      if (reportMaps.length > 0) {
+        paragraph(
+          query.riskType
+            ? 'La carte ci-dessous correspond au type de risque sélectionné dans le rapport.'
+            : 'Les cartes ci-dessous présentent les principaux risques disponibles dans la plateforme.',
+        );
+
+        reportMaps.forEach((map) => {
+          ensureSpace(310);
+
+          doc
+            .fontSize(11)
+            .font('Helvetica-Bold')
+            .fillColor('#0f172a')
+            .text(map.title, margin, doc.y, {
+              width: contentWidth,
+            });
+
+          doc.moveDown(0.3);
+
+          doc.image(map.path, margin, doc.y, {
+            fit: [contentWidth, 260],
+            align: 'center',
+          });
+
+          doc.y += 270;
+        });
+      } else {
+        paragraph(
+          'Aucune image de carte générée n’a été trouvée. Exécuter le script reports/generate_raster_map_snapshots.py pour produire les cartes PNG.',
+        );
+      }
+
+      sectionTitle('5. Tableau statistique');
 
       tableRow(
         ['#', 'Risque', 'Zone', 'Moyen', 'Max', 'Niveau', 'Population'],
@@ -1551,7 +1663,7 @@ export class ReportsService {
         );
       });
 
-      sectionTitle('5. Recommandations');
+      sectionTitle('6. Recommandations');
 
       rows.slice(0, 8).forEach((row: Record<string, any>) => {
         ensureSpace(50);
@@ -1568,7 +1680,7 @@ export class ReportsService {
         doc.moveDown(0.3);
       });
 
-      sectionTitle('6. Sources de données');
+      sectionTitle('7. Sources de données');
 
       dataSources.forEach((source: Record<string, any>) => {
         bullet(
@@ -1576,7 +1688,7 @@ export class ReportsService {
         );
       });
 
-      sectionTitle('7. Métadonnées');
+      sectionTitle('8. Métadonnées');
 
       const latestJob = etlJobs[0];
 
