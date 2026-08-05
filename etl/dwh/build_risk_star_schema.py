@@ -210,11 +210,32 @@ def create_schema(conn):
 
 
 def reset_facts(conn):
-    print("Réinitialisation des tables de faits DWH...")
+    print("Réinitialisation partielle des tables de faits DWH...")
 
+    # Les observations climatiques et les métadonnées raster sont reconstruites
+    # depuis leurs tables opérationnelles historiques.
     execute(conn, "TRUNCATE TABLE dwh.fact_raster_processing RESTART IDENTITY;")
     execute(conn, "TRUNCATE TABLE dwh.fact_climate_observation RESTART IDENTITY;")
-    execute(conn, "TRUNCATE TABLE dwh.fact_risk_indicator RESTART IDENTITY;")
+
+    # IMPORTANT :
+    # On ne tronque plus fact_risk_indicator afin de conserver les snapshots
+    # historiques nécessaires aux comparaisons de périodes.
+    #
+    # On supprime seulement les lignes correspondant aux dates actuellement
+    # recalculées dans les tables opérationnelles, puis on les réinsère.
+    execute(
+        conn,
+        '''
+        DELETE FROM dwh.fact_risk_indicator f
+        USING dwh.dim_time t
+        WHERE f.time_key = t.time_key
+          AND t.full_date IN (
+            SELECT updated_at::date FROM zone_indicators WHERE updated_at IS NOT NULL
+            UNION
+            SELECT updated_at::date FROM zone_risk_indicators WHERE updated_at IS NOT NULL
+          );
+        '''
+    )
 
 
 def date_to_key(value: date):

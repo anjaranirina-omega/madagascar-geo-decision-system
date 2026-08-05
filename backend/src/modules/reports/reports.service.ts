@@ -1719,6 +1719,115 @@ export class ReportsService {
     });
   }
 
+
+  async getRiskComparison(query: {
+    periodAStart: string;
+    periodAEnd: string;
+    periodBStart: string;
+    periodBEnd: string;
+    riskType?: string;
+    zoneType?: string;
+  }) {
+    const zoneType = query.zoneType ?? 'region';
+    const riskType = query.riskType ?? null;
+
+    return this.query(
+      `
+      WITH period_a AS (
+        SELECT
+          rt.risk_type,
+          rt.label AS risk_label,
+          z.zone_type,
+          z.zone_id,
+          z.zone_nom,
+          AVG(f.risk_mean) AS risk_mean_a,
+          MAX(f.risk_max) AS risk_max_a,
+          SUM(f.population_exposed) AS population_exposed_a,
+          COUNT(*) AS records_a
+        FROM dwh.fact_risk_indicator f
+        JOIN dwh.dim_risk_type rt ON rt.risk_type_key = f.risk_type_key
+        JOIN dwh.dim_zone z ON z.zone_key = f.zone_key
+        JOIN dwh.dim_time t ON t.time_key = f.time_key
+        WHERE t.full_date BETWEEN $1::date AND $2::date
+          AND z.zone_type = $5
+          AND ($6::text IS NULL OR rt.risk_type = $6)
+        GROUP BY rt.risk_type, rt.label, z.zone_type, z.zone_id, z.zone_nom
+      ),
+      period_b AS (
+        SELECT
+          rt.risk_type,
+          rt.label AS risk_label,
+          z.zone_type,
+          z.zone_id,
+          z.zone_nom,
+          AVG(f.risk_mean) AS risk_mean_b,
+          MAX(f.risk_max) AS risk_max_b,
+          SUM(f.population_exposed) AS population_exposed_b,
+          COUNT(*) AS records_b
+        FROM dwh.fact_risk_indicator f
+        JOIN dwh.dim_risk_type rt ON rt.risk_type_key = f.risk_type_key
+        JOIN dwh.dim_zone z ON z.zone_key = f.zone_key
+        JOIN dwh.dim_time t ON t.time_key = f.time_key
+        WHERE t.full_date BETWEEN $3::date AND $4::date
+          AND z.zone_type = $5
+          AND ($6::text IS NULL OR rt.risk_type = $6)
+        GROUP BY rt.risk_type, rt.label, z.zone_type, z.zone_id, z.zone_nom
+      )
+      SELECT
+        COALESCE(a.risk_type, b.risk_type) AS "riskType",
+        COALESCE(a.risk_label, b.risk_label) AS "riskLabel",
+        COALESCE(a.zone_type, b.zone_type) AS "zoneType",
+        COALESCE(a.zone_id, b.zone_id) AS "zoneId",
+        COALESCE(a.zone_nom, b.zone_nom) AS "zoneNom",
+        ROUND(a.risk_mean_a::numeric, 2) AS "riskMeanA",
+        ROUND(b.risk_mean_b::numeric, 2) AS "riskMeanB",
+        ROUND((b.risk_mean_b - a.risk_mean_a)::numeric, 2) AS "riskMeanDelta",
+        ROUND(a.risk_max_a::numeric, 2) AS "riskMaxA",
+        ROUND(b.risk_max_b::numeric, 2) AS "riskMaxB",
+        ROUND((b.risk_max_b - a.risk_max_a)::numeric, 2) AS "riskMaxDelta",
+        ROUND(a.population_exposed_a::numeric, 2) AS "populationExposedA",
+        ROUND(b.population_exposed_b::numeric, 2) AS "populationExposedB",
+        ROUND((b.population_exposed_b - a.population_exposed_a)::numeric, 2) AS "populationExposedDelta",
+        COALESCE(a.records_a, 0) AS "recordsA",
+        COALESCE(b.records_b, 0) AS "recordsB"
+      FROM period_a a
+      FULL OUTER JOIN period_b b
+        ON a.risk_type = b.risk_type
+       AND a.zone_id = b.zone_id
+      ORDER BY
+        "riskMaxDelta" DESC NULLS LAST,
+        "riskMaxB" DESC NULLS LAST
+      LIMIT 200;
+      `,
+      [
+        query.periodAStart,
+        query.periodAEnd,
+        query.periodBStart,
+        query.periodBEnd,
+        zoneType,
+        riskType,
+      ],
+    );
+  }
+
+  async getRiskComparisonExcel(query: {
+    periodAStart: string;
+    periodAEnd: string;
+    periodBStart: string;
+    periodBEnd: string;
+    riskType?: string;
+    zoneType?: string;
+  }) {
+    const rows = await this.getRiskComparison(query);
+
+    return this.toExcelBuffer([
+      {
+        name: 'Comparaison risques',
+        rows,
+      },
+    ]);
+  }
+
   async getDataSourcesCsv() {
     return this.toCsv(await this.getDataSourcesRows());
   }

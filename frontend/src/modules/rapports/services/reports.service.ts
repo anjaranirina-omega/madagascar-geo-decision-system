@@ -1,5 +1,34 @@
 import { api } from '../../../services/api';
 
+
+export type RiskComparisonRow = {
+  riskType: string;
+  riskLabel: string;
+  zoneType: string;
+  zoneId: string;
+  zoneNom: string;
+  riskMeanA?: number | null;
+  riskMeanB?: number | null;
+  riskMeanDelta?: number | null;
+  riskMaxA?: number | null;
+  riskMaxB?: number | null;
+  riskMaxDelta?: number | null;
+  populationExposedA?: number | null;
+  populationExposedB?: number | null;
+  populationExposedDelta?: number | null;
+  recordsA: number;
+  recordsB: number;
+};
+
+export type RiskComparisonParams = {
+  periodAStart: string;
+  periodAEnd: string;
+  periodBStart: string;
+  periodBEnd: string;
+  riskType?: string;
+  zoneType?: string;
+};
+
 export type GeneratedReport = {
   id: string;
   title: string;
@@ -41,6 +70,26 @@ async function downloadReport(endpoint: string, filename: string, params?: unkno
 }
 
 export const reportsService = {
+
+  async getRiskComparison(params: RiskComparisonParams) {
+    const response = await api.get<RiskComparisonRow[]>(
+      '/reports/risk-comparison',
+      {
+        params,
+      },
+    );
+
+    return response.data;
+  },
+
+  downloadRiskComparisonExcel(params: RiskComparisonParams) {
+    return downloadReport(
+      '/reports/risk-comparison.xlsx',
+      'risk-comparison.xlsx',
+      params,
+    );
+  },
+
   async getHistory(limit = 50) {
     const response = await api.get<GeneratedReport[]>('/reports/history', {
       params: {

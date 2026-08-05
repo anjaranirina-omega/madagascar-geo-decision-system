@@ -10,7 +10,11 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
-import { GeneratedReport, reportsService } from '../services/reports.service';
+import {
+  GeneratedReport,
+  RiskComparisonRow,
+  reportsService,
+} from '../services/reports.service';
 
 type ReportAction = {
   title: string;
@@ -169,6 +173,63 @@ function formatReportDate(value?: string | null) {
   }).format(date);
 }
 
+function formatDelta(value?: number | null) {
+  if (value === null || value === undefined || Number.isNaN(Number(value))) {
+    return '—';
+  }
+
+  const numeric = Number(value);
+  const sign = numeric > 0 ? '+' : '';
+
+  return `${sign}${numeric.toFixed(1)}`;
+}
+
+function formatComparisonValue(value?: number | null) {
+  if (value === null || value === undefined || Number.isNaN(Number(value))) {
+    return 'N/A';
+  }
+
+  return Number(value).toFixed(1);
+}
+
+function formatComparisonDelta(row: RiskComparisonRow) {
+  const hasA = row.riskMaxA !== null && row.riskMaxA !== undefined;
+  const hasB = row.riskMaxB !== null && row.riskMaxB !== undefined;
+
+  if (!hasA && hasB) {
+    return 'Nouveau';
+  }
+
+  if (hasA && !hasB) {
+    return 'Absent';
+  }
+
+  return formatDelta(row.riskMaxDelta);
+}
+
+function comparisonDeltaClass(row: RiskComparisonRow) {
+  const hasA = row.riskMaxA !== null && row.riskMaxA !== undefined;
+  const hasB = row.riskMaxB !== null && row.riskMaxB !== undefined;
+
+  if (!hasA && hasB) {
+    return 'text-blue-700';
+  }
+
+  if (hasA && !hasB) {
+    return 'text-slate-500';
+  }
+
+  if (Number(row.riskMaxDelta ?? 0) > 0) {
+    return 'text-red-600';
+  }
+
+  if (Number(row.riskMaxDelta ?? 0) < 0) {
+    return 'text-green-600';
+  }
+
+  return 'text-slate-500';
+}
+
 function formatFileSize(value?: number | null) {
   if (!value) return '—';
 
@@ -215,6 +276,15 @@ export default function RapportsPage() {
   const [history, setHistory] = useState<GeneratedReport[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
 
+  const [comparisonRows, setComparisonRows] = useState<RiskComparisonRow[]>([]);
+  const [comparisonLoading, setComparisonLoading] = useState(false);
+  const [periodAStart, setPeriodAStart] = useState('2026-07-01');
+  const [periodAEnd, setPeriodAEnd] = useState('2026-07-15');
+  const [periodBStart, setPeriodBStart] = useState('2026-07-16');
+  const [periodBEnd, setPeriodBEnd] = useState('2026-07-31');
+  const [comparisonRiskType, setComparisonRiskType] = useState('');
+  const [comparisonZoneType, setComparisonZoneType] = useState('region');
+
   const [reportType, setReportType] = useState('national');
   const [period, setPeriod] = useState('30d');
   const [selectedRisks, setSelectedRisks] = useState<string[]>([
@@ -252,6 +322,38 @@ export default function RapportsPage() {
     }
 
     await reportsService.deleteHistory(id);
+    await loadHistory();
+  };
+
+  const loadComparison = async () => {
+    setComparisonLoading(true);
+
+    try {
+      const rows = await reportsService.getRiskComparison({
+        periodAStart,
+        periodAEnd,
+        periodBStart,
+        periodBEnd,
+        riskType: comparisonRiskType || undefined,
+        zoneType: comparisonZoneType,
+      });
+
+      setComparisonRows(rows);
+    } finally {
+      setComparisonLoading(false);
+    }
+  };
+
+  const downloadComparisonExcel = async () => {
+    await reportsService.downloadRiskComparisonExcel({
+      periodAStart,
+      periodAEnd,
+      periodBStart,
+      periodBEnd,
+      riskType: comparisonRiskType || undefined,
+      zoneType: comparisonZoneType,
+    });
+
     await loadHistory();
   };
 
@@ -578,12 +680,146 @@ export default function RapportsPage() {
         </SectionCard>
 
         <SectionCard
-          title="Comparaison"
-          subtitle="Comparaison entre périodes prévue avec l’historisation DWH."
+          title="Comparaison de périodes"
+          subtitle="Comparer l’évolution des risques entre deux périodes du DWH."
         >
-          <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-5 text-sm text-slate-500">
-            Exemple futur : Juin vs Juillet, évolution des risques, de la pluie,
-            des alertes et des zones critiques.
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-3">
+              <label className="text-xs font-bold text-slate-500">
+                Période A début
+                <input
+                  type="date"
+                  value={periodAStart}
+                  onChange={(event) => setPeriodAStart(event.target.value)}
+                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                />
+              </label>
+
+              <label className="text-xs font-bold text-slate-500">
+                Période A fin
+                <input
+                  type="date"
+                  value={periodAEnd}
+                  onChange={(event) => setPeriodAEnd(event.target.value)}
+                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                />
+              </label>
+
+              <label className="text-xs font-bold text-slate-500">
+                Période B début
+                <input
+                  type="date"
+                  value={periodBStart}
+                  onChange={(event) => setPeriodBStart(event.target.value)}
+                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                />
+              </label>
+
+              <label className="text-xs font-bold text-slate-500">
+                Période B fin
+                <input
+                  type="date"
+                  value={periodBEnd}
+                  onChange={(event) => setPeriodBEnd(event.target.value)}
+                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                />
+              </label>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <label className="text-xs font-bold text-slate-500">
+                Risque
+                <select
+                  value={comparisonRiskType}
+                  onChange={(event) => setComparisonRiskType(event.target.value)}
+                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                >
+                  <option value="">Tous risques</option>
+                  <option value="GLOBAL">Global</option>
+                  <option value="FLOOD">Inondation</option>
+                  <option value="DROUGHT">Sécheresse</option>
+                  <option value="LANDSLIDE">Glissement</option>
+                  <option value="CYCLONE">Cyclone</option>
+                </select>
+              </label>
+
+              <label className="text-xs font-bold text-slate-500">
+                Zone
+                <select
+                  value={comparisonZoneType}
+                  onChange={(event) => setComparisonZoneType(event.target.value)}
+                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                >
+                  <option value="region">Région</option>
+                  <option value="district">District</option>
+                  <option value="commune">Commune</option>
+                </select>
+              </label>
+            </div>
+
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={loadComparison}
+                disabled={comparisonLoading}
+                className="flex-1 rounded-xl bg-blue-600 px-4 py-2 text-sm font-black text-white disabled:opacity-60"
+              >
+                {comparisonLoading ? 'Comparaison...' : 'Comparer'}
+              </button>
+
+              <button
+                type="button"
+                onClick={downloadComparisonExcel}
+                className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-black text-slate-700"
+              >
+                Excel
+              </button>
+            </div>
+
+            <div className="max-h-[260px] overflow-y-auto rounded-2xl border border-slate-100">
+              {comparisonRows.length > 0 ? (
+                <table className="w-full text-left text-xs">
+                  <thead className="sticky top-0 bg-slate-50 uppercase text-slate-400">
+                    <tr>
+                      <th className="px-3 py-2">Risque</th>
+                      <th className="px-3 py-2">Zone</th>
+                      <th className="px-3 py-2">Période A</th>
+                      <th className="px-3 py-2">Période B</th>
+                      <th className="px-3 py-2">Δ</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {comparisonRows.slice(0, 30).map((row) => (
+                      <tr
+                        key={`${row.riskType}-${row.zoneId}`}
+                        className="border-t border-slate-100"
+                      >
+                        <td className="px-3 py-2 font-bold">{row.riskLabel}</td>
+                        <td className="px-3 py-2">{row.zoneNom}</td>
+                        <td className="px-3 py-2">{formatComparisonValue(row.riskMaxA)}</td>
+                        <td className="px-3 py-2">{formatComparisonValue(row.riskMaxB)}</td>
+                        <td
+                          className={[
+                            'px-3 py-2 font-black',
+                            comparisonDeltaClass(row),
+                          ].join(' ')}
+                        >
+                          {formatComparisonDelta(row)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <div className="p-5 text-sm text-slate-500">
+                  Aucune comparaison chargée. Choisissez deux périodes puis cliquez sur Comparer.
+                </div>
+              )}
+            </div>
+
+            <div className="rounded-xl bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-700">
+              La comparaison dépend des snapshots conservés dans le DWH. Les périodes futures seront plus riches après plusieurs exécutions du pipeline ETL.
+            </div>
           </div>
         </SectionCard>
 
