@@ -79,6 +79,65 @@ export class ReportsController {
     return this.reportsService.deleteGeneratedReport(id);
   }
 
+
+  @Get('risk-comparison')
+  @Roles('ADMIN', 'ANALYSTE')
+  getRiskComparison(
+    @Query('periodAStart') periodAStart: string,
+    @Query('periodAEnd') periodAEnd: string,
+    @Query('periodBStart') periodBStart: string,
+    @Query('periodBEnd') periodBEnd: string,
+    @Query('riskType') riskType?: string,
+    @Query('zoneType') zoneType?: string,
+  ) {
+    return this.reportsService.getRiskComparison({
+      periodAStart,
+      periodAEnd,
+      periodBStart,
+      periodBEnd,
+      riskType,
+      zoneType,
+    });
+  }
+
+  @Get('risk-comparison.xlsx')
+  @Roles('ADMIN', 'ANALYSTE')
+  async riskComparisonExcel(
+    @Res() res: Response,
+    @Query('periodAStart') periodAStart: string,
+    @Query('periodAEnd') periodAEnd: string,
+    @Query('periodBStart') periodBStart: string,
+    @Query('periodBEnd') periodBEnd: string,
+    @Query('riskType') riskType?: string,
+    @Query('zoneType') zoneType?: string,
+  ) {
+    const fileName = 'risk-comparison.xlsx';
+
+    const filters = {
+      periodAStart,
+      periodAEnd,
+      periodBStart,
+      periodBEnd,
+      riskType,
+      zoneType,
+    };
+
+    const content = await this.reportsService.getRiskComparisonExcel(filters);
+
+    await this.reportsService.saveGeneratedReport({
+      title: 'Comparaison de périodes',
+      reportType: 'RISK_COMPARISON',
+      format: 'XLSX',
+      fileName,
+      mimeType:
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      content,
+      filters,
+    });
+
+    return this.sendXlsx(res, fileName, content);
+  }
+
   @Get('national-risk.pdf')
   @Roles('ADMIN', 'ANALYSTE')
   async nationalRiskPdf(@Res() res: Response) {
