@@ -86,3 +86,47 @@ etl/data/raster/raw/worldcover/tiles/*.tif
 etl/data/raster/raw/worldcover/*.zip
 etl/data/raster/processed/worldcover/*.tif
 etl/data/raster/raw/worldcover/tiles/*.skip
+
+# CHIRPS daily dynamiques
+etl/data/raster/raw/chirps/daily/*.gz
+etl/data/raster/raw/chirps/daily/*.tif
+etl/data/raster/processed/chirps/rainfall_chirps_latest.tif
+etl/data/raster/processed/chirps/chirps_latest_metadata.txt
+
+# Rasters spécifiques inondation
+etl/data/raster/risk/flood/*.tif
+
+# Données hydrologiques locales
+etl/data/hydrology/raw/*.zip
+etl/data/hydrology/raw/**/*.shp
+etl/data/hydrology/raw/**/*.dbf
+etl/data/hydrology/raw/**/*.shx
+etl/data/hydrology/raw/**/*.prj
+etl/data/hydrology/raw/**/*.cpg
+etl/data/hydrology/processed/*.geojson
+etl/data/hydrology/processed/*.gpkg
+etl/data/raster/processed/hydrology/*.tif
+etl/data/raster/normalized/river_proximity_norm.tif
+
+# Cyclone / IBTrACS generated data
+etl/data/cyclone/raw/*.csv
+etl/data/cyclone/raw/*.zip
+etl/data/cyclone/processed/*.csv
+etl/data/cyclone/processed/*.geojson
+etl/data/cyclone/processed/*.gpkg
+etl/data/raster/risk/cyclone/*.tif
+etl/data/raster/risk/cyclone/*.tiff
+etl/data/raster/risk/cyclone/*.aux.xml
+etl/data/raster/risk/cyclone/*.ovr
+
+# HydroRIVERS / HydroSHEDS extracted generated files
+etl/data/hydrology/raw/HydroRIVERS_v10_af_shp/
+etl/data/hydrology/raw/**/*.sbn
+etl/data/hydrology/raw/**/*.sbx
+etl/data/hydrology/raw/**/*.pdf
+
+# Generated reports
+backend/uploads/reports/
+
+# Generated report map snapshots
+etl/data/reports/maps/

@@ -7,12 +7,17 @@ import { AlertesModule } from './modules/alertes/alertes.module';
 import { AnalyseMulticritereModule } from './modules/analyse-multicritere/analyse-multicritere.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { CollecteModule } from './modules/collecte/collecte.module';
+import { ClimateModule } from './modules/climate/climate.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
+import { DataSourcesModule } from './modules/data-sources/data-sources.module';
 import { GeographieModule } from './modules/geographie/geographie.module';
-import { InterventionsModule } from './modules/interventions/interventions.module';
 import { RastersModule } from './modules/rasters/rasters.module';
+import { ReportsModule } from './modules/reports/reports.module';
 import { SigModule } from './modules/sig/sig.module';
+import { SolapModule } from './modules/solap/solap.module';
 import { UsersModule } from './modules/users/users.module';
+import { EtlModule } from './modules/etl/etl.module';
+import { MeteoModule } from './modules/meteo/meteo.module';
 import { ZoneIndicatorsModule } from './modules/zone-indicators/zone-indicators.module';
 import { RisquesModule } from './modules/risques/risques.module';
 
@@ -30,15 +35,20 @@ import { RisquesModule } from './modules/risques/risques.module';
     }),
     AuthModule,
     UsersModule,
+    EtlModule,
+    MeteoModule,
     ZoneIndicatorsModule,
     GeographieModule,
-    InterventionsModule,
     AccountRequestsModule,
     RastersModule,
+    ReportsModule,
     RisquesModule,
     CollecteModule,
+    ClimateModule,
     SigModule,
+    SolapModule,
     DashboardModule,
+    DataSourcesModule,
     AlertesModule,
     AnalyseMulticritereModule,
   ],

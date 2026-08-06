@@ -32,4 +32,12 @@ export class RisquesController {
   recalculateRasterRisk() {
     return this.risquesService.recalculateRasterRisk();
   }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN', 'ANALYSTE')
+  @Post('sync-chirps-latest')
+  syncLatestChirps() {
+    return this.risquesService.syncLatestChirpsAndRecalculate();
+  }
+
 }

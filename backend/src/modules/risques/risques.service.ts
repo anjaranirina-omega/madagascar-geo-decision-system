@@ -204,4 +204,63 @@ export class RisquesService implements OnModuleInit {
       );
     }
   }
+
+  async syncLatestChirpsAndRecalculate() {
+    const projectRoot = resolve(process.cwd(), '..');
+    const etlDir = join(projectRoot, 'etl');
+
+    const venvPython = join(etlDir, '.venv', 'bin', 'python');
+    const pythonBin =
+      process.env.PYTHON_BIN ??
+      (existsSync(venvPython) ? venvPython : 'python3');
+
+    const backendPort = process.env.BACKEND_PORT ?? 3001;
+    const backendApiUrl =
+      process.env.BACKEND_API_URL ?? `http://localhost:${backendPort}/api`;
+
+    const env = {
+      ...process.env,
+      BACKEND_API_URL: backendApiUrl,
+    };
+
+    const scripts = [
+      ['raster/chirps/fetch_latest_chirps.py'],
+      ['raster/mask_rasters_to_madagascar.py', '--scope', 'normalized'],
+      ['raster/weighted_overlay.py'],
+      ['raster/mask_rasters_to_madagascar.py', '--scope', 'risk'],
+      ['raster/register_raster_metadata.py'],
+    ];
+
+    const logs: string[] = [];
+
+    try {
+      for (const args of scripts) {
+        const command = `${pythonBin} ${args.join(' ')}`;
+        logs.push(`$ ${command}`);
+
+        const { stdout, stderr } = await execFileAsync(pythonBin, args, {
+          cwd: etlDir,
+          env,
+          timeout: 15 * 60 * 1000,
+          maxBuffer: 1024 * 1024 * 30,
+        });
+
+        if (stdout) logs.push(stdout);
+        if (stderr) logs.push(stderr);
+      }
+
+      return {
+        message: 'CHIRPS latest synchronisé et raster recalculé avec succès.',
+        backendApiUrl,
+        logs,
+      };
+    } catch (error) {
+      console.error('[RisquesService] Erreur synchronisation CHIRPS:', error);
+
+      throw new InternalServerErrorException(
+        'Impossible de synchroniser CHIRPS et recalculer le raster.',
+      );
+    }
+  }
+
 }

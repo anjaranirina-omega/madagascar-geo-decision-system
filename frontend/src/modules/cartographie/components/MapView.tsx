@@ -49,6 +49,7 @@ import type {
 import { geographieFrontendService } from '../services/geographie.service';
 import AdminBoundariesLayer from './AdminBoundariesLayer';
 import RasterRiskLayer from './RasterRiskLayer';
+import { meteoService, type CurrentWeather } from '../../meteo/services/meteo.service';
 import RiskClickHandler, { RiskSelection } from './RiskClickHandler';
 
 const MADAGASCAR_CENTER: LatLngExpression = [-18.8792, 47.5079];
@@ -97,6 +98,82 @@ const riskBadgeClasses: Record<string, string> = {
   Critique: 'bg-red-100 text-red-700 border-red-200',
 };
 
+
+function classifyLocalRisk(value: number) {
+  if (value <= 30) {
+    return {
+      level: 'Faible' as const,
+      color: '#2f9e44',
+    };
+  }
+
+  if (value <= 60) {
+    return {
+      level: 'Moyen' as const,
+      color: '#eab308',
+    };
+  }
+
+  if (value <= 80) {
+    return {
+      level: 'Élevé' as const,
+      color: '#f97316',
+    };
+  }
+
+  return {
+    level: 'Critique' as const,
+    color: '#dc2626',
+  };
+}
+
+function sampleRasterValueAtPoint(georaster: any, lat: number, lng: number) {
+  if (!georaster) {
+    return null;
+  }
+
+  const xmin = Number(georaster.xmin);
+  const ymax = Number(georaster.ymax);
+  const pixelWidth = Math.abs(Number(georaster.pixelWidth));
+  const pixelHeight = Math.abs(Number(georaster.pixelHeight));
+  const width = Number(georaster.width);
+  const height = Number(georaster.height);
+  const noDataValue = georaster.noDataValue;
+
+  if (
+    !Number.isFinite(xmin) ||
+    !Number.isFinite(ymax) ||
+    !Number.isFinite(pixelWidth) ||
+    !Number.isFinite(pixelHeight) ||
+    !Number.isFinite(width) ||
+    !Number.isFinite(height)
+  ) {
+    return null;
+  }
+
+  const col = Math.floor((lng - xmin) / pixelWidth);
+  const row = Math.floor((ymax - lat) / pixelHeight);
+
+  if (row < 0 || col < 0 || row >= height || col >= width) {
+    return null;
+  }
+
+  const value = georaster.values?.[0]?.[row]?.[col];
+
+  if (
+    value === undefined ||
+    value === null ||
+    Number.isNaN(Number(value)) ||
+    value === noDataValue ||
+    Number(value) < 0 ||
+    Number(value) <= -9999
+  ) {
+    return null;
+  }
+
+  return Number(value);
+}
+
 export default function MapView() {
   const markerRef = useRef<LeafletMarker | null>(null);
 
@@ -124,6 +201,9 @@ export default function MapView() {
   const [locatedZone, setLocatedZone] = useState<LocatedZone | null>(null);
   const [zoneSummary, setZoneSummary] = useState<ZoneSummary | null>(null);
   const [locating, setLocating] = useState(false);
+  const [currentWeather, setCurrentWeather] = useState<CurrentWeather | null>(null);
+  const [weatherLoading, setWeatherLoading] = useState(false);
+  const [weatherError, setWeatherError] = useState('');
   const [selectedRisk, setSelectedRisk] = useState<RiskSelection | null>(null);
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -145,10 +225,51 @@ export default function MapView() {
         lng: markerPosition.lng,
       };
 
-  const showRiskRaster = riskLayers.global;
+  const activeRiskLayerType = riskLayers.cyclone
+    ? 'CYCLONE_RISK_INDEX'
+    : riskLayers.landslide
+      ? 'LANDSLIDE_RISK_INDEX'
+      : riskLayers.drought
+        ? 'DROUGHT_RISK_INDEX'
+        : riskLayers.flood
+          ? 'FLOOD_RISK_INDEX'
+          : riskLayers.global
+            ? 'RISK_INDEX'
+            : null;
+
+  const activeRiskLayerLabel =
+    activeRiskLayerType === 'CYCLONE_RISK_INDEX'
+      ? 'Risque cyclone'
+      : activeRiskLayerType === 'LANDSLIDE_RISK_INDEX'
+        ? 'Risque glissement de terrain'
+        : activeRiskLayerType === 'DROUGHT_RISK_INDEX'
+          ? 'Risque sécheresse'
+          : activeRiskLayerType === 'FLOOD_RISK_INDEX'
+            ? 'Risque inondation'
+            : 'Risque global';
+
+  const showRiskRaster = activeRiskLayerType !== null;
+
+  useEffect(() => {
+    const riskTypeFilterByActiveLayer: Record<string, string> = {
+      RISK_INDEX: 'GLOBAL',
+      FLOOD_RISK_INDEX: 'FLOOD',
+      DROUGHT_RISK_INDEX: 'DROUGHT',
+      LANDSLIDE_RISK_INDEX: 'LANDSLIDE',
+      CYCLONE_RISK_INDEX: 'CYCLONE',
+    };
+
+    if (activeRiskLayerType) {
+      setRiskTypeFilter(riskTypeFilterByActiveLayer[activeRiskLayerType] ?? 'GLOBAL');
+    }
+  }, [activeRiskLayerType]);
 
   const selectedLevel = selectedRisk?.level ?? 'Moyen';
-  const selectedValue = selectedRisk?.value ?? 56.4;
+
+  const selectedValue =
+    typeof selectedRisk?.value === 'number' ? selectedRisk.value : null;
+
+  const hasSelectedRiskValue = selectedValue !== null;
   const selectedZoneName =
     locatedZone?.commune?.nom ??
     locatedZone?.district?.nom ??
@@ -169,6 +290,22 @@ export default function MapView() {
     } catch (error) {
       console.error('[MapView] Erreur chargement résumé zone:', error);
       setZoneSummary(null);
+    }
+  }, []);
+
+  const loadWeather = useCallback(async (lat: number, lng: number) => {
+    setWeatherLoading(true);
+    setWeatherError('');
+
+    try {
+      const weather = await meteoService.getCurrent(lat, lng);
+      setCurrentWeather(weather);
+    } catch (error) {
+      console.error('[MapView] Erreur météo temps réel:', error);
+      setCurrentWeather(null);
+      setWeatherError('Météo indisponible');
+    } finally {
+      setWeatherLoading(false);
     }
   }, []);
 
@@ -202,6 +339,7 @@ export default function MapView() {
 
   useEffect(() => {
     locateMarker(markerLatLng.lat, markerLatLng.lng);
+    loadWeather(markerLatLng.lat, markerLatLng.lng);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -256,6 +394,49 @@ export default function MapView() {
     setGeoraster(raster);
   }, []);
 
+  const updateRiskFromMarkerPosition = useCallback(
+    (lat: number, lng: number) => {
+      if (!georaster) {
+        return;
+      }
+
+      const value = sampleRasterValueAtPoint(georaster, lat, lng);
+
+      if (value === null) {
+        setSelectedRisk({
+          value: null,
+          latitude: lat,
+          longitude: lng,
+        });
+        return;
+      }
+
+      const risk = classifyLocalRisk(value);
+
+      setSelectedRisk({
+        value,
+        level: risk.level,
+        color: risk.color,
+        latitude: lat,
+        longitude: lng,
+      });
+    },
+    [georaster],
+  );
+
+  useEffect(() => {
+    if (!georaster) {
+      return;
+    }
+
+    updateRiskFromMarkerPosition(markerLatLng.lat, markerLatLng.lng);
+  }, [
+    georaster,
+    markerLatLng.lat,
+    markerLatLng.lng,
+    updateRiskFromMarkerPosition,
+  ]);
+
   const markerEventHandlers = useMemo(
     () => ({
       dragend() {
@@ -266,16 +447,50 @@ export default function MapView() {
         const position = marker.getLatLng();
         setMarkerPosition([position.lat, position.lng]);
         locateMarker(position.lat, position.lng);
+        loadWeather(position.lat, position.lng);
+        updateRiskFromMarkerPosition(position.lat, position.lng);
       },
     }),
-    [locateMarker],
+    [locateMarker, loadWeather, updateRiskFromMarkerPosition],
   );
 
   const toggleRiskLayer = (key: RiskLayerKey, value: boolean) => {
-    setRiskLayers((current) => ({
-      ...current,
-      [key]: value,
-    }));
+    const riskFilterByLayer: Partial<Record<RiskLayerKey, string>> = {
+      global: 'GLOBAL',
+      flood: 'FLOOD',
+      drought: 'DROUGHT',
+      landslide: 'LANDSLIDE',
+      cyclone: 'CYCLONE',
+    };
+
+    if (value && riskFilterByLayer[key]) {
+      setRiskTypeFilter(riskFilterByLayer[key]);
+    }
+
+    setRiskLayers((current) => {
+      if (
+        (key === 'global' ||
+          key === 'flood' ||
+          key === 'drought' ||
+          key === 'landslide' ||
+          key === 'cyclone') &&
+        value
+      ) {
+        return {
+          ...current,
+          global: key === 'global',
+          flood: key === 'flood',
+          drought: key === 'drought',
+          landslide: key === 'landslide',
+          cyclone: key === 'cyclone',
+        };
+      }
+
+      return {
+        ...current,
+        [key]: value,
+      };
+    });
   };
 
   const handleSelectSearchResult = async (result: SearchResult) => {
@@ -346,36 +561,32 @@ export default function MapView() {
               checked={riskLayers.flood}
               onChange={(value) => toggleRiskLayer('flood', value)}
               label="Risque inondation"
-              subtitle="Couche spécifique à venir"
+              subtitle="HydroRIVERS + CHIRPS + pente + exposition"
               icon={<Waves size={16} />}
-              disabled
             />
 
             <LayerCheckbox
               checked={riskLayers.cyclone}
               onChange={(value) => toggleRiskLayer('cyclone', value)}
               label="Risque cyclone"
-              subtitle="Couche spécifique à venir"
+              subtitle="IBTrACS + CHIRPS + occupation du sol + exposition"
               icon={<Zap size={16} />}
-              disabled
             />
 
             <LayerCheckbox
               checked={riskLayers.drought}
               onChange={(value) => toggleRiskLayer('drought', value)}
               label="Risque sécheresse"
-              subtitle="Couche spécifique à venir"
+              subtitle="NASA POWER + CHIRPS + occupation du sol + exposition"
               icon={<Droplets size={16} />}
-              disabled
             />
 
             <LayerCheckbox
               checked={riskLayers.landslide}
               onChange={(value) => toggleRiskLayer('landslide', value)}
               label="Risque glissement de terrain"
-              subtitle="Couche spécifique à venir"
+              subtitle="Pente Copernicus + CHIRPS + occupation du sol + exposition"
               icon={<AlertTriangle size={16} />}
-              disabled
             />
 
             <LayerCheckbox
@@ -499,10 +710,14 @@ export default function MapView() {
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             />
 
-            <RasterRiskLayer
-              visible={showRiskRaster}
-              onRasterLoaded={handleRasterLoaded}
-            />
+            {activeRiskLayerType && (
+              <RasterRiskLayer
+                key={activeRiskLayerType}
+                visible={showRiskRaster}
+                rasterType={activeRiskLayerType}
+                onRasterLoaded={handleRasterLoaded}
+              />
+            )}
 
             <AdminBoundariesLayer
               visible={showBoundaries}
@@ -595,12 +810,12 @@ export default function MapView() {
             ].join(' ')}
           >
             <div className="text-sm font-extrabold">
-              Indice de risque global
+              {activeRiskLayerLabel} local
             </div>
 
             <div className="mt-3 flex items-end gap-2">
               <div className="text-5xl font-black">
-                {selectedValue.toFixed(0)}
+                {hasSelectedRiskValue ? selectedValue.toFixed(0) : '—'}
               </div>
               <div className="mb-2 font-bold">/100</div>
 
@@ -610,13 +825,23 @@ export default function MapView() {
                   riskBadgeClasses[selectedLevel],
                 ].join(' ')}
               >
-                {selectedLevel}
+                {hasSelectedRiskValue ? selectedLevel : 'Non disponible'}
               </span>
             </div>
 
             <div className="mt-4 text-sm">
-              Tendance : <span className="font-bold">+12%</span> sur 7 derniers
-              jours
+              Source :{' '}
+              <span className="font-bold">
+                {activeRiskLayerType === 'CYCLONE_RISK_INDEX'
+                  ? 'modèle cyclone IBTrACS / CHIRPS / occupation du sol / exposition'
+                  : activeRiskLayerType === 'LANDSLIDE_RISK_INDEX'
+                    ? 'modèle glissement Copernicus DEM / CHIRPS / occupation du sol / exposition'
+                    : activeRiskLayerType === 'DROUGHT_RISK_INDEX'
+                      ? 'modèle sécheresse NASA POWER / CHIRPS / occupation du sol / exposition'
+                      : activeRiskLayerType === 'FLOOD_RISK_INDEX'
+                        ? 'modèle inondation HydroRIVERS / CHIRPS / pente / exposition'
+                        : 'indice climatique composite'}
+              </span>
             </div>
           </div>
 
@@ -646,6 +871,83 @@ export default function MapView() {
               value={formatDateOnly(zoneSummary?.lastUpdated)}
               sub={formatTimeOnly(zoneSummary?.lastUpdated)}
             />
+          </div>
+
+          <div className="mb-5 rounded-3xl border border-sky-100 bg-sky-50 p-5 dark:border-sky-900 dark:bg-sky-950/30">
+            <div className="mb-4 flex items-center justify-between">
+              <div className="font-extrabold text-slate-900 dark:text-white">
+                Météo actuelle
+              </div>
+
+              <button
+                type="button"
+                onClick={() => loadWeather(markerLatLng.lat, markerLatLng.lng)}
+                className="rounded-lg bg-white px-3 py-1 text-xs font-bold text-sky-700 shadow-sm transition hover:bg-sky-100 dark:bg-slate-900 dark:text-sky-200"
+              >
+                Actualiser
+              </button>
+            </div>
+
+            {weatherLoading ? (
+              <div className="text-sm font-semibold text-sky-700">
+                Chargement météo...
+              </div>
+            ) : weatherError ? (
+              <div className="text-sm font-semibold text-red-600">
+                {weatherError}
+              </div>
+            ) : currentWeather ? (
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <WeatherItem
+                  label="Température"
+                  value={
+                    typeof currentWeather.temperature === 'number'
+                      ? `${currentWeather.temperature.toFixed(1)} °C`
+                      : '—'
+                  }
+                />
+                <WeatherItem
+                  label="Humidité"
+                  value={
+                    typeof currentWeather.humidity === 'number'
+                      ? `${currentWeather.humidity} %`
+                      : '—'
+                  }
+                />
+                <WeatherItem
+                  label="Vent"
+                  value={
+                    typeof currentWeather.windSpeed === 'number'
+                      ? `${(currentWeather.windSpeed * 3.6).toFixed(1)} km/h`
+                      : '—'
+                  }
+                />
+                <WeatherItem
+                  label="Pluie"
+                  value={
+                    typeof currentWeather.rainfall === 'number'
+                      ? `${currentWeather.rainfall.toFixed(1)} mm`
+                      : '0 mm'
+                  }
+                />
+
+                <div className="col-span-2 rounded-xl bg-white/70 p-3 dark:bg-slate-900">
+                  <div className="text-xs font-bold text-slate-500">
+                    Conditions
+                  </div>
+                  <div className="mt-1 font-semibold text-slate-800 dark:text-slate-100">
+                    {currentWeather.weatherDescription ?? currentWeather.weatherMain ?? '—'}
+                  </div>
+                  <div className="mt-1 text-xs text-slate-500">
+                    Observation : {formatDateTime(currentWeather.observedAt)}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="text-sm text-slate-500">
+                Déplacez le marqueur pour charger la météo.
+              </div>
+            )}
           </div>
 
           <div className="rounded-3xl border border-yellow-100 bg-yellow-50 p-5 dark:border-yellow-900 dark:bg-yellow-950/30">
@@ -752,9 +1054,10 @@ function MapFilters({
         onChange={setRiskTypeFilter}
         options={[
           ['GLOBAL', 'Risque global'],
-          ['FLOOD', 'Inondation bientôt'],
-          ['CYCLONE', 'Cyclone bientôt'],
-          ['DROUGHT', 'Sécheresse bientôt'],
+          ['FLOOD', 'Risque inondation'],
+          ['DROUGHT', 'Risque sécheresse'],
+          ['LANDSLIDE', 'Risque glissement'],
+          ['CYCLONE', 'Risque cyclone'],
         ]}
       />
 
@@ -1055,5 +1358,33 @@ function formatTimeOnly(value?: string | null) {
   return new Intl.DateTimeFormat('fr-FR', {
     hour: '2-digit',
     minute: '2-digit',
+  }).format(new Date(value));
+}
+
+function WeatherItem({
+  label,
+  value,
+}: {
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="rounded-xl bg-white/70 p-3 dark:bg-slate-900">
+      <div className="text-xs font-bold text-slate-500">{label}</div>
+      <div className="mt-1 font-extrabold text-slate-900 dark:text-white">
+        {value}
+      </div>
+    </div>
+  );
+}
+
+function formatDateTime(value?: string) {
+  if (!value) {
+    return '—';
+  }
+
+  return new Intl.DateTimeFormat('fr-FR', {
+    dateStyle: 'short',
+    timeStyle: 'short',
   }).format(new Date(value));
 }
