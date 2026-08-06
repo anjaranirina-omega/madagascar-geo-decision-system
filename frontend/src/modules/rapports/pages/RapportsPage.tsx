@@ -593,7 +593,7 @@ export default function RapportsPage() {
         </div>
       </SectionCard>
 
-      <section className="grid grid-cols-1 gap-6 xl:grid-cols-3">
+      <section className="grid grid-cols-1 gap-6 xl:grid-cols-2">
         <SectionCard
           title="Historique des rapports"
           subtitle="Rapports réellement générés et stockés par la plateforme."
@@ -820,24 +820,6 @@ export default function RapportsPage() {
             <div className="rounded-xl bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-700">
               La comparaison dépend des snapshots conservés dans le DWH. Les périodes futures seront plus riches après plusieurs exécutions du pipeline ETL.
             </div>
-          </div>
-        </SectionCard>
-
-        <SectionCard
-          title="Exports avancés"
-          subtitle="Formats géospatiaux prévus dans une feature dédiée."
-        >
-          <div className="grid grid-cols-2 gap-2 text-sm">
-            {['PDF', 'Excel', 'CSV', 'GeoJSON', 'Shapefile', 'PNG', 'JPEG'].map(
-              (format) => (
-                <div
-                  key={format}
-                  className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-2 font-bold text-slate-600"
-                >
-                  {format}
-                </div>
-              ),
-            )}
           </div>
         </SectionCard>
       </section>
