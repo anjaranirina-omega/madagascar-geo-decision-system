@@ -1,7 +1,13 @@
 from pathlib import Path
+import sys
 
 import numpy as np
 import rasterio
+
+RISKS_DIR = Path(__file__).resolve().parents[1]
+sys.path.append(str(RISKS_DIR))
+
+from model_weights import load_model_weights
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[4]
@@ -20,6 +26,32 @@ FLOOD_RISK_PATH = FLOOD_RISK_DIR / "flood_risk_index.tif"
 FLOOD_CLASSIFIED_PATH = FLOOD_RISK_DIR / "flood_risk_classified.tif"
 
 
+def clean_profile(profile):
+    cleaned = profile.copy()
+
+    for key in [
+        "blockxsize",
+        "blockysize",
+        "tiled",
+        "interleave",
+        "compress",
+        "predictor",
+    ]:
+        cleaned.pop(key, None)
+
+    cleaned.update(
+        {
+            "driver": "GTiff",
+            "count": 1,
+            "dtype": "float32",
+            "nodata": -9999.0,
+            "compress": "deflate",
+        }
+    )
+
+    return cleaned
+
+
 def read_raster(path: Path):
     if not path.exists():
         raise FileNotFoundError(f"Raster introuvable : {path}")
@@ -33,6 +65,7 @@ def read_raster(path: Path):
         data = np.where(data == nodata, np.nan, data)
 
     data = np.where(data <= -9999, np.nan, data)
+    data = np.where(data < 0, np.nan, data)
 
     return data, profile
 
@@ -40,30 +73,21 @@ def read_raster(path: Path):
 def write_raster(path: Path, data: np.ndarray, profile: dict, nodata=-9999.0):
     path.parent.mkdir(parents=True, exist_ok=True)
 
-    output_profile = profile.copy()
-    output_profile.update(
-        {
-            "driver": "GTiff",
-            "count": 1,
-            "dtype": "float32",
-            "nodata": nodata,
-            "compress": "lzw",
-        }
-    )
-
     output = np.where(np.isfinite(data), data, nodata).astype("float32")
 
-    with rasterio.open(path, "w", **output_profile) as dst:
+    with rasterio.open(path, "w", **clean_profile(profile)) as dst:
         dst.write(output, 1)
 
 
 def classify_risk(risk_0_100: np.ndarray):
     classified = np.full(risk_0_100.shape, np.nan, dtype="float32")
 
-    classified[(risk_0_100 >= 0) & (risk_0_100 <= 30)] = 1
-    classified[(risk_0_100 > 30) & (risk_0_100 <= 60)] = 2
-    classified[(risk_0_100 > 60) & (risk_0_100 <= 80)] = 3
-    classified[(risk_0_100 > 80)] = 4
+    valid = np.isfinite(risk_0_100)
+
+    classified[(risk_0_100 >= 0) & (risk_0_100 <= 30) & valid] = 1
+    classified[(risk_0_100 > 30) & (risk_0_100 <= 60) & valid] = 2
+    classified[(risk_0_100 > 60) & (risk_0_100 <= 80) & valid] = 3
+    classified[(risk_0_100 > 80) & valid] = 4
 
     return classified
 
@@ -81,31 +105,37 @@ def main():
     slope, _ = read_raster(SLOPE_PATH)
     population, _ = read_raster(POPULATION_PATH)
     landcover, _ = read_raster(LANDCOVER_PATH)
+    river_proximity, _ = read_raster(RIVER_PROXIMITY_PATH)
 
-    assert_same_shape(rainfall, slope, population, landcover)
+    assert_same_shape(rainfall, slope, population, landcover, river_proximity)
+
+    weights = load_model_weights("FLOOD")
+    hazard_weights = weights["HAZARD"]
+    risk_weights = weights["RISK"]
 
     inverse_slope = 1 - slope
 
-    # Si un pixel est nodata dans une couche, il reste nodata.
     valid_mask = (
         np.isfinite(rainfall)
         & np.isfinite(slope)
         & np.isfinite(population)
         & np.isfinite(landcover)
+        & np.isfinite(river_proximity)
     )
 
     flood_hazard_0_1 = np.full(rainfall.shape, np.nan, dtype="float32")
     flood_risk_0_1 = np.full(rainfall.shape, np.nan, dtype="float32")
 
     flood_hazard_0_1[valid_mask] = (
-        0.60 * rainfall[valid_mask]
-        + 0.40 * inverse_slope[valid_mask]
+        hazard_weights["rainfall"] * rainfall[valid_mask]
+        + hazard_weights["inverse_slope"] * inverse_slope[valid_mask]
+        + hazard_weights["river_proximity"] * river_proximity[valid_mask]
     )
 
     flood_risk_0_1[valid_mask] = (
-        0.65 * flood_hazard_0_1[valid_mask]
-        + 0.20 * population[valid_mask]
-        + 0.15 * landcover[valid_mask]
+        risk_weights["hazard"] * flood_hazard_0_1[valid_mask]
+        + risk_weights["population"] * population[valid_mask]
+        + risk_weights["landcover"] * landcover[valid_mask]
     )
 
     flood_hazard_0_100 = np.clip(flood_hazard_0_1 * 100, 0, 100).astype("float32")

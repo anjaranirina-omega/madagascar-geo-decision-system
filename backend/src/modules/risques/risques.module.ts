@@ -1,11 +1,12 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { CriteriaWeight } from './entities/criteria-weight.entity';
+import { RiskModelWeight } from './entities/risk-model-weight.entity';
 import { RisquesController } from './risques.controller';
 import { RisquesService } from './risques.service';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([CriteriaWeight])],
+  imports: [TypeOrmModule.forFeature([CriteriaWeight, RiskModelWeight])],
   controllers: [RisquesController],
   providers: [RisquesService],
   exports: [RisquesService],
