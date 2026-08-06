@@ -1,4 +1,5 @@
 import os
+import sys
 from datetime import timedelta
 from pathlib import Path
 
@@ -8,6 +9,10 @@ import rasterio
 from dotenv import load_dotenv
 from rasterio.features import rasterize
 from sqlalchemy import create_engine, text
+RISKS_DIR = Path(__file__).resolve().parents[1]
+sys.path.append(str(RISKS_DIR))
+
+from model_weights import load_model_weights
 
 FILE_PATH = Path(__file__).resolve()
 PROJECT_ROOT = FILE_PATH.parents[4]
@@ -338,6 +343,9 @@ def main():
     )
 
     drought_landcover_sensitivity = reclass_landcover_for_drought(landcover_norm)
+    weights = load_model_weights("DROUGHT")
+    hazard_weights = weights["HAZARD"]
+    risk_weights = weights["RISK"]
 
     valid_mask = (
         np.isfinite(rainfall_deficit)
@@ -350,15 +358,15 @@ def main():
     drought_risk = np.full(rainfall_norm.shape, np.nan, dtype="float32")
 
     drought_hazard[valid_mask] = (
-        0.55 * rainfall_deficit[valid_mask]
-        + 0.30 * temperature_stress[valid_mask]
-        + 0.15 * drought_landcover_sensitivity[valid_mask]
+        hazard_weights["rainfall_deficit"] * rainfall_deficit[valid_mask]
+        + hazard_weights["temperature_stress"] * temperature_stress[valid_mask]
+        + hazard_weights["landcover_sensitivity"] * drought_landcover_sensitivity[valid_mask]
     )
 
     drought_risk[valid_mask] = (
-        0.70 * drought_hazard[valid_mask]
-        + 0.20 * population_norm[valid_mask]
-        + 0.10 * drought_landcover_sensitivity[valid_mask]
+        risk_weights["hazard"] * drought_hazard[valid_mask]
+        + risk_weights["population"] * population_norm[valid_mask]
+        + risk_weights["landcover_sensitivity"] * drought_landcover_sensitivity[valid_mask]
     )
 
     drought_hazard_index = np.clip(drought_hazard * 100, 0, 100)
