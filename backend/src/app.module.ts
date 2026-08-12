@@ -18,6 +18,7 @@ import { SolapModule } from './modules/solap/solap.module';
 import { UsersModule } from './modules/users/users.module';
 import { EtlModule } from './modules/etl/etl.module';
 import { MeteoModule } from './modules/meteo/meteo.module';
+import { OperationalSignalsModule } from './modules/operational-signals/operational-signals.module';
 import { ZoneIndicatorsModule } from './modules/zone-indicators/zone-indicators.module';
 import { RisquesModule } from './modules/risques/risques.module';
 
@@ -37,6 +38,7 @@ import { RisquesModule } from './modules/risques/risques.module';
     UsersModule,
     EtlModule,
     MeteoModule,
+    OperationalSignalsModule,
     ZoneIndicatorsModule,
     GeographieModule,
     AccountRequestsModule,
