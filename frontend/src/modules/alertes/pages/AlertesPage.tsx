@@ -8,6 +8,7 @@ import {
   XCircle,
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
+import OperationalSignalsPanel from '../../operational-signals/components/OperationalSignalsPanel';
 import {
   Alerte,
   AlerteNiveau,
@@ -204,6 +205,8 @@ export default function AlertesPage() {
         <StatCard label="Critiques" value={stats.critical} tone="red" />
         <StatCard label="Résolues" value={stats.resolved} tone="green" />
       </div>
+
+      <OperationalSignalsPanel />
 
       <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-soft dark:border-slate-800 dark:bg-slate-900">
         <select
