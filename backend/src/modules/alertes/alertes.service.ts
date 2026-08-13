@@ -5,6 +5,7 @@ import { MeteoService } from '../meteo/meteo.service';
 import { CreateAlerteDto } from './dto/create-alerte.dto';
 import { GenerateRiskAlertesDto } from './dto/generate-risk-alertes.dto';
 import { GenerateWeatherRiskAlertDto } from './dto/generate-weather-risk-alert.dto';
+import { GenerateOperationalAlertsDto } from './dto/generate-operational-alerts.dto';
 import {
   Alerte,
   AlerteNiveau,
@@ -256,6 +257,190 @@ export class AlertesService {
 
     return {
       message: `${created.length} alerte(s) créée(s), ${updated.length} mise(s) à jour, ${resolved.length} résolue(s).`,
+      createdCount: created.length,
+      updatedCount: updated.length,
+      resolvedCount: resolved.length,
+      created,
+      updated,
+      resolved,
+    };
+  }
+
+  private mapOperationalRiskTypeToAlertType(riskType: string) {
+    const mapping: Record<string, AlerteType> = {
+      FLOOD: AlerteType.INONDATION,
+      DROUGHT: AlerteType.SECHERESSE,
+      LANDSLIDE: AlerteType.GLISSEMENT_TERRAIN,
+      CYCLONE: AlerteType.CYCLONE,
+    };
+
+    return mapping[riskType] ?? AlerteType.RISQUE_GLOBAL;
+  }
+
+  private buildOperationalAlertTitle(params: {
+    riskType: string;
+    zoneNom: string;
+    niveau: AlerteNiveau;
+  }) {
+    const labels: Record<string, string> = {
+      FLOOD: 'inondation',
+      DROUGHT: 'sécheresse / chaleur',
+      LANDSLIDE: 'glissement de terrain',
+      CYCLONE: 'vent sur zone exposée au risque cyclonique',
+    };
+
+    return `Signal opérationnel ${labels[params.riskType] ?? 'risque'} - ${params.zoneNom}`;
+  }
+
+  private buildOperationalAlertMessage(signal: Record<string, any>) {
+    const cycloneNote =
+      signal.risk_type === 'CYCLONE'
+        ? ' Ce signal ne signifie pas qu’un cyclone actif est détecté ; il combine le risque cyclonique historique et les observations de vent actuelles.'
+        : '';
+
+    const details = signal.details ?? {};
+
+    const weatherText = [
+      details.temperature !== undefined && details.temperature !== null
+        ? `Température : ${Number(details.temperature).toFixed(1)} °C.`
+        : null,
+      details.rainfall !== undefined && details.rainfall !== null
+        ? `Pluie : ${Number(details.rainfall).toFixed(1)} mm.`
+        : null,
+      details.windSpeed !== undefined && details.windSpeed !== null
+        ? `Vent : ${Number(details.windSpeed).toFixed(1)} m/s.`
+        : null,
+      details.windGust !== undefined && details.windGust !== null
+        ? `Rafales : ${Number(details.windGust).toFixed(1)} m/s.`
+        : null,
+    ]
+      .filter(Boolean)
+      .join(' ');
+
+    return `${signal.message} Risque de fond max : ${Number(
+      signal.background_risk_max ?? 0,
+    ).toFixed(1)}/100. Facteur météo : ${(
+      Number(signal.weather_factor ?? 0) * 100
+    ).toFixed(0)}%. ${weatherText}${cycloneNote}`;
+  }
+
+  async generateOperationalAlerts(dto: GenerateOperationalAlertsDto = {}) {
+    const zoneType = dto.zoneType ?? 'region';
+
+    const signals = await this.alertesRepository.query(
+      `
+      SELECT
+        risk_type,
+        zone_type,
+        zone_id,
+        zone_nom,
+        background_risk_max,
+        background_risk_mean,
+        weather_factor,
+        signal_score,
+        signal_level,
+        message,
+        observed_at,
+        details
+      FROM operational_risk_signals
+      WHERE zone_type = $1
+        AND signal_level IN ('ELEVE', 'CRITIQUE')
+      ORDER BY signal_score DESC
+      `,
+      [zoneType],
+    );
+
+    const created: Alerte[] = [];
+    const updated: Alerte[] = [];
+    const resolved: Alerte[] = [];
+
+    const activeKeys = new Set<string>();
+
+    for (const signal of signals) {
+      const alertType = this.mapOperationalRiskTypeToAlertType(signal.risk_type);
+      const niveau =
+        signal.signal_level === 'CRITIQUE'
+          ? AlerteNiveau.CRITIQUE
+          : AlerteNiveau.ELEVE;
+
+      const key = `${alertType}:${signal.zone_id}`;
+      activeKeys.add(key);
+
+      const titre = this.buildOperationalAlertTitle({
+        riskType: signal.risk_type,
+        zoneNom: signal.zone_nom,
+        niveau,
+      });
+
+      const message = this.buildOperationalAlertMessage(signal);
+
+      const existing = await this.alertesRepository.findOne({
+        where: {
+          zoneType,
+          zoneId: signal.zone_id,
+          type: alertType,
+          status: AlerteStatus.ACTIVE,
+        },
+      });
+
+      if (existing) {
+        existing.niveau = niveau;
+        existing.titre = titre;
+        existing.message = message;
+        existing.riskValue = Number(signal.signal_score);
+        existing.riskMean =
+          signal.background_risk_mean !== null
+            ? Number(signal.background_risk_mean)
+            : undefined;
+
+        updated.push(await this.alertesRepository.save(existing));
+        continue;
+      }
+
+      const alerte = this.alertesRepository.create({
+        type: alertType,
+        niveau,
+        titre,
+        message,
+        zoneType,
+        zoneId: signal.zone_id,
+        zoneNom: signal.zone_nom,
+        riskValue: Number(signal.signal_score),
+        riskMean:
+          signal.background_risk_mean !== null
+            ? Number(signal.background_risk_mean)
+            : undefined,
+        status: AlerteStatus.ACTIVE,
+      });
+
+      created.push(await this.alertesRepository.save(alerte));
+    }
+
+    const activeOperationalAlerts = await this.alertesRepository
+      .createQueryBuilder('alerte')
+      .where('alerte.zoneType = :zoneType', { zoneType })
+      .andWhere('alerte.status = :status', { status: AlerteStatus.ACTIVE })
+      .andWhere('alerte.titre LIKE :prefix', {
+        prefix: 'Signal opérationnel%',
+      })
+      .getMany();
+
+    for (const alerte of activeOperationalAlerts) {
+      if (!alerte.zoneId) continue;
+
+      const key = `${alerte.type}:${alerte.zoneId}`;
+
+      if (!activeKeys.has(key)) {
+        alerte.status = AlerteStatus.RESOLUE;
+        alerte.resolvedAt = new Date();
+
+        resolved.push(await this.alertesRepository.save(alerte));
+      }
+    }
+
+    return {
+      message: `${created.length} alerte(s) opérationnelle(s) créée(s), ${updated.length} mise(s) à jour, ${resolved.length} résolue(s).`,
+      zoneType,
       createdCount: created.length,
       updatedCount: updated.length,
       resolvedCount: resolved.length,

@@ -1,4 +1,5 @@
 import {
+  Activity,
   AlertTriangle,
   CheckCircle2,
   Clock,
@@ -115,6 +116,28 @@ export default function AlertesPage() {
 
   
 
+  const handleGenerateOperationalAlerts = async () => {
+    setActionLoading(true);
+    setError('');
+    setSuccess('');
+
+    try {
+      const result: any = await alertesService.generateOperationalAlerts({
+        zoneType,
+      });
+
+      setSuccess(
+        result.message ?? 'Génération des alertes opérationnelles terminée.',
+      );
+
+      await loadAlertes();
+    } catch {
+      setError('Impossible de générer les alertes opérationnelles.');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   const handleResolve = async (alerte: Alerte) => {
     setActionLoading(true);
     setError('');
@@ -192,6 +215,15 @@ export default function AlertesPage() {
             >
               <Wand2 size={18} />
               Vérifier maintenant
+            </button>            
+
+            <button
+              onClick={handleGenerateOperationalAlerts}
+              disabled={actionLoading}
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-purple-500 to-blue-600 px-4 text-sm font-extrabold text-white shadow-lg shadow-purple-900/10 transition hover:scale-[1.01] disabled:opacity-60"
+            >
+              <Activity size={18} />
+              Alertes opérationnelles
             </button>
 
             
