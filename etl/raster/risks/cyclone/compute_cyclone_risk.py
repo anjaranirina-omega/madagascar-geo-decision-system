@@ -1,4 +1,5 @@
 import os
+import sys
 from pathlib import Path
 
 import geopandas as gpd
@@ -9,6 +10,10 @@ from dotenv import load_dotenv
 from rasterio.features import MergeAlg, rasterize
 from scipy.ndimage import distance_transform_edt, gaussian_filter
 from shapely.geometry import LineString
+RISKS_DIR = Path(__file__).resolve().parents[1]
+sys.path.append(str(RISKS_DIR))
+
+from model_weights import load_model_weights
 
 
 FILE_PATH = Path(__file__).resolve()
@@ -339,6 +344,9 @@ def main():
     cyclone_track_hazard = build_track_hazard(ibtracs, profile, transform)
 
     landcover_vulnerability = reclass_landcover_for_cyclone(landcover_norm)
+    weights = load_model_weights("CYCLONE")
+    hazard_weights = weights["HAZARD"]
+    risk_weights = weights["RISK"]
 
     valid_mask = (
         np.isfinite(cyclone_track_hazard)
@@ -351,14 +359,14 @@ def main():
     cyclone_risk = np.full(rainfall_norm.shape, np.nan, dtype="float32")
 
     cyclone_hazard[valid_mask] = (
-        0.75 * cyclone_track_hazard[valid_mask]
-        + 0.25 * rainfall_norm[valid_mask]
+        hazard_weights["track_hazard"] * cyclone_track_hazard[valid_mask]
+        + hazard_weights["rainfall"] * rainfall_norm[valid_mask]
     )
 
     cyclone_risk[valid_mask] = (
-        0.70 * cyclone_hazard[valid_mask]
-        + 0.20 * population_norm[valid_mask]
-        + 0.10 * landcover_vulnerability[valid_mask]
+        risk_weights["hazard"] * cyclone_hazard[valid_mask]
+        + risk_weights["population"] * population_norm[valid_mask]
+        + risk_weights["landcover_vulnerability"] * landcover_vulnerability[valid_mask]
     )
 
     cyclone_hazard_index = np.clip(cyclone_hazard * 100, 0, 100)

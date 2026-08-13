@@ -1,9 +1,14 @@
 import os
+import sys
 from pathlib import Path
 
 import numpy as np
 import rasterio
 from dotenv import load_dotenv
+RISKS_DIR = Path(__file__).resolve().parents[1]
+sys.path.append(str(RISKS_DIR))
+
+from model_weights import load_model_weights
 
 
 FILE_PATH = Path(__file__).resolve()
@@ -148,6 +153,9 @@ def main():
     landcover_norm, _ = read_normalized(LANDCOVER_RASTER)
 
     landcover_sensitivity = reclass_landcover_for_landslide(landcover_norm)
+    weights = load_model_weights("LANDSLIDE")
+    hazard_weights = weights["HAZARD"]
+    risk_weights = weights["RISK"]
 
     valid_mask = (
         np.isfinite(rainfall_norm)
@@ -160,15 +168,15 @@ def main():
     landslide_risk = np.full(rainfall_norm.shape, np.nan, dtype="float32")
 
     landslide_hazard[valid_mask] = (
-        0.45 * slope_norm[valid_mask]
-        + 0.35 * rainfall_norm[valid_mask]
-        + 0.20 * landcover_sensitivity[valid_mask]
+        hazard_weights["slope"] * slope_norm[valid_mask]
+        + hazard_weights["rainfall"] * rainfall_norm[valid_mask]
+        + hazard_weights["landcover_sensitivity"] * landcover_sensitivity[valid_mask]
     )
 
     landslide_risk[valid_mask] = (
-        0.70 * landslide_hazard[valid_mask]
-        + 0.20 * population_norm[valid_mask]
-        + 0.10 * landcover_sensitivity[valid_mask]
+        risk_weights["hazard"] * landslide_hazard[valid_mask]
+        + risk_weights["population"] * population_norm[valid_mask]
+        + risk_weights["landcover_sensitivity"] * landcover_sensitivity[valid_mask]
     )
 
     landslide_hazard_index = np.clip(landslide_hazard * 100, 0, 100)
