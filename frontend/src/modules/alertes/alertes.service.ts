@@ -42,6 +42,14 @@ export const alertesService = {
     return response.data;
   },
 
+  async generateOperationalAlerts(payload: {
+    zoneType?: string;
+  }) {
+    const response = await api.post('/alertes/generate-operational-alerts', payload);
+
+    return response.data;
+  },
+
   async resolve(id: string) {
     const response = await api.patch<Alerte>(`/alertes/${id}/resolve`);
     return response.data;

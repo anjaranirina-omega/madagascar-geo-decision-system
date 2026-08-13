@@ -14,6 +14,7 @@ import { AlertesService } from './alertes.service';
 import { CreateAlerteDto } from './dto/create-alerte.dto';
 import { GenerateRiskAlertesDto } from './dto/generate-risk-alertes.dto';
 import { GenerateWeatherRiskAlertDto } from './dto/generate-weather-risk-alert.dto';
+import { GenerateOperationalAlertsDto } from './dto/generate-operational-alerts.dto';
 
 @Controller('alertes')
 export class AlertesController {
@@ -66,6 +67,13 @@ export class AlertesController {
   @Post('generate-from-risk')
   generateFromRisk(@Body() dto: GenerateRiskAlertesDto) {
     return this.alertesService.generateFromRisk(dto);
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN', 'ANALYSTE')
+  @Post('generate-operational-alerts')
+  generateOperationalAlerts(@Body() dto: GenerateOperationalAlertsDto) {
+    return this.alertesService.generateOperationalAlerts(dto);
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
