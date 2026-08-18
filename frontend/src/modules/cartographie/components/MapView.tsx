@@ -1,12 +1,8 @@
 import {
   AlertTriangle,
-  CheckCircle2,
   ChevronDown,
   Crosshair,
-  Download,
   Droplets,
-  Expand,
-  Filter,
   Layers,
   Map as MapIcon,
   Minus,
@@ -16,14 +12,9 @@ import {
   Search,
   Shield,
   Waves,
-  Wind,
   Zap,
-  Thermometer,
-  CloudRain,
-  Leaf,
   Users,
   Clock,
-  Lightbulb,
   Ruler,
 } from 'lucide-react';
 import { ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -69,11 +60,7 @@ type RiskLayerKey =
   | 'flood'
   | 'cyclone'
   | 'drought'
-  | 'landslide'
-  | 'temperature'
-  | 'rainfall'
-  | 'wind'
-  | 'vulnerability';
+  | 'landslide';
 
 type SearchResult = SearchResultItem & {
   level: BoundaryLevel;
@@ -183,10 +170,6 @@ export default function MapView() {
     cyclone: false,
     drought: false,
     landslide: false,
-    temperature: false,
-    rainfall: false,
-    wind: false,
-    vulnerability: false,
   });
 
   const [showBoundaries, setShowBoundaries] = useState(true);
@@ -211,9 +194,6 @@ export default function MapView() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [selectedBoundaryFeature, setSelectedBoundaryFeature] = useState<any | null>(null);
 
-  const [riskTypeFilter, setRiskTypeFilter] = useState('GLOBAL');
-  const [riskLevelFilter, setRiskLevelFilter] = useState('ALL');
-  const [sourceFilter, setSourceFilter] = useState('ALL');
 
   const markerLatLng = Array.isArray(markerPosition)
     ? {
@@ -250,19 +230,6 @@ export default function MapView() {
 
   const showRiskRaster = activeRiskLayerType !== null;
 
-  useEffect(() => {
-    const riskTypeFilterByActiveLayer: Record<string, string> = {
-      RISK_INDEX: 'GLOBAL',
-      FLOOD_RISK_INDEX: 'FLOOD',
-      DROUGHT_RISK_INDEX: 'DROUGHT',
-      LANDSLIDE_RISK_INDEX: 'LANDSLIDE',
-      CYCLONE_RISK_INDEX: 'CYCLONE',
-    };
-
-    if (activeRiskLayerType) {
-      setRiskTypeFilter(riskTypeFilterByActiveLayer[activeRiskLayerType] ?? 'GLOBAL');
-    }
-  }, [activeRiskLayerType]);
 
   const selectedLevel = selectedRisk?.level ?? 'Moyen';
 
@@ -455,17 +422,6 @@ export default function MapView() {
   );
 
   const toggleRiskLayer = (key: RiskLayerKey, value: boolean) => {
-    const riskFilterByLayer: Partial<Record<RiskLayerKey, string>> = {
-      global: 'GLOBAL',
-      flood: 'FLOOD',
-      drought: 'DROUGHT',
-      landslide: 'LANDSLIDE',
-      cyclone: 'CYCLONE',
-    };
-
-    if (value && riskFilterByLayer[key]) {
-      setRiskTypeFilter(riskFilterByLayer[key]);
-    }
 
     setRiskLayers((current) => {
       if (
@@ -521,12 +477,6 @@ export default function MapView() {
         setSearchOpen={setSearchOpen}
         searchResults={searchResults}
         onSelectSearchResult={handleSelectSearchResult}
-        riskTypeFilter={riskTypeFilter}
-        setRiskTypeFilter={setRiskTypeFilter}
-        riskLevelFilter={riskLevelFilter}
-        setRiskLevelFilter={setRiskLevelFilter}
-        sourceFilter={sourceFilter}
-        setSourceFilter={setSourceFilter}
       />
 
       <div className="grid grid-cols-1 gap-5 2xl:grid-cols-[330px_1fr_350px]">
@@ -590,42 +540,6 @@ export default function MapView() {
             />
 
             <LayerCheckbox
-              checked={riskLayers.temperature}
-              onChange={(value) => toggleRiskLayer('temperature', value)}
-              label="Température"
-              subtitle="NASA POWER plus tard"
-              icon={<Thermometer size={16} />}
-              disabled
-            />
-
-            <LayerCheckbox
-              checked={riskLayers.rainfall}
-              onChange={(value) => toggleRiskLayer('rainfall', value)}
-              label="Précipitations"
-              subtitle="CHIRPS intégré dans le risque global"
-              icon={<CloudRain size={16} />}
-              disabled
-            />
-
-            <LayerCheckbox
-              checked={riskLayers.wind}
-              onChange={(value) => toggleRiskLayer('wind', value)}
-              label="Vent"
-              subtitle="OpenWeather plus tard"
-              icon={<Wind size={16} />}
-              disabled
-            />
-
-            <LayerCheckbox
-              checked={riskLayers.vulnerability}
-              onChange={(value) => toggleRiskLayer('vulnerability', value)}
-              label="Vulnérabilité"
-              subtitle="WorldPop + WorldCover"
-              icon={<Users size={16} />}
-              disabled
-            />
-
-            <LayerCheckbox
               checked={showBoundaries}
               onChange={setShowBoundaries}
               label="Limites administratives"
@@ -678,10 +592,6 @@ export default function MapView() {
                 cyclone: false,
                 drought: false,
                 landslide: false,
-                temperature: false,
-                rainfall: false,
-                wind: false,
-                vulnerability: false,
               });
               setShowBoundaries(true);
               setBoundaryLevel('regions');
@@ -949,34 +859,6 @@ export default function MapView() {
               </div>
             )}
           </div>
-
-          <div className="rounded-3xl border border-yellow-100 bg-yellow-50 p-5 dark:border-yellow-900 dark:bg-yellow-950/30">
-            <div className="mb-4 flex items-center gap-2 font-extrabold text-slate-900 dark:text-white">
-              <Lightbulb size={21} className="text-yellow-500" />
-              Recommandations
-            </div>
-
-            <div className="space-y-3 text-sm text-slate-700 dark:text-slate-200">
-              {[
-                'Surveiller l’évolution des précipitations',
-                'Vérifier les zones inondables',
-                'Préparer les équipes d’intervention',
-                'Informer la population locale',
-              ].map((item) => (
-                <div key={item} className="flex items-start gap-2">
-                  <CheckCircle2
-                    size={17}
-                    className="mt-0.5 shrink-0 text-green-600"
-                  />
-                  <span>{item}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <button className="mt-5 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-blue-600 text-sm font-extrabold text-white transition hover:bg-blue-700">
-            Voir le détail complet
-          </button>
         </aside>
       </div>
     </div>
@@ -990,12 +872,6 @@ function MapFilters({
   setSearchOpen,
   searchResults,
   onSelectSearchResult,
-  riskTypeFilter,
-  setRiskTypeFilter,
-  riskLevelFilter,
-  setRiskLevelFilter,
-  sourceFilter,
-  setSourceFilter,
 }: {
   searchQuery: string;
   setSearchQuery: (value: string) => void;
@@ -1003,15 +879,9 @@ function MapFilters({
   setSearchOpen: (value: boolean) => void;
   searchResults: SearchResult[];
   onSelectSearchResult: (result: SearchResult) => void;
-  riskTypeFilter: string;
-  setRiskTypeFilter: (value: string) => void;
-  riskLevelFilter: string;
-  setRiskLevelFilter: (value: string) => void;
-  sourceFilter: string;
-  setSourceFilter: (value: string) => void;
 }) {
   return (
-    <div className="card grid grid-cols-1 gap-4 p-4 xl:grid-cols-[1.5fr_0.8fr_0.8fr_0.9fr_auto]">
+    <div className="card p-4">
       <div className="relative">
         <div className="flex h-12 items-center rounded-xl border border-slate-300 px-4 dark:border-slate-800 dark:bg-slate-950">
           <Search size={20} className="mr-3 text-slate-400" />
@@ -1047,58 +917,6 @@ function MapFilters({
           </div>
         )}
       </div>
-
-      <FilterSelect
-        label="Type de risque"
-        value={riskTypeFilter}
-        onChange={setRiskTypeFilter}
-        options={[
-          ['GLOBAL', 'Risque global'],
-          ['FLOOD', 'Risque inondation'],
-          ['DROUGHT', 'Risque sécheresse'],
-          ['LANDSLIDE', 'Risque glissement'],
-          ['CYCLONE', 'Risque cyclone'],
-        ]}
-      />
-
-      <FilterSelect
-        label="Niveau de risque"
-        value={riskLevelFilter}
-        onChange={setRiskLevelFilter}
-        options={[
-          ['ALL', 'Tous'],
-          ['LOW', 'Faible'],
-          ['MEDIUM', 'Moyen'],
-          ['HIGH', 'Élevé'],
-          ['CRITICAL', 'Critique'],
-        ]}
-      />
-
-      <FilterSelect
-        label="Source de données"
-        value={sourceFilter}
-        onChange={setSourceFilter}
-        options={[
-          ['ALL', 'Toutes'],
-          ['CHIRPS', 'CHIRPS'],
-          ['COP30', 'Copernicus DEM'],
-          ['WORLDPOP', 'WorldPop'],
-          ['WORLDCOVER', 'WorldCover'],
-        ]}
-      />
-
-      <button
-        type="button"
-        onClick={() =>
-          alert(
-            'Les filtres avancés seront disponibles avec les couches de risques spécifiques.',
-          )
-        }
-        className="flex h-12 items-center justify-center gap-2 rounded-xl border border-slate-300 px-4 text-sm font-extrabold text-slate-700 transition hover:bg-slate-50 dark:border-slate-800 dark:text-slate-200 dark:hover:bg-slate-800"
-      >
-        <Filter size={18} />
-        Filtres avancés
-      </button>
     </div>
   );
 }
@@ -1284,16 +1102,24 @@ function MapToolbar() {
   const map = useMap();
 
   return (
-    <div className="absolute right-5 top-1/2 z-[500] flex -translate-y-1/2 flex-col gap-3">
-      <MapToolButton onClick={() => map.zoomIn()} icon={<Plus size={20} />} />
-      <MapToolButton onClick={() => map.zoomOut()} icon={<Minus size={20} />} />
-      <MapToolButton
-        onClick={() => map.fitBounds(MADAGASCAR_BOUNDS)}
-        icon={<Crosshair size={20} />}
-      />
-      <MapToolButton onClick={() => undefined} icon={<Layers size={20} />} />
-      <MapToolButton onClick={() => undefined} icon={<Download size={20} />} />
-      <MapToolButton onClick={() => undefined} icon={<Expand size={20} />} />
+    <div className="absolute right-4 top-4 z-[500] flex flex-col gap-3">
+      <button
+        type="button"
+        onClick={() => map.zoomIn()}
+        className="flex h-11 w-11 items-center justify-center rounded-xl bg-white text-slate-800 shadow-lg transition hover:bg-slate-50"
+        aria-label="Zoom avant"
+      >
+        <Plus size={20} />
+      </button>
+
+      <button
+        type="button"
+        onClick={() => map.zoomOut()}
+        className="flex h-11 w-11 items-center justify-center rounded-xl bg-white text-slate-800 shadow-lg transition hover:bg-slate-50"
+        aria-label="Zoom arrière"
+      >
+        <Minus size={20} />
+      </button>
     </div>
   );
 }
