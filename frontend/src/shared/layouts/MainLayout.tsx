@@ -112,7 +112,7 @@ export default function MainLayout() {
   };
 
   return (
-    <div className="min-h-screen bg-[#f5f7fb] dark:bg-slate-950">
+    <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,#eef6ff_0,#f8fafc_38%,#f1f5f9_100%)] dark:bg-[radial-gradient(circle_at_top_left,#0f172a_0,#020617_45%,#000814_100%)]">
       <aside className="fixed inset-y-0 left-0 z-40 w-[290px] overflow-hidden bg-[#061827] text-white shadow-2xl shadow-slate-900/20">
         <div
           className="absolute inset-x-0 bottom-0 h-[42%] bg-cover bg-center opacity-45"
@@ -201,11 +201,11 @@ export default function MainLayout() {
         </div>
       </aside>
 
-      <main className="ml-[290px] min-h-screen dark:text-slate-100">
-        <header className="sticky top-0 z-30 flex h-[96px] items-center justify-between border-b border-slate-200 bg-white/95 px-8 backdrop-blur dark:border-slate-800 dark:bg-slate-950/90">
+      <main className="ml-[290px] min-h-screen text-slate-900 dark:text-slate-100">
+        <header className="sticky top-0 z-30 flex h-[96px] items-center justify-between border-b border-slate-200 bg-white/90 px-8 shadow-sm backdrop-blur-xl dark:border-slate-800 dark:bg-slate-950/85">
           <div className="flex items-center gap-6">
             <button
-              className="rounded-xl p-2 text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
+              className="rounded-xl p-2 text-slate-700 transition hover:bg-slate-100  hover:bg-slate-100"
               aria-label="Menu"
             >
               <Menu size={26} />
@@ -223,21 +223,21 @@ export default function MainLayout() {
             <div className="hidden items-center gap-3 text-right text-sm text-slate-700 md:flex">
               <CalendarDays size={22} />
               <div>
-                <div className="font-extrabold dark:text-slate-200">{formattedDate}</div>
-                <div className="text-xs text-slate-500 dark:text-slate-400">{formattedTime}</div>
+                <div className="font-extrabold ">{formattedDate}</div>
+                <div className="text-xs text-slate-500 ">{formattedTime}</div>
               </div>
             </div>
 
             <button
               onClick={toggleTheme}
-              className="rounded-full p-2 text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
+              className="rounded-full p-2 text-slate-700 transition hover:bg-slate-100  hover:bg-slate-100"
               aria-label={theme === 'dark' ? 'Activer le mode clair' : 'Activer le mode sombre'}
             >
               {theme === 'dark' ? <Sun size={23} /> : <Moon size={23} />}
             </button>
 
             <button
-              className="relative rounded-full p-2 text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
+              className="relative rounded-full p-2 text-slate-700 transition hover:bg-slate-100  hover:bg-slate-100"
               aria-label="Notifications"
             >
               <Bell size={23} />
@@ -251,16 +251,16 @@ export default function MainLayout() {
                 {user?.firstName?.[0] ?? 'A'}
               </div>
 
-              <div className="hidden text-sm md:block dark:text-slate-100">
-                <div className="font-extrabold text-slate-900 dark:text-white">
+              <div className="hidden text-sm md:block ">
+                <div className="font-extrabold text-slate-900 ">
                   {user?.firstName ?? 'Admin'}
                 </div>
-                <div className="text-xs text-slate-500 dark:text-slate-400">
+                <div className="text-xs text-slate-500 ">
                   {user?.role?.name ?? 'Administrateur'}
                 </div>
               </div>
 
-              <ChevronDown size={18} className="text-slate-500 dark:text-slate-400" />
+              <ChevronDown size={18} className="text-slate-500 " />
             </div>
           </div>
         </header>
@@ -269,7 +269,7 @@ export default function MainLayout() {
           <Outlet />
         </section>
 
-        <footer className="flex items-center justify-between px-8 pb-6 text-sm text-slate-500 dark:text-slate-400">
+        <footer className="flex items-center justify-between px-8 pb-6 text-sm text-slate-500 ">
           <div>
             © 2026 RISKCLIM-MG • Système d’aide à la décision climatique géospatialisé en temps réel
           </div>

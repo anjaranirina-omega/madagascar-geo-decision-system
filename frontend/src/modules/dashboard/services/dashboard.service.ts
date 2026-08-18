@@ -100,6 +100,19 @@ export type DashboardRaster = {
   updatedAt?: string | null;
 };
 
+export type RiskTimeSeriesPoint = {
+  riskType: string;
+  riskLabel: string;
+  date: string;
+  year: number;
+  month: number;
+  riskMean?: number | null;
+  riskMax?: number | null;
+  hazardMean?: number | null;
+  populationExposed?: number | null;
+  recordsCount: number;
+};
+
 export type ClimateIndicators = {
   date: string | null;
   temperature: {
@@ -189,6 +202,21 @@ export const dashboardService = {
 
   async getRasters() {
     const response = await api.get<DashboardRaster[]>('/dashboard/rasters');
+
+    return response.data;
+  },
+
+  async getRiskTimeSeries(params?: {
+    riskType?: string;
+    zoneType?: string;
+    zoneId?: string;
+  }) {
+    const response = await api.get<RiskTimeSeriesPoint[]>(
+      '/solap/risk-timeseries',
+      {
+        params,
+      },
+    );
 
     return response.data;
   },
