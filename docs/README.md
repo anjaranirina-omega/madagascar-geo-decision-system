@@ -1,50 +1,28 @@
 # Documentation RISKCLIM-MG
 
-Ce dossier contient la documentation méthodologique et technique du projet.
+Ce dossier contient la documentation méthodologique, technique et utilisateur du projet.
 
-## Documents
+## Documents principaux
 
-### Méthodologie des modèles de risque
+- `risk-models-methodology.md` : méthodologie des modèles de risque.
+- `raster-risk-pipeline.md` : pipeline raster.
+- `dwh-star-schema.md` : Data Warehouse.
+- `solap-risk-cube.md` : SOLAP.
+- `data-sources.md` : sources de données.
+- `deployment.md` : installation et déploiement local.
+- `validation-checklist.md` : checklist de validation.
+- `demo-script.md` : script de démonstration.
+- `future-improvements.md` : améliorations futures.
+- `final-project-summary.md` : résumé final.
 
-```txt
-docs/risk-models-methodology.md
-```
+## Guides utilisateurs
 
-Décrit :
+- `guide-utilisateur/guide-administrateur.md`
+- `guide-utilisateur/guide-analyste.md`
+- `guide-utilisateur/guide-decideur.md`
+- `guide-utilisateur/guide-agent-terrain.md`
 
-- les sources ;
-- les formules ;
-- les poids ;
-- les sorties raster ;
-- les limites ;
-- les indicateurs zonaux.
+## Architecture
 
-### Pipeline raster de risque
-
-```txt
-docs/raster-risk-pipeline.md
-```
-
-Décrit :
-
-- les couches raster ;
-- le masquage ;
-- les métadonnées ;
-- l'orchestration ETL ;
-- les jobs asynchrones.
-
-### Améliorations futures
-
-```txt
-docs/future-improvements.md
-```
-
-Décrit :
-
-- pondérations spécifiques ;
-- data warehouse ;
-- SOLAP ;
-- dashboard ;
-- rapports ;
-- alertes ;
-- cyclone temps réel.
+- `architecture/architecture.md`
+- `architecture/architecture-projet-geodecisionnel.md`
