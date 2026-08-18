@@ -15,6 +15,7 @@ import {
   RiskComparisonRow,
   reportsService,
 } from '../services/reports.service';
+import Tabs from '../../../shared/components/ui/Tabs';
 
 type ReportAction = {
   title: string;
@@ -25,6 +26,7 @@ type ReportAction = {
 };
 
 type WizardStep = 1 | 2 | 3 | 4 | 5;
+type ReportsTab = 'overview' | 'exports' | 'history' | 'comparison';
 
 const riskOptions = [
   { id: 'FLOOD', label: 'Inondation' },
@@ -270,6 +272,7 @@ function ChoiceButton({
 }
 
 export default function RapportsPage() {
+  const [activeTab, setActiveTab] = useState<ReportsTab>('overview');
   const [wizardOpen, setWizardOpen] = useState(false);
   const [step, setStep] = useState<WizardStep>(1);
   const [loadingWizard, setLoadingWizard] = useState(false);
@@ -578,6 +581,18 @@ export default function RapportsPage() {
         </div>
       </section>
 
+      <Tabs
+        active={activeTab}
+        onChange={setActiveTab}
+        tabs={[
+          { id: 'overview', label: 'Vue d’ensemble' },
+          { id: 'exports', label: 'Exports', count: reports.length },
+          { id: 'history', label: 'Historique', count: history.length },
+          { id: 'comparison', label: 'Comparaison' },
+        ]}
+      />
+
+      {(activeTab === 'overview' || activeTab === 'exports') && (
       <SectionCard
         title="Rapports disponibles"
         subtitle="Exports générés à partir des données consolidées du système."
@@ -592,8 +607,10 @@ export default function RapportsPage() {
           ))}
         </div>
       </SectionCard>
+      )}
 
       <section className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+        {activeTab === 'history' && (
         <SectionCard
           title="Historique des rapports"
           subtitle="Rapports réellement générés et stockés par la plateforme."
@@ -678,7 +695,9 @@ export default function RapportsPage() {
             )}
           </div>
         </SectionCard>
+        )}
 
+        {activeTab === 'comparison' && (
         <SectionCard
           title="Comparaison de périodes"
           subtitle="Comparer l’évolution des risques entre deux périodes du DWH."
@@ -822,6 +841,7 @@ export default function RapportsPage() {
             </div>
           </div>
         </SectionCard>
+        )}
       </section>
 
       <section className="rounded-3xl border border-emerald-100 bg-emerald-50 p-5 text-sm text-emerald-950">

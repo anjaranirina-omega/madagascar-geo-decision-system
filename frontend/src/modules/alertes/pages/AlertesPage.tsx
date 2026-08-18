@@ -9,6 +9,7 @@ import {
   XCircle,
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
+import Tabs from '../../../shared/components/ui/Tabs';
 import OperationalSignalsPanel from '../../operational-signals/components/OperationalSignalsPanel';
 import {
   Alerte,
@@ -16,6 +17,8 @@ import {
   AlerteStatus,
   alertesService,
 } from '../alertes.service';
+
+type AlertesTab = 'alertes' | 'signals' | 'history';
 
 const niveauLabels: Record<AlerteNiveau, string> = {
   FAIBLE: 'Faible',
@@ -25,16 +28,17 @@ const niveauLabels: Record<AlerteNiveau, string> = {
 };
 
 const niveauClasses: Record<AlerteNiveau, string> = {
-  FAIBLE: 'bg-green-50 text-green-700 border-green-200',
-  MOYEN: 'bg-yellow-50 text-yellow-700 border-yellow-200',
-  ELEVE: 'bg-orange-50 text-orange-700 border-orange-200',
-  CRITIQUE: 'bg-red-50 text-red-700 border-red-200',
+  FAIBLE: 'bg-green-50 text-green-700 border-green-200 dark:bg-green-950/40 dark:text-green-200 dark:border-green-900',
+  MOYEN: 'bg-yellow-50 text-yellow-700 border-yellow-200 dark:bg-yellow-950/40 dark:text-yellow-200 dark:border-yellow-900',
+  ELEVE: 'bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-950/40 dark:text-orange-200 dark:border-orange-900',
+  CRITIQUE: 'bg-red-50 text-red-700 border-red-200 dark:bg-red-950/40 dark:text-red-200 dark:border-red-900',
 };
 
 function formatDate(value: string) {
   return new Intl.DateTimeFormat('fr-FR', {
     dateStyle: 'medium',
     timeStyle: 'short',
+    timeZone: 'Indian/Antananarivo',
   }).format(new Date(value));
 }
 
@@ -55,6 +59,7 @@ function formatPopulation(value?: number) {
 }
 
 export default function AlertesPage() {
+  const [activeTab, setActiveTab] = useState<AlertesTab>('alertes');
   const [alertes, setAlertes] = useState<Alerte[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
@@ -81,13 +86,19 @@ export default function AlertesPage() {
     loadAlertes();
   }, []);
 
-  const filteredAlertes = useMemo(() => {
+  const activeAlertes = useMemo(() => {
     if (statusFilter === 'ALL') {
-      return alertes;
+      return alertes.filter((alerte) => alerte.status === 'ACTIVE');
     }
 
     return alertes.filter((alerte) => alerte.status === statusFilter);
   }, [alertes, statusFilter]);
+
+  const historyAlertes = useMemo(() => {
+    return alertes.filter((alerte) =>
+      ['RESOLUE', 'IGNOREE'].includes(alerte.status),
+    );
+  }, [alertes]);
 
   const stats = useMemo(() => {
     return {
@@ -98,23 +109,29 @@ export default function AlertesPage() {
     };
   }, [alertes]);
 
-  const handleAutoGenerateWeatherRisk = async () => {
+  const handleGenerateValidatedRiskAlerts = async () => {
     setActionLoading(true);
     setError('');
     setSuccess('');
 
     try {
-      const result: any = await alertesService.autoGenerateWeatherRisk();
-      setSuccess(result.message ?? 'Vérification météo-risque terminée.');
+      const result: any = await alertesService.generateValidatedRiskAlerts({
+        zoneType,
+        riskTypes: ['FLOOD', 'DROUGHT', 'LANDSLIDE', 'CYCLONE'],
+        riskMeanThreshold: 60,
+        riskMaxThreshold: 70,
+        limit: 10,
+      });
+
+      setSuccess(result.message ?? 'Génération des alertes validées terminée.');
+
       await loadAlertes();
     } catch {
-      setError('Impossible de générer les alertes météo-risque.');
+      setError('Impossible de générer les alertes validées.');
     } finally {
       setActionLoading(false);
     }
   };
-
-  
 
   const handleGenerateOperationalAlerts = async () => {
     setActionLoading(true);
@@ -170,6 +187,9 @@ export default function AlertesPage() {
     }
   };
 
+  const displayedAlertes =
+    activeTab === 'history' ? historyAlertes : activeAlertes;
+
   return (
     <div className="space-y-6">
       <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-soft dark:border-slate-800 dark:bg-slate-900">
@@ -184,7 +204,9 @@ export default function AlertesPage() {
             </h2>
 
             <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-500 dark:text-slate-400">
-              Les alertes sont générées automatiquement à partir des niveaux de risque par zone, de la population exposée et des conditions météo récentes.
+              Les alertes validées sont générées à partir des indicateurs zonaux
+              réels et des signaux opérationnels temps réel. Aucune alerte
+              spécifique n’est simulée.
             </p>
           </div>
 
@@ -202,20 +224,20 @@ export default function AlertesPage() {
             <button
               onClick={loadAlertes}
               disabled={loading}
-              className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 text-sm font-bold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200"
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 text-sm font-bold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-slate-800"
             >
               <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
               Actualiser
             </button>
 
             <button
-              onClick={handleAutoGenerateWeatherRisk}
+              onClick={handleGenerateValidatedRiskAlerts}
               disabled={actionLoading}
-              className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-500 to-cyan-500 px-4 text-sm font-extrabold text-white shadow-lg shadow-blue-900/10 transition hover:scale-[1.01] disabled:opacity-60"
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-red-500 to-orange-500 px-4 text-sm font-extrabold text-white shadow-lg shadow-red-900/10 transition hover:scale-[1.01] disabled:opacity-60"
             >
               <Wand2 size={18} />
               Vérifier maintenant
-            </button>            
+            </button>
 
             <button
               onClick={handleGenerateOperationalAlerts}
@@ -225,8 +247,6 @@ export default function AlertesPage() {
               <Activity size={18} />
               Alertes opérationnelles
             </button>
-
-            
           </div>
         </div>
       </div>
@@ -238,157 +258,215 @@ export default function AlertesPage() {
         <StatCard label="Résolues" value={stats.resolved} tone="green" />
       </div>
 
-      <OperationalSignalsPanel />
+      <Tabs
+        active={activeTab}
+        onChange={setActiveTab}
+        tabs={[
+          {
+            id: 'alertes',
+            label: 'Alertes actives',
+            count: alertes.filter((a) => a.status === 'ACTIVE').length,
+          },
+          {
+            id: 'signals',
+            label: 'Signaux opérationnels',
+          },
+          {
+            id: 'history',
+            label: 'Historique',
+            count: historyAlertes.length,
+          },
+        ]}
+      />
 
-      <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-soft dark:border-slate-800 dark:bg-slate-900">
-        <select
-          value={statusFilter}
-          onChange={(event) =>
-            setStatusFilter(event.target.value as AlerteStatus | 'ALL')
-          }
-          className="h-12 rounded-xl border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 outline-none dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
-        >
-          <option value="ALL">Tous les statuts</option>
-          <option value="ACTIVE">Actives</option>
-          <option value="RESOLUE">Résolues</option>
-          <option value="IGNOREE">Ignorées</option>
-        </select>
+      {activeTab === 'signals' && <OperationalSignalsPanel />}
 
-        {error && (
-          <div className="mt-5 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
-            {error}
+      {activeTab !== 'signals' && (
+        <>
+          <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-soft dark:border-slate-800 dark:bg-slate-900">
+            <select
+              value={statusFilter}
+              onChange={(event) =>
+                setStatusFilter(event.target.value as AlerteStatus | 'ALL')
+              }
+              className="h-12 rounded-xl border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 outline-none dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+            >
+              <option value="ALL">Tous les statuts</option>
+              <option value="ACTIVE">Actives</option>
+              <option value="RESOLUE">Résolues</option>
+              <option value="IGNOREE">Ignorées</option>
+            </select>
+
+            {error && (
+              <div className="mt-5 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200">
+                {error}
+              </div>
+            )}
+
+            {success && (
+              <div className="mt-5 rounded-2xl border border-green-200 bg-green-50 px-4 py-3 text-sm font-semibold text-green-700 dark:border-green-900 dark:bg-green-950/40 dark:text-green-200">
+                {success}
+              </div>
+            )}
           </div>
-        )}
 
-        {success && (
-          <div className="mt-5 rounded-2xl border border-green-200 bg-green-50 px-4 py-3 text-sm font-semibold text-green-700">
-            {success}
-          </div>
-        )}
-      </div>
+          <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-soft dark:border-slate-800 dark:bg-slate-900">
+            {loading ? (
+              <div className="flex h-72 items-center justify-center text-slate-500 dark:text-slate-400">
+                <RefreshCw className="mr-3 animate-spin" size={22} />
+                Chargement des alertes...
+              </div>
+            ) : displayedAlertes.length === 0 ? (
+              <div className="flex h-72 flex-col items-center justify-center text-center">
+                <AlertTriangle size={44} className="mb-3 text-slate-300" />
+                <p className="font-bold text-slate-700 dark:text-slate-200">
+                  Aucune alerte trouvée
+                </p>
+                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                  Aucune alerte ne correspond au filtre sélectionné.
+                </p>
+              </div>
+            ) : (
+              <div className="max-h-[620px] overflow-auto">
+                <table className="w-full border-collapse text-left text-sm">
+                  <thead className="sticky top-0 z-10 bg-slate-50 text-xs uppercase tracking-wide text-slate-500 dark:bg-slate-950 dark:text-slate-400">
+                    <tr>
+                      <th className="px-5 py-4">Alerte</th>
+                      <th className="px-5 py-4">Zone</th>
+                      <th className="px-5 py-4">Niveau</th>
+                      <th className="px-5 py-4">Risque max</th>
+                      <th className="px-5 py-4">Population exposée</th>
+                      <th className="px-5 py-4">Statut</th>
+                      <th className="px-5 py-4">Date</th>
+                      <th className="px-5 py-4 text-right">Actions</th>
+                    </tr>
+                  </thead>
 
-      <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-soft dark:border-slate-800 dark:bg-slate-900">
-        {loading ? (
-          <div className="flex h-72 items-center justify-center text-slate-500">
-            <RefreshCw className="mr-3 animate-spin" size={22} />
-            Chargement des alertes...
-          </div>
-        ) : filteredAlertes.length === 0 ? (
-          <div className="flex h-72 flex-col items-center justify-center text-center">
-            <AlertTriangle size={44} className="mb-3 text-slate-300" />
-            <p className="font-bold text-slate-700 dark:text-slate-200">
-              Aucune alerte trouvée
-            </p>
-            <p className="mt-1 text-sm text-slate-500">
-              Aucune alerte active pour le moment. Le système vérifie automatiquement les conditions de risque et de météo.
-            </p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse text-left text-sm">
-              <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 dark:bg-slate-950 dark:text-slate-400">
-                <tr>
-                  <th className="px-5 py-4">Alerte</th>
-                  <th className="px-5 py-4">Zone</th>
-                  <th className="px-5 py-4">Niveau</th>
-                  <th className="px-5 py-4">Risque max</th>
-                  <th className="px-5 py-4">Population exposée</th>
-                  <th className="px-5 py-4">Statut</th>
-                  <th className="px-5 py-4">Date</th>
-                  <th className="px-5 py-4 text-right">Actions</th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {filteredAlertes.map((alerte) => (
-                  <tr
-                    key={alerte.id}
-                    className="border-t border-slate-100 align-top transition hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-800/60"
-                  >
-                    <td className="px-5 py-5">
-                      <div className="font-extrabold text-slate-900 dark:text-white">
-                        {alerte.titre}
-                      </div>
-                      <div className="mt-1 max-w-md text-slate-500">
-                        {alerte.message}
-                      </div>
-                    </td>
-
-                    <td className="px-5 py-5">
-                      <div className="font-semibold text-slate-800 dark:text-slate-200">
-                        {alerte.zoneNom ?? 'Zone non définie'}
-                      </div>
-                      <div className="mt-1 text-xs text-slate-400">
-                        {alerte.zoneType ?? '—'}
-                      </div>
-                    </td>
-
-                    <td className="px-5 py-5">
-                      <span
-                        className={`rounded-full border px-3 py-1 text-xs font-extrabold ${niveauClasses[alerte.niveau]}`}
+                  <tbody>
+                    {displayedAlertes.map((alerte) => (
+                      <tr
+                        key={alerte.id}
+                        className="border-t border-slate-100 align-top transition hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-800/60"
                       >
-                        {niveauLabels[alerte.niveau]}
-                      </span>
-                    </td>
+                        <td className="px-5 py-5">
+                          <div className="font-extrabold text-slate-900 dark:text-white">
+                            {alerte.titre}
+                          </div>
+                          <div className="mt-1 max-w-md text-slate-500 dark:text-slate-400">
+                            {alerte.message}
+                          </div>
+                        </td>
 
-                    <td className="px-5 py-5 font-black text-slate-900 dark:text-white">
-                      {typeof alerte.riskValue === 'number' ? alerte.riskValue.toFixed(1) : '—'} / 100
-                      {typeof alerte.riskMean === 'number' && (
-                        <div className="text-xs font-normal text-slate-500">
-                          Moyenne {alerte.riskMean.toFixed(1)}
-                        </div>
-                      )}
-                    </td>
+                        <td className="px-5 py-5">
+                          <div className="font-semibold text-slate-800 dark:text-slate-200">
+                            {alerte.zoneNom ?? 'Zone non définie'}
+                          </div>
+                          <div className="mt-1 text-xs text-slate-400">
+                            {alerte.zoneType ?? '—'}
+                          </div>
+                        </td>
 
-                    <td className="px-5 py-5 font-semibold text-slate-700 dark:text-slate-200">
-                      {formatPopulation(alerte.populationExposed ?? undefined)}
-                    </td>
-
-                    <td className="px-5 py-5">
-                      <StatusBadge status={alerte.status} />
-                    </td>
-
-                    <td className="px-5 py-5 text-slate-500">
-                      {formatDate(alerte.createdAt)}
-                    </td>
-
-                    <td className="px-5 py-5">
-                      <div className="flex justify-end gap-2">
-                        {alerte.status === 'ACTIVE' ? (
-                          <>
-                            <button
-                              onClick={() => handleResolve(alerte)}
-                              disabled={actionLoading}
-                              className="inline-flex h-10 items-center gap-2 rounded-xl bg-green-600 px-3 text-xs font-extrabold text-white transition hover:bg-green-700 disabled:opacity-60"
-                            >
-                              <CheckCircle2 size={15} />
-                              Résoudre
-                            </button>
-
-                            <button
-                              onClick={() => handleIgnore(alerte)}
-                              disabled={actionLoading}
-                              className="inline-flex h-10 items-center gap-2 rounded-xl bg-slate-600 px-3 text-xs font-extrabold text-white transition hover:bg-slate-700 disabled:opacity-60"
-                            >
-                              <XCircle size={15} />
-                              Ignorer
-                            </button>
-                          </>
-                        ) : (
-                          <span className="text-xs font-semibold text-slate-400">
-                            Traitée
+                        <td className="px-5 py-5">
+                          <span
+                            className={[
+                              'rounded-full border px-3 py-1 text-xs font-extrabold',
+                              niveauClasses[alerte.niveau],
+                            ].join(' ')}
+                          >
+                            {niveauLabels[alerte.niveau]}
                           </span>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                        </td>
+
+                        <td className="px-5 py-5 font-black text-slate-900 dark:text-white">
+                          {typeof alerte.riskValue === 'number'
+                            ? alerte.riskValue.toFixed(1)
+                            : '—'}{' '}
+                          / 100
+
+                          {typeof alerte.riskMean === 'number' && (
+                            <div className="text-xs font-normal text-slate-500">
+                              Moyenne {alerte.riskMean.toFixed(1)}
+                            </div>
+                          )}
+                        </td>
+
+                        <td className="px-5 py-5 font-semibold text-slate-700 dark:text-slate-200">
+                          {formatPopulation(alerte.populationExposed ?? undefined)}
+                        </td>
+
+                        <td className="px-5 py-5">
+                          <StatusBadge status={alerte.status} />
+                        </td>
+
+                        <td className="px-5 py-5 text-slate-500 dark:text-slate-400">
+                          {formatDate(alerte.createdAt)}
+                        </td>
+
+                        <td className="px-5 py-5">
+                          {alerte.status === 'ACTIVE' ? (
+                            <div className="flex justify-end gap-2">
+                              <button
+                                onClick={() => handleResolve(alerte)}
+                                disabled={actionLoading}
+                                className="inline-flex h-9 items-center gap-2 rounded-lg bg-green-600 px-3 text-xs font-bold text-white hover:bg-green-700 disabled:opacity-60"
+                              >
+                                <CheckCircle2 size={15} />
+                                Résoudre
+                              </button>
+
+                              <button
+                                onClick={() => handleIgnore(alerte)}
+                                disabled={actionLoading}
+                                className="inline-flex h-9 items-center gap-2 rounded-lg bg-slate-700 px-3 text-xs font-bold text-white hover:bg-slate-800 disabled:opacity-60"
+                              >
+                                <XCircle size={15} />
+                                Ignorer
+                              </button>
+                            </div>
+                          ) : (
+                            <span className="text-xs text-slate-400">
+                              Aucune action
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
-        )}
-      </div>
+        </>
+      )}
     </div>
+  );
+}
+
+function StatusBadge({ status }: { status: AlerteStatus }) {
+  const labels: Record<AlerteStatus, string> = {
+    ACTIVE: 'Active',
+    RESOLUE: 'Résolue',
+    IGNOREE: 'Ignorée',
+  };
+
+  const classes: Record<AlerteStatus, string> = {
+    ACTIVE:
+      'bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-950/40 dark:text-orange-200 dark:border-orange-900',
+    RESOLUE:
+      'bg-green-50 text-green-700 border-green-200 dark:bg-green-950/40 dark:text-green-200 dark:border-green-900',
+    IGNOREE:
+      'bg-slate-50 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700',
+  };
+
+  return (
+    <span
+      className={[
+        'rounded-full border px-3 py-1 text-xs font-extrabold',
+        classes[status],
+      ].join(' ')}
+    >
+      {labels[status]}
+    </span>
   );
 }
 
@@ -401,44 +479,21 @@ function StatCard({
   value: number;
   tone: 'slate' | 'orange' | 'red' | 'green';
 }) {
-  const classes = {
-    slate: 'bg-slate-50 text-slate-800 dark:bg-slate-800 dark:text-slate-100',
-    orange: 'bg-orange-50 text-orange-800 dark:bg-orange-950 dark:text-orange-200',
-    red: 'bg-red-50 text-red-800 dark:bg-red-950 dark:text-red-200',
-    green: 'bg-green-50 text-green-800 dark:bg-green-950 dark:text-green-200',
+  const tones = {
+    slate:
+      'border-slate-200 bg-white text-slate-900 dark:border-slate-800 dark:bg-slate-900 dark:text-white',
+    orange:
+      'border-orange-100 bg-orange-50 text-orange-900 dark:border-orange-900 dark:bg-orange-950/40 dark:text-orange-100',
+    red:
+      'border-red-100 bg-red-50 text-red-900 dark:border-red-900 dark:bg-red-950/40 dark:text-red-100',
+    green:
+      'border-green-100 bg-green-50 text-green-900 dark:border-green-900 dark:bg-green-950/40 dark:text-green-100',
   };
 
   return (
-    <div className={`rounded-2xl border border-slate-200 p-5 dark:border-slate-800 ${classes[tone]}`}>
-      <div className="text-sm font-bold">{label}</div>
+    <div className={['rounded-3xl border p-5 shadow-soft', tones[tone]].join(' ')}>
+      <div className="text-sm font-bold opacity-80">{label}</div>
       <div className="mt-2 text-3xl font-black">{value}</div>
     </div>
-  );
-}
-
-function StatusBadge({ status }: { status: AlerteStatus }) {
-  if (status === 'ACTIVE') {
-    return (
-      <span className="inline-flex items-center gap-2 rounded-full border border-orange-200 bg-orange-50 px-3 py-1 text-xs font-extrabold text-orange-700">
-        <Clock size={14} />
-        Active
-      </span>
-    );
-  }
-
-  if (status === 'RESOLUE') {
-    return (
-      <span className="inline-flex items-center gap-2 rounded-full border border-green-200 bg-green-50 px-3 py-1 text-xs font-extrabold text-green-700">
-        <CheckCircle2 size={14} />
-        Résolue
-      </span>
-    );
-  }
-
-  return (
-    <span className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-extrabold text-slate-700">
-      <XCircle size={14} />
-      Ignorée
-    </span>
   );
 }

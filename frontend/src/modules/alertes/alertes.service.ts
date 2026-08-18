@@ -50,6 +50,21 @@ export const alertesService = {
     return response.data;
   },
 
+  async generateValidatedRiskAlerts(payload: {
+    zoneType?: string;
+    riskTypes?: string[];
+    riskMeanThreshold?: number;
+    riskMaxThreshold?: number;
+    limit?: number;
+  }) {
+    const response = await api.post(
+      '/alertes/generate-validated-risk-alerts',
+      payload,
+    );
+
+    return response.data;
+  },
+
   async resolve(id: string) {
     const response = await api.patch<Alerte>(`/alertes/${id}/resolve`);
     return response.data;
