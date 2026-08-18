@@ -23,12 +23,13 @@ import {
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAppStore } from '../../app/store';
 import { authService } from '../../modules/auth/auth.service';
+import { alertesService } from '../../modules/alertes/alertes.service';
 
 const menu = [
   { label: 'Tableau de bord', path: '/', icon: Home },
   { label: 'Carte des risques', path: '/carte', icon: Map },
   { label: 'Analyse multicritère', path: '/analyse', icon: BarChart3 },
-  { label: 'Alertes', path: '/alertes', icon: AlertTriangle, badge: 8 },
+  { label: 'Alertes', path: '/alertes', icon: AlertTriangle },
   { label: 'Données', path: '/donnees', icon: Database },
   { label: 'Rapports', path: '/rapports', icon: FileText },
   { label: 'Paramètres', path: '/parametres', icon: Settings },
@@ -91,6 +92,7 @@ export default function MainLayout() {
   const theme = useAppStore((state) => state.theme);
   const toggleTheme = useAppStore((state) => state.toggleTheme);
   const [currentDate, setCurrentDate] = useState(new Date());
+  const [activeAlertsCount, setActiveAlertsCount] = useState(0);
 
   useEffect(() => {
     const interval = window.setInterval(() => {
@@ -98,6 +100,35 @@ export default function MainLayout() {
     }, 1000);
 
     return () => window.clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadActiveAlertsCount = async () => {
+      try {
+        const activeAlerts = await alertesService.findActive();
+
+        if (!cancelled) {
+          setActiveAlertsCount(activeAlerts.length);
+        }
+      } catch (error) {
+        console.error('[MainLayout] Impossible de charger le nombre d’alertes actives:', error);
+
+        if (!cancelled) {
+          setActiveAlertsCount(0);
+        }
+      }
+    };
+
+    loadActiveAlertsCount();
+
+    const interval = window.setInterval(loadActiveAlertsCount, 60_000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
   }, []);
 
   const { formattedDate, formattedTime } = formatDateTime(currentDate);
@@ -163,9 +194,9 @@ export default function MainLayout() {
                     <span>{item.label}</span>
                   </span>
 
-                  {item.badge && (
+                  {activeAlertsCount > 0 && item.path === '/alertes' && (
                     <span className="flex h-6 min-w-6 items-center justify-center rounded-full bg-red-500 px-2 text-xs font-black text-white">
-                      {item.badge}
+                      {activeAlertsCount}
                     </span>
                   )}
                 </NavLink>
@@ -241,9 +272,12 @@ export default function MainLayout() {
               aria-label="Notifications"
             >
               <Bell size={23} />
-              <span className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-black text-white">
-                8
-              </span>
+
+              {activeAlertsCount > 0 && (
+                <span className="absolute right-1 top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-black text-white">
+                  {activeAlertsCount}
+                </span>
+              )}
             </button>
 
             <div className="flex items-center gap-3">

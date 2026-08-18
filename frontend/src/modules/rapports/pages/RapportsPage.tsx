@@ -546,13 +546,13 @@ export default function RapportsPage() {
       </section>
 
       <section className="grid grid-cols-1 gap-5 md:grid-cols-2">
-        <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
           <div className="flex items-center justify-between">
             <div>
-              <div className="text-sm font-bold text-slate-500">
+              <div className="text-sm font-bold text-slate-500 dark:text-slate-400">
                 Exports disponibles
               </div>
-              <div className="mt-2 text-3xl font-black text-slate-950">
+              <div className="mt-2 text-3xl font-black text-slate-950 dark:text-white">
                 {reports.length}
               </div>
             </div>
@@ -560,14 +560,14 @@ export default function RapportsPage() {
               <Download size={24} />
             </div>
           </div>
-          <p className="mt-2 text-xs text-slate-500">
+          <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
             Rapports générés à la demande, sans données simulées.
           </p>
         </div>
 
-        <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-          <div className="text-sm font-bold text-slate-500">Dernier rapport</div>
-          <div className="mt-2 text-lg font-black text-slate-950">
+        <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <div className="text-sm font-bold text-slate-500 dark:text-slate-400">Dernier rapport</div>
+          <div className="mt-2 text-lg font-black text-slate-950 dark:text-white">
             Rapport national des risques
           </div>
           <div className="mt-3 flex gap-2">
@@ -710,7 +710,7 @@ export default function RapportsPage() {
                   type="date"
                   value={periodAStart}
                   onChange={(event) => setPeriodAStart(event.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                  className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
                 />
               </label>
 
@@ -720,7 +720,7 @@ export default function RapportsPage() {
                   type="date"
                   value={periodAEnd}
                   onChange={(event) => setPeriodAEnd(event.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                  className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
                 />
               </label>
 
@@ -730,7 +730,7 @@ export default function RapportsPage() {
                   type="date"
                   value={periodBStart}
                   onChange={(event) => setPeriodBStart(event.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                  className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
                 />
               </label>
 
@@ -740,7 +740,7 @@ export default function RapportsPage() {
                   type="date"
                   value={periodBEnd}
                   onChange={(event) => setPeriodBEnd(event.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                  className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
                 />
               </label>
             </div>
@@ -751,7 +751,7 @@ export default function RapportsPage() {
                 <select
                   value={comparisonRiskType}
                   onChange={(event) => setComparisonRiskType(event.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                  className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
                 >
                   <option value="">Tous risques</option>
                   <option value="GLOBAL">Global</option>
@@ -767,7 +767,7 @@ export default function RapportsPage() {
                 <select
                   value={comparisonZoneType}
                   onChange={(event) => setComparisonZoneType(event.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                  className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
                 >
                   <option value="region">Région</option>
                   <option value="district">District</option>
@@ -844,14 +844,7 @@ export default function RapportsPage() {
         )}
       </section>
 
-      <section className="rounded-3xl border border-emerald-100 bg-emerald-50 p-5 text-sm text-emerald-950">
-        <div className="font-black">Rapports sans données simulées</div>
-        <p className="mt-1 leading-6">
-          Les fichiers générés utilisent les données consolidées du DWH, des
-          statistiques zonales, des sources de données et du pipeline ETL. Aucun
-          module intervention n’est utilisé.
-        </p>
-      </section>
+      
 
       {wizardOpen && (
         <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm">

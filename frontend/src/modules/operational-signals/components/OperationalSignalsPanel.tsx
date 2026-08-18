@@ -68,23 +68,23 @@ function WeatherDetails({ signal }: { signal: OperationalRiskSignal }) {
 
   return (
     <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-slate-500 md:grid-cols-4">
-      <div className="rounded-xl bg-slate-50 px-3 py-2">
-        <div className="font-bold text-slate-700">Temp.</div>
+      <div className="rounded-xl bg-slate-50 px-3 py-2 dark:bg-slate-800">
+        <div className="font-bold text-slate-700 dark:text-slate-200">Temp.</div>
         {formatNumber(details.temperature)} °C
       </div>
 
-      <div className="rounded-xl bg-slate-50 px-3 py-2">
-        <div className="font-bold text-slate-700">Pluie</div>
+      <div className="rounded-xl bg-slate-50 px-3 py-2 dark:bg-slate-800">
+        <div className="font-bold text-slate-700 dark:text-slate-200">Pluie</div>
         {formatNumber(details.rainfall)} mm
       </div>
 
-      <div className="rounded-xl bg-slate-50 px-3 py-2">
-        <div className="font-bold text-slate-700">Vent</div>
+      <div className="rounded-xl bg-slate-50 px-3 py-2 dark:bg-slate-800">
+        <div className="font-bold text-slate-700 dark:text-slate-200">Vent</div>
         {formatNumber(details.windSpeed)} m/s
       </div>
 
-      <div className="rounded-xl bg-slate-50 px-3 py-2">
-        <div className="font-bold text-slate-700">Rafales</div>
+      <div className="rounded-xl bg-slate-50 px-3 py-2 dark:bg-slate-800">
+        <div className="font-bold text-slate-700 dark:text-slate-200">Rafales</div>
         {formatNumber(details.windGust)} m/s
       </div>
     </div>
@@ -172,7 +172,7 @@ export default function OperationalSignalsPanel() {
             <select
               value={zoneType}
               onChange={(event) => setZoneType(event.target.value)}
-              className="h-11 rounded-xl border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700"
+              className="h-11 rounded-xl border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
             >
               <option value="region">Régions</option>
             </select>
@@ -182,7 +182,7 @@ export default function OperationalSignalsPanel() {
               onChange={(event) =>
                 setRiskType(event.target.value as OperationalRiskType | 'ALL')
               }
-              className="h-11 rounded-xl border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700"
+              className="h-11 rounded-xl border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
             >
               <option value="ALL">Tous risques</option>
               <option value="FLOOD">Inondation</option>
@@ -195,7 +195,7 @@ export default function OperationalSignalsPanel() {
               type="button"
               onClick={loadSignals}
               disabled={loading}
-              className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 text-sm font-bold text-slate-700"
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 text-sm font-bold text-slate-700 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:hover:bg-slate-800"
             >
               <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
               Actualiser
@@ -236,7 +236,7 @@ export default function OperationalSignalsPanel() {
         ) : signals.length === 0 ? (
           <div className="flex h-72 flex-col items-center justify-center text-center">
             <Activity size={44} className="mb-3 text-slate-300" />
-            <p className="font-bold text-slate-700">
+            <p className="font-bold text-slate-700 dark:text-slate-200">
               Aucun signal opérationnel disponible
             </p>
             <p className="mt-1 text-sm text-slate-500">
@@ -286,7 +286,7 @@ export default function OperationalSignalsPanel() {
                     </div>
 
                     <div className="min-w-[150px] rounded-2xl bg-slate-50 p-4 text-right">
-                      <div className="text-xs font-bold text-slate-500">
+                      <div className="text-xs font-bold text-slate-500 dark:text-slate-400">
                         Score opérationnel
                       </div>
                       <div className="mt-1 text-3xl font-black text-slate-900">
@@ -295,7 +295,7 @@ export default function OperationalSignalsPanel() {
                       <div className="mt-1 text-xs text-slate-500">
                         Risque fond max : {formatNumber(signal.backgroundRiskMax)}
                       </div>
-                      <div className="text-xs text-slate-500">
+                      <div className="text-xs text-slate-500 dark:text-slate-400">
                         Facteur météo :{' '}
                         {signal.weatherFactor !== null &&
                         signal.weatherFactor !== undefined
@@ -325,9 +325,13 @@ function SignalStatCard({
   value: string | number;
 }) {
   return (
-    <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-soft">
-      <div className="text-sm font-bold text-slate-500">{label}</div>
-      <div className="mt-2 text-3xl font-black text-slate-900">{value}</div>
+    <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-soft dark:border-slate-800 dark:bg-slate-900">
+      <div className="text-sm font-bold text-slate-500 dark:text-slate-400">
+        {label}
+      </div>
+      <div className="mt-2 text-3xl font-black text-slate-900 dark:text-white">
+        {value}
+      </div>
     </div>
   );
 }
