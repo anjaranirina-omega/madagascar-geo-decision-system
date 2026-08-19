@@ -92,6 +92,8 @@ export default function MainLayout() {
   const theme = useAppStore((state) => state.theme);
   const toggleTheme = useAppStore((state) => state.toggleTheme);
   const [currentDate, setCurrentDate] = useState(new Date());
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [activeAlertsCount, setActiveAlertsCount] = useState(0);
 
   useEffect(() => {
@@ -144,7 +146,12 @@ export default function MainLayout() {
 
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,#eef6ff_0,#f8fafc_38%,#f1f5f9_100%)] dark:bg-[radial-gradient(circle_at_top_left,#0f172a_0,#020617_45%,#000814_100%)]">
-      <aside className="fixed inset-y-0 left-0 z-40 w-[290px] overflow-hidden bg-[#061827] text-white shadow-2xl shadow-slate-900/20">
+      <aside
+        className={[
+          'fixed inset-y-0 left-0 z-40 overflow-hidden bg-[#061827] text-white shadow-2xl shadow-slate-900/20 transition-all duration-300',
+          sidebarCollapsed ? 'w-[92px]' : 'w-[290px]',
+        ].join(' ')}
+      >
         <div
           className="absolute inset-x-0 bottom-0 h-[42%] bg-cover bg-center opacity-45"
           style={{
@@ -160,7 +167,8 @@ export default function MainLayout() {
               <CloudRain size={27} />
             </div>
 
-            <div>
+            {!sidebarCollapsed && (
+            <div className={sidebarCollapsed ? "hidden" : ""}>
               <div className="text-xl font-black tracking-tight">
                 RISK<span className="text-blue-400">CLIM</span>
                 <span className="text-green-400">-MG</span>
@@ -169,6 +177,7 @@ export default function MainLayout() {
                 Géodécisionnel
               </div>
             </div>
+            )}
           </div>
 
           <nav className="flex flex-1 flex-col gap-2 overflow-y-auto pr-1">
@@ -191,7 +200,7 @@ export default function MainLayout() {
                 >
                   <span className="flex items-center gap-3">
                     <Icon size={19} />
-                    <span>{item.label}</span>
+                    {!sidebarCollapsed && <span>{item.label}</span>}
                   </span>
 
                   {activeAlertsCount > 0 && item.path === '/alertes' && (
@@ -210,7 +219,7 @@ export default function MainLayout() {
                 {user?.firstName?.[0] ?? 'A'}
               </div>
 
-              <div className="min-w-0 flex-1">
+              <div className={sidebarCollapsed ? "hidden" : "min-w-0 flex-1"}>
                 <div className="truncate text-sm font-extrabold text-white">
                   {user?.firstName ?? 'Admin'}
                 </div>
@@ -226,17 +235,24 @@ export default function MainLayout() {
               className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-sm font-semibold text-slate-200 transition hover:bg-white/10 hover:text-white"
             >
               <LogOut size={19} />
-              Déconnexion
+              {!sidebarCollapsed && 'Déconnexion'}
             </button>
           </div>
         </div>
       </aside>
 
-      <main className="ml-[290px] min-h-screen text-slate-900 dark:text-slate-100">
+      <main
+        className={[
+          'min-h-screen text-slate-900 transition-all duration-300 dark:text-slate-100',
+          sidebarCollapsed ? 'ml-[92px]' : 'ml-[290px]',
+        ].join(' ')}
+      >
         <header className="sticky top-0 z-30 flex h-[96px] items-center justify-between border-b border-slate-200 bg-white/90 px-8 shadow-sm backdrop-blur-xl dark:border-slate-800 dark:bg-slate-950/85">
           <div className="flex items-center gap-6">
             <button
-              className="rounded-xl p-2 text-slate-700 transition hover:bg-slate-100  hover:bg-slate-100"
+              type="button"
+              onClick={() => setSidebarCollapsed((value) => !value)}
+              className="rounded-xl p-2 text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
               aria-label="Menu"
             >
               <Menu size={26} />
@@ -268,7 +284,9 @@ export default function MainLayout() {
             </button>
 
             <button
-              className="relative rounded-full p-2 text-slate-700 transition hover:bg-slate-100  hover:bg-slate-100"
+              type="button"
+              onClick={() => navigate('/alertes')}
+              className="relative rounded-full p-2 text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
               aria-label="Notifications"
             >
               <Bell size={23} />
@@ -280,21 +298,61 @@ export default function MainLayout() {
               )}
             </button>
 
-            <div className="flex items-center gap-3">
-              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-amber-100 font-black text-amber-800">
-                {user?.firstName?.[0] ?? 'A'}
-              </div>
-
-              <div className="hidden text-sm md:block ">
-                <div className="font-extrabold text-slate-900 ">
-                  {user?.firstName ?? 'Admin'}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setUserMenuOpen((value) => !value)}
+                className="flex items-center gap-3 rounded-2xl px-2 py-1 transition hover:bg-slate-100 dark:hover:bg-slate-800"
+              >
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-amber-100 font-black text-amber-800">
+                  {user?.firstName?.[0] ?? 'A'}
                 </div>
-                <div className="text-xs text-slate-500 ">
-                  {user?.role?.name ?? 'Administrateur'}
-                </div>
-              </div>
 
-              <ChevronDown size={18} className="text-slate-500 " />
+                <div className="hidden text-sm md:block">
+                  <div className="font-extrabold text-slate-900 dark:text-white">
+                    {user?.firstName ?? 'Admin'}
+                  </div>
+                  <div className="text-xs text-slate-500 dark:text-slate-400">
+                    {user?.role?.name ?? 'Administrateur'}
+                  </div>
+                </div>
+
+                <ChevronDown size={18} className="text-slate-500 dark:text-slate-400" />
+              </button>
+
+              {userMenuOpen && (
+                <div className="absolute right-0 top-14 z-50 w-60 rounded-2xl border border-slate-200 bg-white p-2 shadow-xl dark:border-slate-800 dark:bg-slate-900">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setUserMenuOpen(false);
+                      navigate('/utilisateurs');
+                    }}
+                    className="block w-full rounded-xl px-4 py-3 text-left text-sm font-bold text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800"
+                  >
+                    Profil / utilisateurs
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setUserMenuOpen(false);
+                      navigate('/parametres');
+                    }}
+                    className="block w-full rounded-xl px-4 py-3 text-left text-sm font-bold text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800"
+                  >
+                    Paramètres
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleLogout}
+                    className="block w-full rounded-xl px-4 py-3 text-left text-sm font-bold text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40"
+                  >
+                    {!sidebarCollapsed && 'Déconnexion'}
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </header>
