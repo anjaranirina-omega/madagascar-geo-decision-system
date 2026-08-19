@@ -14,6 +14,7 @@ import { GeographieModule } from './modules/geographie/geographie.module';
 import { RastersModule } from './modules/rasters/rasters.module';
 import { ReportsModule } from './modules/reports/reports.module';
 import { SigModule } from './modules/sig/sig.module';
+import { SettingsModule } from './modules/settings/settings.module';
 import { SolapModule } from './modules/solap/solap.module';
 import { UsersModule } from './modules/users/users.module';
 import { EtlModule } from './modules/etl/etl.module';
@@ -48,6 +49,7 @@ import { RisquesModule } from './modules/risques/risques.module';
     CollecteModule,
     ClimateModule,
     SigModule,
+    SettingsModule,
     SolapModule,
     DashboardModule,
     DataSourcesModule,
