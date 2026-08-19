@@ -160,18 +160,18 @@ export default function AccountRequestsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-soft">
+      <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-soft dark:border-slate-800 dark:bg-slate-900">
         <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-green-500 to-blue-600 text-white">
               <ShieldCheck size={30} />
             </div>
 
-            <h2 className="text-2xl font-black text-slate-900">
+            <h2 className="text-2xl font-black text-slate-900 dark:text-white">
               Demandes de compte
             </h2>
 
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500 dark:text-slate-400">
               Consultez les demandes envoyées depuis la page publique et validez
               l’accès des utilisateurs autorisés à la plateforme RISKCLIM-MG.
             </p>
@@ -180,7 +180,7 @@ export default function AccountRequestsPage() {
           <button
             onClick={loadRequests}
             disabled={loading}
-            className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 text-sm font-bold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 text-sm font-bold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-slate-800"
           >
             <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
             Actualiser
@@ -195,15 +195,15 @@ export default function AccountRequestsPage() {
         <CounterCard label="Rejetées" value={counters.rejected} color="red" />
       </div>
 
-      <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-soft">
+      <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-soft dark:border-slate-800 dark:bg-slate-900">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex h-12 flex-1 items-center rounded-xl border border-slate-300 px-4 focus-within:border-green-500 focus-within:ring-4 focus-within:ring-green-100">
+          <div className="flex h-12 flex-1 items-center rounded-xl border border-slate-300 px-4 focus-within:border-green-500 focus-within:ring-4 focus-within:ring-green-100 dark:border-slate-700 dark:bg-slate-950 dark:focus-within:ring-green-900/40">
             <Search size={20} className="mr-3 text-slate-400" />
             <input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Rechercher par nom, email, institution..."
-              className="h-full w-full bg-transparent text-sm outline-none placeholder:text-slate-400"
+              className="h-full w-full bg-transparent text-sm outline-none placeholder:text-slate-400 dark:text-slate-100"
             />
           </div>
 
@@ -212,7 +212,7 @@ export default function AccountRequestsPage() {
             onChange={(event) =>
               setStatusFilter(event.target.value as AccountRequestStatus | 'ALL')
             }
-            className="h-12 rounded-xl border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 outline-none focus:border-green-500 focus:ring-4 focus:ring-green-100"
+            className="h-12 rounded-xl border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 outline-none focus:border-green-500 focus:ring-4 focus:ring-green-100 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:ring-green-900/40"
           >
             <option value="ALL">Tous les statuts</option>
             <option value="PENDING">En attente</option>
@@ -222,36 +222,36 @@ export default function AccountRequestsPage() {
         </div>
 
         {error && (
-          <div className="mt-5 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
+          <div className="mt-5 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200">
             {error}
           </div>
         )}
 
         {success && (
-          <div className="mt-5 rounded-2xl border border-green-200 bg-green-50 px-4 py-3 text-sm font-semibold text-green-700">
+          <div className="mt-5 rounded-2xl border border-green-200 bg-green-50 px-4 py-3 text-sm font-semibold text-green-700 dark:border-green-900 dark:bg-green-950/40 dark:text-green-200">
             {success}
           </div>
         )}
       </div>
 
-      <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-soft">
+      <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-soft dark:border-slate-800 dark:bg-slate-900">
         {loading ? (
-          <div className="flex h-72 items-center justify-center text-slate-500">
+          <div className="flex h-72 items-center justify-center text-slate-500 dark:text-slate-400">
             <RefreshCw className="mr-3 animate-spin" size={22} />
             Chargement des demandes...
           </div>
         ) : filteredRequests.length === 0 ? (
           <div className="flex h-72 flex-col items-center justify-center text-center">
             <Mail size={42} className="mb-3 text-slate-300" />
-            <p className="font-bold text-slate-700">Aucune demande trouvée</p>
-            <p className="mt-1 text-sm text-slate-500">
+            <p className="font-bold text-slate-700 dark:text-slate-200">Aucune demande trouvée</p>
+            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
               Les demandes envoyées depuis la page contact apparaîtront ici.
             </p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full border-collapse text-left text-sm">
-              <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+              <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500 dark:bg-slate-950 dark:text-slate-400">
                 <tr>
                   <th className="px-5 py-4">Demandeur</th>
                   <th className="px-5 py-4">Institution</th>
@@ -266,25 +266,25 @@ export default function AccountRequestsPage() {
                 {filteredRequests.map((request) => (
                   <tr
                     key={request.id}
-                    className="border-t border-slate-100 align-top transition hover:bg-slate-50"
+                    className="border-t border-slate-100 align-top transition hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-800/60"
                   >
                     <td className="px-5 py-5">
-                      <div className="font-extrabold text-slate-900">
+                      <div className="font-extrabold text-slate-900 dark:text-white">
                         {request.fullName}
                       </div>
-                      <div className="mt-1 text-slate-500">{request.email}</div>
+                      <div className="mt-1 text-slate-500 dark:text-slate-400">{request.email}</div>
                       {request.phone && (
-                        <div className="mt-1 text-xs text-slate-400">
+                        <div className="mt-1 text-xs text-slate-400 dark:text-slate-500">
                           {request.phone}
                         </div>
                       )}
                     </td>
 
                     <td className="px-5 py-5">
-                      <div className="font-semibold text-slate-800">
+                      <div className="font-semibold text-slate-800 dark:text-slate-200">
                         {request.organization}
                       </div>
-                      <div className="mt-1 text-slate-500">
+                      <div className="mt-1 text-slate-500 dark:text-slate-400">
                         {request.position}
                       </div>
                     </td>
@@ -300,7 +300,7 @@ export default function AccountRequestsPage() {
                       <StatusBadge status={request.status} />
                     </td>
 
-                    <td className="px-5 py-5 text-slate-500">
+                    <td className="px-5 py-5 text-slate-500 dark:text-slate-400">
                       {formatDate(request.createdAt)}
                     </td>
 
@@ -327,7 +327,7 @@ export default function AccountRequestsPage() {
                             </button>
                           </>
                         ) : (
-                          <span className="text-xs font-semibold text-slate-400">
+                          <span className="text-xs font-semibold text-slate-400 dark:text-slate-500">
                             Traitée
                           </span>
                         )}
@@ -354,10 +354,10 @@ function CounterCard({
   color: 'slate' | 'yellow' | 'green' | 'red';
 }) {
   const colorClasses = {
-    slate: 'bg-slate-50 text-slate-800',
-    yellow: 'bg-yellow-50 text-yellow-800',
-    green: 'bg-green-50 text-green-800',
-    red: 'bg-red-50 text-red-800',
+    slate: 'bg-slate-50 text-slate-800 dark:bg-slate-900 dark:text-slate-100 dark:border-slate-800',
+    yellow: 'bg-yellow-50 text-yellow-800 dark:bg-yellow-950/40 dark:text-yellow-200 dark:border-yellow-900',
+    green: 'bg-green-50 text-green-800 dark:bg-green-950/40 dark:text-green-200 dark:border-green-900',
+    red: 'bg-red-50 text-red-800 dark:bg-red-950/40 dark:text-red-200 dark:border-red-900',
   };
 
   return (

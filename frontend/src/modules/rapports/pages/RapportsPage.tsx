@@ -80,12 +80,12 @@ function SectionCard({
   children: React.ReactNode;
 }) {
   return (
-    <section className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+    <section className="rounded-[2rem] border border-slate-200 dark:border-slate-800 bg-white p-6 shadow-sm dark:bg-slate-900 dark:border-slate-800 dark:border-slate-800 dark:bg-slate-900">
       <div className="mb-5">
-        <h3 className="text-lg font-black text-slate-950 dark:text-white">
+        <h3 className="text-lg font-black text-slate-950 dark:text-white dark:text-white">
           {title}
         </h3>
-        {subtitle && <p className="mt-1 text-sm text-slate-500">{subtitle}</p>}
+        {subtitle && <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{subtitle}</p>}
       </div>
       {children}
     </section>
@@ -114,22 +114,22 @@ function ReportCard({
   };
 
   return (
-    <div className="group rounded-3xl border border-slate-200 bg-white p-6 shadow-sm transition hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-xl dark:border-slate-800 dark:bg-slate-900">
+    <div className="group rounded-3xl border border-slate-200 dark:border-slate-800 bg-white p-6 shadow-sm dark:bg-slate-900 dark:border-slate-800 transition hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-xl dark:border-slate-800 dark:bg-slate-900">
       <div className="mb-4 flex items-start justify-between gap-3">
         <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-500 to-green-500 text-white shadow-lg">
           <Icon size={24} />
         </div>
 
-        <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-black text-slate-500">
+        <span className="rounded-full border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 px-3 py-1 text-xs font-black text-slate-500 dark:text-slate-400">
           {report.format}
         </span>
       </div>
 
-      <h3 className="text-lg font-black text-slate-950 dark:text-white">
+      <h3 className="text-lg font-black text-slate-950 dark:text-white dark:text-white">
         {report.title}
       </h3>
 
-      <p className="mt-2 min-h-12 text-sm leading-6 text-slate-500">
+      <p className="mt-2 min-h-12 text-sm leading-6 text-slate-500 dark:text-slate-400">
         {report.description}
       </p>
 
@@ -218,7 +218,7 @@ function comparisonDeltaClass(row: RiskComparisonRow) {
   }
 
   if (hasA && !hasB) {
-    return 'text-slate-500';
+    return 'text-slate-500 dark:text-slate-400';
   }
 
   if (Number(row.riskMaxDelta ?? 0) > 0) {
@@ -229,7 +229,7 @@ function comparisonDeltaClass(row: RiskComparisonRow) {
     return 'text-green-600';
   }
 
-  return 'text-slate-500';
+  return 'text-slate-500 dark:text-slate-400';
 }
 
 function formatFileSize(value?: number | null) {
@@ -263,7 +263,7 @@ function ChoiceButton({
         'rounded-2xl border px-4 py-3 text-left text-sm font-bold transition',
         active
           ? 'border-blue-300 bg-blue-50 text-blue-800 shadow-sm'
-          : 'border-slate-200 bg-white text-slate-600 hover:border-blue-200 hover:bg-slate-50',
+          : 'border-slate-200 dark:border-slate-800 bg-white text-slate-600 dark:text-slate-300 hover:border-blue-200 hover:bg-slate-50 dark:bg-slate-800',
       ].join(' ')}
     >
       {label}
@@ -536,7 +536,7 @@ export default function RapportsPage() {
             <button
               type="button"
               onClick={() => setWizardOpen(true)}
-              className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-white px-5 text-sm font-black text-slate-900 shadow-lg transition hover:scale-[1.02]"
+              className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-white px-5 text-sm font-black text-slate-900 dark:text-white shadow-lg transition hover:scale-[1.02]"
             >
               <Sparkles size={18} />
               Nouveau rapport
@@ -546,13 +546,13 @@ export default function RapportsPage() {
       </section>
 
       <section className="grid grid-cols-1 gap-5 md:grid-cols-2">
-        <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <div className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white p-6 shadow-sm dark:bg-slate-900 dark:border-slate-800 dark:border-slate-800 dark:bg-slate-900">
           <div className="flex items-center justify-between">
             <div>
-              <div className="text-sm font-bold text-slate-500 dark:text-slate-400">
+              <div className="text-sm font-bold text-slate-500 dark:text-slate-400 dark:text-slate-400">
                 Exports disponibles
               </div>
-              <div className="mt-2 text-3xl font-black text-slate-950 dark:text-white">
+              <div className="mt-2 text-3xl font-black text-slate-950 dark:text-white dark:text-white">
                 {reports.length}
               </div>
             </div>
@@ -560,14 +560,14 @@ export default function RapportsPage() {
               <Download size={24} />
             </div>
           </div>
-          <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
+          <p className="mt-2 text-xs text-slate-500 dark:text-slate-400 dark:text-slate-400">
             Rapports générés à la demande, sans données simulées.
           </p>
         </div>
 
-        <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-          <div className="text-sm font-bold text-slate-500 dark:text-slate-400">Dernier rapport</div>
-          <div className="mt-2 text-lg font-black text-slate-950 dark:text-white">
+        <div className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white p-6 shadow-sm dark:bg-slate-900 dark:border-slate-800 dark:border-slate-800 dark:bg-slate-900">
+          <div className="text-sm font-bold text-slate-500 dark:text-slate-400 dark:text-slate-400">Dernier rapport</div>
+          <div className="mt-2 text-lg font-black text-slate-950 dark:text-white dark:text-white">
             Rapport national des risques
           </div>
           <div className="mt-3 flex gap-2">
@@ -616,7 +616,7 @@ export default function RapportsPage() {
           subtitle="Rapports réellement générés et stockés par la plateforme."
         >
           <div className="mb-4 flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-500">
+            <span className="text-xs font-bold text-slate-500 dark:text-slate-400">
               {history.length} rapport(s)
             </span>
 
@@ -624,16 +624,16 @@ export default function RapportsPage() {
               type="button"
               onClick={loadHistory}
               disabled={historyLoading}
-              className="rounded-xl border border-slate-200 px-3 py-2 text-xs font-bold text-slate-600 disabled:opacity-50"
+              className="rounded-xl border border-slate-200 dark:border-slate-800 px-3 py-2 text-xs font-bold text-slate-600 dark:text-slate-300 disabled:opacity-50"
             >
               {historyLoading ? 'Chargement...' : 'Actualiser'}
             </button>
           </div>
 
-          <div className="max-h-[360px] overflow-y-auto rounded-2xl border border-slate-100">
+          <div className="max-h-[360px] overflow-y-auto rounded-2xl border border-slate-100 dark:border-slate-800">
             {history.length > 0 ? (
               <table className="w-full text-left text-sm">
-                <thead className="sticky top-0 bg-slate-50 text-xs uppercase text-slate-400">
+                <thead className="sticky top-0 bg-slate-50 dark:bg-slate-800 text-xs uppercase text-slate-400">
                   <tr>
                     <th className="px-3 py-3">Titre</th>
                     <th className="px-3 py-3">Type</th>
@@ -647,12 +647,12 @@ export default function RapportsPage() {
                   {history.map((report) => (
                     <tr
                       key={report.id}
-                      className="border-t border-slate-100 hover:bg-slate-50"
+                      className="border-t border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:bg-slate-800"
                     >
-                      <td className="px-3 py-3 font-bold text-slate-800">
+                      <td className="px-3 py-3 font-bold text-slate-800 dark:text-slate-100">
                         {report.title}
                       </td>
-                      <td className="px-3 py-3 text-slate-500">
+                      <td className="px-3 py-3 text-slate-500 dark:text-slate-400">
                         {report.reportType}
                       </td>
                       <td className="px-3 py-3">
@@ -660,10 +660,10 @@ export default function RapportsPage() {
                           {report.format}
                         </span>
                       </td>
-                      <td className="px-3 py-3 text-slate-500">
+                      <td className="px-3 py-3 text-slate-500 dark:text-slate-400">
                         {report.generatedAtLocal ?? formatReportDate(report.createdAt)}
                       </td>
-                      <td className="px-3 py-3 text-slate-500">
+                      <td className="px-3 py-3 text-slate-500 dark:text-slate-400">
                         {formatFileSize(report.fileSizeBytes)}
                       </td>
                       <td className="px-3 py-3 text-right">
@@ -689,7 +689,7 @@ export default function RapportsPage() {
                 </tbody>
               </table>
             ) : (
-              <div className="p-6 text-center text-sm text-slate-500">
+              <div className="p-6 text-center text-sm text-slate-500 dark:text-slate-400">
                 Aucun rapport généré pour le moment.
               </div>
             )}
@@ -704,54 +704,54 @@ export default function RapportsPage() {
         >
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-3">
-              <label className="text-xs font-bold text-slate-500">
+              <label className="text-xs font-bold text-slate-500 dark:text-slate-400">
                 Période A début
                 <input
                   type="date"
                   value={periodAStart}
                   onChange={(event) => setPeriodAStart(event.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+                  className="mt-1 w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-white px-3 py-2 text-sm text-slate-700 dark:text-slate-200 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
                 />
               </label>
 
-              <label className="text-xs font-bold text-slate-500">
+              <label className="text-xs font-bold text-slate-500 dark:text-slate-400">
                 Période A fin
                 <input
                   type="date"
                   value={periodAEnd}
                   onChange={(event) => setPeriodAEnd(event.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+                  className="mt-1 w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-white px-3 py-2 text-sm text-slate-700 dark:text-slate-200 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
                 />
               </label>
 
-              <label className="text-xs font-bold text-slate-500">
+              <label className="text-xs font-bold text-slate-500 dark:text-slate-400">
                 Période B début
                 <input
                   type="date"
                   value={periodBStart}
                   onChange={(event) => setPeriodBStart(event.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+                  className="mt-1 w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-white px-3 py-2 text-sm text-slate-700 dark:text-slate-200 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
                 />
               </label>
 
-              <label className="text-xs font-bold text-slate-500">
+              <label className="text-xs font-bold text-slate-500 dark:text-slate-400">
                 Période B fin
                 <input
                   type="date"
                   value={periodBEnd}
                   onChange={(event) => setPeriodBEnd(event.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+                  className="mt-1 w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-white px-3 py-2 text-sm text-slate-700 dark:text-slate-200 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
                 />
               </label>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
-              <label className="text-xs font-bold text-slate-500">
+              <label className="text-xs font-bold text-slate-500 dark:text-slate-400">
                 Risque
                 <select
                   value={comparisonRiskType}
                   onChange={(event) => setComparisonRiskType(event.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+                  className="mt-1 w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-white px-3 py-2 text-sm text-slate-700 dark:text-slate-200 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
                 >
                   <option value="">Tous risques</option>
                   <option value="GLOBAL">Global</option>
@@ -762,12 +762,12 @@ export default function RapportsPage() {
                 </select>
               </label>
 
-              <label className="text-xs font-bold text-slate-500">
+              <label className="text-xs font-bold text-slate-500 dark:text-slate-400">
                 Zone
                 <select
                   value={comparisonZoneType}
                   onChange={(event) => setComparisonZoneType(event.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+                  className="mt-1 w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-white px-3 py-2 text-sm text-slate-700 dark:text-slate-200 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
                 >
                   <option value="region">Région</option>
                   <option value="district">District</option>
@@ -789,16 +789,16 @@ export default function RapportsPage() {
               <button
                 type="button"
                 onClick={downloadComparisonExcel}
-                className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-black text-slate-700"
+                className="rounded-xl border border-slate-200 dark:border-slate-800 px-4 py-2 text-sm font-black text-slate-700 dark:text-slate-200"
               >
                 Excel
               </button>
             </div>
 
-            <div className="max-h-[260px] overflow-y-auto rounded-2xl border border-slate-100">
+            <div className="max-h-[260px] overflow-y-auto rounded-2xl border border-slate-100 dark:border-slate-800">
               {comparisonRows.length > 0 ? (
                 <table className="w-full text-left text-xs">
-                  <thead className="sticky top-0 bg-slate-50 uppercase text-slate-400">
+                  <thead className="sticky top-0 bg-slate-50 dark:bg-slate-800 uppercase text-slate-400">
                     <tr>
                       <th className="px-3 py-2">Risque</th>
                       <th className="px-3 py-2">Zone</th>
@@ -811,7 +811,7 @@ export default function RapportsPage() {
                     {comparisonRows.slice(0, 30).map((row) => (
                       <tr
                         key={`${row.riskType}-${row.zoneId}`}
-                        className="border-t border-slate-100"
+                        className="border-t border-slate-100 dark:border-slate-800"
                       >
                         <td className="px-3 py-2 font-bold">{row.riskLabel}</td>
                         <td className="px-3 py-2">{row.zoneNom}</td>
@@ -830,7 +830,7 @@ export default function RapportsPage() {
                   </tbody>
                 </table>
               ) : (
-                <div className="p-5 text-sm text-slate-500">
+                <div className="p-5 text-sm text-slate-500 dark:text-slate-400">
                   Aucune comparaison chargée. Choisissez deux périodes puis cliquez sur Comparer.
                 </div>
               )}
@@ -851,10 +851,10 @@ export default function RapportsPage() {
           <div className="max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-[2rem] bg-white p-6 shadow-2xl">
             <div className="mb-6 flex items-start justify-between gap-4">
               <div>
-                <h3 className="text-2xl font-black text-slate-950">
+                <h3 className="text-2xl font-black text-slate-950 dark:text-white">
                   Assistant de génération de rapport
                 </h3>
-                <p className="mt-1 text-sm text-slate-500">
+                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
                   Configurez le rapport décisionnel à générer.
                 </p>
               </div>
@@ -862,7 +862,7 @@ export default function RapportsPage() {
               <button
                 type="button"
                 onClick={() => setWizardOpen(false)}
-                className="rounded-xl border border-slate-200 px-3 py-2 text-sm font-bold text-slate-600"
+                className="rounded-xl border border-slate-200 dark:border-slate-800 px-3 py-2 text-sm font-bold text-slate-600 dark:text-slate-300"
               >
                 Fermer
               </button>
@@ -878,7 +878,7 @@ export default function RapportsPage() {
                     'rounded-xl px-3 py-2 text-xs font-black',
                     step === item
                       ? 'bg-blue-600 text-white'
-                      : 'bg-slate-100 text-slate-500',
+                      : 'bg-slate-100 text-slate-500 dark:text-slate-400',
                   ].join(' ')}
                 >
                   Étape {item}
@@ -888,7 +888,7 @@ export default function RapportsPage() {
 
             {step === 1 && (
               <div>
-                <h4 className="mb-4 font-black text-slate-900">
+                <h4 className="mb-4 font-black text-slate-900 dark:text-white">
                   Étape 1 — Type de rapport
                 </h4>
                 <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
@@ -912,7 +912,7 @@ export default function RapportsPage() {
 
             {step === 2 && (
               <div>
-                <h4 className="mb-4 font-black text-slate-900">
+                <h4 className="mb-4 font-black text-slate-900 dark:text-white">
                   Étape 2 — Période
                 </h4>
                 <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
@@ -935,7 +935,7 @@ export default function RapportsPage() {
 
             {step === 3 && (
               <div>
-                <h4 className="mb-4 font-black text-slate-900">
+                <h4 className="mb-4 font-black text-slate-900 dark:text-white">
                   Étape 3 — Risques à intégrer
                 </h4>
                 <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
@@ -948,7 +948,7 @@ export default function RapportsPage() {
                         'rounded-2xl border px-4 py-3 text-left text-sm font-bold transition',
                         selectedRisks.includes(risk.id)
                           ? 'border-green-300 bg-green-50 text-green-800'
-                          : 'border-slate-200 bg-white text-slate-600',
+                          : 'border-slate-200 dark:border-slate-800 bg-white text-slate-600 dark:text-slate-300',
                       ].join(' ')}
                     >
                       {selectedRisks.includes(risk.id) ? '☑' : '☐'} {risk.label}
@@ -960,7 +960,7 @@ export default function RapportsPage() {
 
             {step === 4 && (
               <div>
-                <h4 className="mb-4 font-black text-slate-900">
+                <h4 className="mb-4 font-black text-slate-900 dark:text-white">
                   Étape 4 — Zone
                 </h4>
                 <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
@@ -983,7 +983,7 @@ export default function RapportsPage() {
 
             {step === 5 && (
               <div>
-                <h4 className="mb-4 font-black text-slate-900">
+                <h4 className="mb-4 font-black text-slate-900 dark:text-white">
                   Étape 5 — Éléments à intégrer
                 </h4>
                 <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
@@ -996,7 +996,7 @@ export default function RapportsPage() {
                         'rounded-2xl border px-4 py-3 text-left text-sm font-bold transition',
                         selectedElements.includes(element)
                           ? 'border-blue-300 bg-blue-50 text-blue-800'
-                          : 'border-slate-200 bg-white text-slate-600',
+                          : 'border-slate-200 dark:border-slate-800 bg-white text-slate-600 dark:text-slate-300',
                       ].join(' ')}
                     >
                       {selectedElements.includes(element) ? '☑' : '☐'} {element}
@@ -1004,8 +1004,8 @@ export default function RapportsPage() {
                   ))}
                 </div>
 
-                <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
-                  <div className="font-black text-slate-800">
+                <div className="mt-5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 p-4 text-sm text-slate-600 dark:text-slate-300">
+                  <div className="font-black text-slate-800 dark:text-slate-100">
                     Résumé de configuration
                   </div>
                   <div className="mt-2 space-y-1">
@@ -1023,12 +1023,12 @@ export default function RapportsPage() {
               </div>
             )}
 
-            <div className="mt-8 flex items-center justify-between border-t border-slate-100 pt-5">
+            <div className="mt-8 flex items-center justify-between border-t border-slate-100 dark:border-slate-800 pt-5">
               <button
                 type="button"
                 onClick={() => setStep((current) => Math.max(1, current - 1) as WizardStep)}
                 disabled={step === 1}
-                className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-bold text-slate-600 disabled:opacity-40"
+                className="rounded-xl border border-slate-200 dark:border-slate-800 px-4 py-2 text-sm font-bold text-slate-600 dark:text-slate-300 disabled:opacity-40"
               >
                 Précédent
               </button>
