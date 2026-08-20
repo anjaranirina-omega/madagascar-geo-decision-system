@@ -479,8 +479,8 @@ export default function MapView() {
         onSelectSearchResult={handleSelectSearchResult}
       />
 
-      <div className="grid grid-cols-1 gap-5 2xl:grid-cols-[330px_1fr_350px]">
-        <aside className="card h-[calc(100vh-210px)] overflow-y-auto p-5">
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[300px_minmax(0,1fr)] 2xl:grid-cols-[330px_minmax(0,1fr)_350px]">
+        <aside className="card order-2 max-h-[420px] overflow-y-auto p-4 sm:p-5 xl:order-1 xl:h-[calc(100vh-210px)] xl:max-h-none">
           <div className="mb-5 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-green-500 to-blue-600 text-white">
@@ -604,7 +604,7 @@ export default function MapView() {
           </button>
         </aside>
 
-        <section className="card relative overflow-hidden">
+        <section className="card relative order-1 min-w-0 overflow-hidden xl:order-2">
           <MapContainer
             bounds={MADAGASCAR_BOUNDS}
             maxBounds={MADAGASCAR_MAX_BOUNDS}
@@ -613,7 +613,8 @@ export default function MapView() {
             zoom={6}
             zoomControl={false}
             scrollWheelZoom
-            style={{ height: 'calc(100vh - 210px)', width: '100%' }}
+            className="h-[62vh] min-h-[420px] w-full xl:h-[calc(100vh-210px)]"
+            style={{ width: '100%' }}
           >
             <TileLayer
               attribution="&copy; OpenStreetMap"
@@ -678,7 +679,7 @@ export default function MapView() {
             <MapToolbar />
           </MapContainer>
 
-          <div className="absolute bottom-5 left-1/2 z-[500] w-[78%] -translate-x-1/2 rounded-2xl border border-slate-200 bg-white/95 p-4 shadow-xl backdrop-blur dark:border-slate-800 dark:bg-slate-950/95">
+          <div className="pointer-events-none absolute inset-x-3 bottom-3 z-[500] rounded-2xl border border-slate-200 bg-white/95 p-3 shadow-xl backdrop-blur dark:border-slate-800 dark:bg-slate-950/95 sm:bottom-5 sm:left-1/2 sm:w-[78%] sm:-translate-x-1/2 sm:p-4">
             <div className="mb-3 font-extrabold text-slate-900 dark:text-white">
               Niveau de risque
             </div>
@@ -691,7 +692,7 @@ export default function MapView() {
           </div>
         </section>
 
-        <aside className="card h-[calc(100vh-210px)] overflow-y-auto p-5">
+        <aside className="card order-3 max-h-[520px] overflow-y-auto p-4 sm:p-5 xl:col-span-2 xl:max-h-none 2xl:col-span-1 2xl:h-[calc(100vh-210px)]">
           <div className="mb-5 flex items-center justify-between">
             <h2 className="font-extrabold text-slate-900 dark:text-white">
               Informations de la zone sélectionnée

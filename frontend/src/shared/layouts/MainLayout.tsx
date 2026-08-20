@@ -14,6 +14,7 @@ import {
   Map,
   Menu,
   Moon,
+  X,
   Settings,
   Sun,
   ShieldCheck,
@@ -94,6 +95,7 @@ export default function MainLayout() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [activeAlertsCount, setActiveAlertsCount] = useState(0);
 
   useEffect(() => {
@@ -138,6 +140,22 @@ export default function MainLayout() {
   const pageTitle = titles[location.pathname] ?? 'RISKCLIM-MG';
   const pageSubtitle = subtitles[location.pathname] ?? 'Plateforme géodécisionnelle';
 
+  useEffect(() => {
+    setUserMenuOpen(false);
+    setMobileSidebarOpen(false);
+  }, [location.pathname]);
+
+  const handleSidebarToggle = () => {
+    const isDesktop = window.matchMedia('(min-width: 1024px)').matches;
+
+    if (isDesktop) {
+      setSidebarCollapsed((value) => !value);
+      return;
+    }
+
+    setMobileSidebarOpen((value) => !value);
+  };
+
   const handleLogout = async () => {
     await authService.logout();
     clearAuth();
@@ -146,10 +164,20 @@ export default function MainLayout() {
 
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,#eef6ff_0,#f8fafc_38%,#f1f5f9_100%)] dark:bg-[radial-gradient(circle_at_top_left,#0f172a_0,#020617_45%,#000814_100%)]">
+      {mobileSidebarOpen && (
+        <button
+          type="button"
+          aria-label="Fermer le menu"
+          onClick={() => setMobileSidebarOpen(false)}
+          className="fixed inset-0 z-30 bg-slate-950/60 backdrop-blur-sm lg:hidden"
+        />
+      )}
+
       <aside
         className={[
-          'fixed inset-y-0 left-0 z-40 overflow-hidden bg-[#061827] text-white shadow-2xl shadow-slate-900/20 transition-all duration-300',
-          sidebarCollapsed ? 'w-[92px]' : 'w-[290px]',
+          'fixed inset-y-0 left-0 z-40 w-[290px] max-w-[86vw] transform overflow-hidden bg-[#061827] text-white shadow-2xl shadow-slate-900/20 transition-all duration-300 lg:max-w-none lg:translate-x-0',
+          mobileSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0',
+          sidebarCollapsed ? 'lg:w-[92px]' : 'lg:w-[290px]',
         ].join(' ')}
       >
         <div
@@ -162,22 +190,33 @@ export default function MainLayout() {
         <div className="absolute inset-x-0 bottom-0 h-64 bg-gradient-to-t from-[#061827] via-[#061827]/70 to-transparent" />
 
         <div className="relative z-10 flex h-full flex-col px-4 py-5">
-          <div className="mb-8 flex items-center gap-3 px-2">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-green-400 to-blue-500 shadow-lg shadow-blue-950/30">
-              <CloudRain size={27} />
+          <div className="mb-8 flex items-center justify-between gap-3 px-2">
+            <div className="flex min-w-0 items-center gap-3">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-green-400 to-blue-500 shadow-lg shadow-blue-950/30">
+                <CloudRain size={27} />
+              </div>
+
+              {!sidebarCollapsed && (
+                <div className={sidebarCollapsed ? "hidden" : "min-w-0"}>
+                  <div className="truncate text-xl font-black tracking-tight">
+                    RISK<span className="text-blue-400">CLIM</span>
+                    <span className="text-green-400">-MG</span>
+                  </div>
+                  <div className="text-xs font-medium text-slate-300">
+                    Géodécisionnel
+                  </div>
+                </div>
+              )}
             </div>
 
-            {!sidebarCollapsed && (
-            <div className={sidebarCollapsed ? "hidden" : ""}>
-              <div className="text-xl font-black tracking-tight">
-                RISK<span className="text-blue-400">CLIM</span>
-                <span className="text-green-400">-MG</span>
-              </div>
-              <div className="text-xs font-medium text-slate-300">
-                Géodécisionnel
-              </div>
-            </div>
-            )}
+            <button
+              type="button"
+              onClick={() => setMobileSidebarOpen(false)}
+              className="rounded-xl p-2 text-slate-200 transition hover:bg-white/10 lg:hidden"
+              aria-label="Fermer le menu"
+            >
+              <X size={22} />
+            </button>
           </div>
 
           <nav className="flex flex-1 flex-col gap-2 overflow-y-auto pr-1">
@@ -189,6 +228,7 @@ export default function MainLayout() {
                   key={item.path}
                   to={item.path}
                   end={item.path === '/'}
+                  onClick={() => setMobileSidebarOpen(false)}
                   className={({ isActive }) =>
                     [
                       'group flex items-center justify-between rounded-2xl px-4 py-3 text-sm font-semibold transition-all',
@@ -243,30 +283,30 @@ export default function MainLayout() {
 
       <main
         className={[
-          'min-h-screen text-slate-900 transition-all duration-300 dark:text-slate-100',
-          sidebarCollapsed ? 'ml-[92px]' : 'ml-[290px]',
+          'min-h-screen min-w-0 text-slate-900 transition-all duration-300 dark:text-slate-100',
+          sidebarCollapsed ? 'lg:ml-[92px]' : 'lg:ml-[290px]',
         ].join(' ')}
       >
-        <header className="sticky top-0 z-30 flex h-[96px] items-center justify-between border-b border-slate-200 bg-white/90 px-8 shadow-sm backdrop-blur-xl dark:border-slate-800 dark:bg-slate-950/85">
-          <div className="flex items-center gap-6">
+        <header className="sticky top-0 z-30 flex min-h-[76px] items-center justify-between gap-3 border-b border-slate-200 bg-white/90 px-4 py-3 shadow-sm backdrop-blur-xl dark:border-slate-800 dark:bg-slate-950/85 sm:px-6 lg:h-[96px] lg:px-8">
+          <div className="flex min-w-0 items-center gap-3 lg:gap-6">
             <button
               type="button"
-              onClick={() => setSidebarCollapsed((value) => !value)}
+              onClick={handleSidebarToggle}
               className="rounded-xl p-2 text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
               aria-label="Menu"
             >
               <Menu size={26} />
             </button>
 
-            <div>
-              <h1 className="text-3xl font-black tracking-tight text-slate-950 dark:text-white">
+            <div className="min-w-0">
+              <h1 className="truncate text-xl font-black tracking-tight text-slate-950 dark:text-white sm:text-2xl lg:text-3xl">
                 {pageTitle}
               </h1>
-              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{pageSubtitle}</p>
+              <p className="mt-1 hidden truncate text-sm text-slate-500 dark:text-slate-400 sm:block">{pageSubtitle}</p>
             </div>
           </div>
 
-          <div className="flex items-center gap-6">
+          <div className="flex shrink-0 items-center gap-2 sm:gap-3 lg:gap-6">
             <div className="hidden items-center gap-3 text-right text-sm text-slate-700 md:flex">
               <CalendarDays size={22} />
               <div>
@@ -277,7 +317,7 @@ export default function MainLayout() {
 
             <button
               onClick={toggleTheme}
-              className="rounded-full p-2 text-slate-700 transition hover:bg-slate-100  hover:bg-slate-100"
+              className="rounded-full p-2 text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
               aria-label={theme === 'dark' ? 'Activer le mode clair' : 'Activer le mode sombre'}
             >
               {theme === 'dark' ? <Sun size={23} /> : <Moon size={23} />}
@@ -304,7 +344,7 @@ export default function MainLayout() {
                 onClick={() => setUserMenuOpen((value) => !value)}
                 className="flex items-center gap-3 rounded-2xl px-2 py-1 transition hover:bg-slate-100 dark:hover:bg-slate-800"
               >
-                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-amber-100 font-black text-amber-800">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-100 font-black text-amber-800 sm:h-12 sm:w-12">
                   {user?.firstName?.[0] ?? 'A'}
                 </div>
 
@@ -357,11 +397,11 @@ export default function MainLayout() {
           </div>
         </header>
 
-        <section className="p-8">
+        <section className="p-4 sm:p-6 lg:p-8">
           <Outlet />
         </section>
 
-        <footer className="flex items-center justify-between px-8 pb-6 text-sm text-slate-500 ">
+        <footer className="flex flex-col items-start justify-between gap-3 px-4 pb-6 text-sm text-slate-500 sm:px-6 md:flex-row md:items-center lg:px-8">
           <div>
             © 2026 RISKCLIM-MG • Système d’aide à la décision climatique géospatialisé en temps réel
           </div>
