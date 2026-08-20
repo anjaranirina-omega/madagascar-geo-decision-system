@@ -327,7 +327,7 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <div className="flex h-[70vh] items-center justify-center">
+      <div className="flex min-h-[50vh] items-center justify-center">
         <div className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-8 py-6 text-center shadow-sm">
           <RefreshCw className="mx-auto mb-3 animate-spin text-riskgreen" size={30} />
           <div className="font-extrabold text-slate-900 dark:text-white">
@@ -391,7 +391,7 @@ export default function DashboardPage() {
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="max-w-full space-y-6 overflow-x-hidden">
       <PageHeader
         title="Tableau de bord décisionnel"
         subtitle="Vue multi-risques basée sur les données raster, les indicateurs zonaux, le DWH, les sources réelles et les traitements ETL."
@@ -400,10 +400,10 @@ export default function DashboardPage() {
           <button
             type="button"
             onClick={loadDashboard}
-            className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-4 text-sm font-extrabold text-slate-700 dark:text-slate-200 transition hover:bg-slate-50 dark:hover:bg-slate-800 dark:bg-slate-800"
+            className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-extrabold text-slate-700 transition hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800 sm:px-4"
           >
             <RefreshCw size={18} />
-            Actualiser
+            <span className="hidden sm:inline">Actualiser</span>
           </button>
         }
       />
@@ -491,7 +491,7 @@ export default function DashboardPage() {
               </p>
             </div>
 
-            <div className="rounded-2xl bg-white dark:bg-slate-900/15 px-4 py-3 text-right backdrop-blur">
+            <div className="rounded-2xl bg-white/15 px-4 py-3 text-left backdrop-blur md:text-right">
               <div className="text-xs font-bold text-blue-100">Dernier ETL</div>
               <div className="text-lg font-black">
                 {summary?.latestEtlJob?.status ?? '—'}
