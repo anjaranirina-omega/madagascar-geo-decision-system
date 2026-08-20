@@ -17,6 +17,7 @@ import { useAppStore } from './store';
 import ForgotPasswordPage from '../modules/auth/pages/ForgotPasswordPage';
 import ResetPasswordPage from '../modules/auth/pages/ResetPasswordPage';
 import ContactAdminPage from '../modules/auth/pages/ContactAdminPage';
+import AidePage from '../modules/aide/pages/AidePage';
 
 export default function App() {
   const hydrateAuth = useAppStore((state) => state.hydrateAuth);
@@ -44,7 +45,7 @@ export default function App() {
             <Route path="/parametres" element={<ParametresPage />} />
             <Route path="/utilisateurs" element={<UsersPage />} />
             <Route path="/demandes-comptes" element={<AccountRequestsPage />} />
-            <Route path="/aide" element={<PlaceholderPage title="Aide" />} />
+            <Route path="/aide" element={<AidePage />} />
           </Route>
         </Route>
       </Routes>
