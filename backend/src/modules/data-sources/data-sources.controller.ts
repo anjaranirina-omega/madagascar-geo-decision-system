@@ -11,13 +11,13 @@ export class DataSourcesController {
   constructor(private readonly dataSourcesService: DataSourcesService) {}
 
   @Get()
-  @Roles('ADMIN', 'ANALYSTE', 'OBSERVATEUR')
+  @Roles('ADMIN', 'ANALYSTE', 'DECIDEUR')
   findAll() {
     return this.dataSourcesService.findAll();
   }
 
   @Get(':code')
-  @Roles('ADMIN', 'ANALYSTE', 'OBSERVATEUR')
+  @Roles('ADMIN', 'ANALYSTE', 'DECIDEUR')
   findOne(@Param('code') code: DataSourceCode) {
     return this.dataSourcesService.findOne(code);
   }

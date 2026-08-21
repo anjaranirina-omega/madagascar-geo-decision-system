@@ -16,6 +16,7 @@ import { Controller, SubmitHandler, useForm } from 'react-hook-form';
 import { Link, useNavigate } from 'react-router-dom';
 import { z } from 'zod';
 import { useAppStore } from '../../../app/store';
+import { getDefaultPathForRole } from '../../../shared/auth/roles';
 import { authService } from '../auth.service';
 
 const loginSchema = z.object({
@@ -46,14 +47,7 @@ function containsSuspiciousScript(value: string) {
 }
 
 function getRedirectPathByRole(roleName?: string) {
-  switch (roleName) {
-    case 'ADMIN':
-    case 'DECIDEUR':
-    case 'ANALYSTE':
-    case 'AGENT_TERRAIN':
-    default:
-      return '/dashboard';
-  }
+  return getDefaultPathForRole(roleName);
 }
 
 function getAuthErrorMessage(error: unknown) {

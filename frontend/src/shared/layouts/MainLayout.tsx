@@ -25,18 +25,26 @@ import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAppStore } from '../../app/store';
 import { authService } from '../../modules/auth/auth.service';
 import { alertesService } from '../../modules/alertes/alertes.service';
+import { AppRole, normalizeRole, PAGE_ACCESS } from '../auth/roles';
 
-const menu = [
-  { label: 'Tableau de bord', path: '/dashboard', icon: Home },
-  { label: 'Carte des risques', path: '/carte', icon: Map },
-  { label: 'Analyse multicritère', path: '/analyse', icon: BarChart3 },
-  { label: 'Alertes', path: '/alertes', icon: AlertTriangle },
-  { label: 'Données', path: '/donnees', icon: Database },
-  { label: 'Rapports', path: '/rapports', icon: FileText },
-  { label: 'Paramètres', path: '/parametres', icon: Settings },
-  { label: 'Utilisateurs', path: '/utilisateurs', icon: Users },
-  { label: 'Demandes de compte', path: '/demandes-comptes', icon: UserCheck },
-  { label: 'Aide', path: '/aide', icon: HelpCircle },
+type MenuItem = {
+  label: string;
+  path: string;
+  icon: typeof Home;
+  allowedRoles: AppRole[];
+};
+
+const menu: MenuItem[] = [
+  { label: 'Tableau de bord', path: '/dashboard', icon: Home, allowedRoles: PAGE_ACCESS.dashboard },
+  { label: 'Carte des risques', path: '/carte', icon: Map, allowedRoles: PAGE_ACCESS.carte },
+  { label: 'Analyse multicritère', path: '/analyse', icon: BarChart3, allowedRoles: PAGE_ACCESS.analyse },
+  { label: 'Alertes', path: '/alertes', icon: AlertTriangle, allowedRoles: PAGE_ACCESS.alertes },
+  { label: 'Données', path: '/donnees', icon: Database, allowedRoles: PAGE_ACCESS.donnees },
+  { label: 'Rapports', path: '/rapports', icon: FileText, allowedRoles: PAGE_ACCESS.rapports },
+  { label: 'Paramètres', path: '/parametres', icon: Settings, allowedRoles: PAGE_ACCESS.parametres },
+  { label: 'Utilisateurs', path: '/utilisateurs', icon: Users, allowedRoles: PAGE_ACCESS.utilisateurs },
+  { label: 'Demandes de compte', path: '/demandes-comptes', icon: UserCheck, allowedRoles: PAGE_ACCESS.demandesComptes },
+  { label: 'Aide', path: '/aide', icon: HelpCircle, allowedRoles: PAGE_ACCESS.aide },
 ];
 
 const titles: Record<string, string> = {
@@ -50,6 +58,7 @@ const titles: Record<string, string> = {
   '/utilisateurs': 'Gestion des utilisateurs',
   '/demandes-comptes': 'Demandes de compte',
   '/aide': 'Aide',
+  '/acces-refuse': 'Accès refusé',
 };
 
 const subtitles: Record<string, string> = {
@@ -63,6 +72,7 @@ const subtitles: Record<string, string> = {
   '/utilisateurs': 'Gestion des comptes et rôles',
   '/demandes-comptes': 'Validation des demandes d’accès',
   '/aide': 'Documentation et assistance utilisateur',
+  '/acces-refuse': 'Vous n’avez pas les permissions nécessaires pour cette section.',
 };
 
 function formatDateTime(date: Date) {
@@ -139,6 +149,8 @@ export default function MainLayout() {
 
   const pageTitle = titles[location.pathname] ?? 'RISKCLIM-MG';
   const pageSubtitle = subtitles[location.pathname] ?? 'Plateforme géodécisionnelle';
+  const userRole = normalizeRole(user?.role?.name);
+  const visibleMenu = menu.filter((item) => userRole && item.allowedRoles.includes(userRole));
 
   useEffect(() => {
     setUserMenuOpen(false);
@@ -220,7 +232,7 @@ export default function MainLayout() {
           </div>
 
           <nav className="flex flex-1 flex-col gap-2 overflow-y-auto pr-1">
-            {menu.map((item) => {
+            {visibleMenu.map((item) => {
               const Icon = item.icon;
 
               return (
