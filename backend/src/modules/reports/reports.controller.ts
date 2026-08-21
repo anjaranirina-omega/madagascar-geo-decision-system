@@ -45,13 +45,13 @@ export class ReportsController {
   }
 
   @Get('history')
-  @Roles('ADMIN', 'ANALYSTE')
+  @Roles('ADMIN', 'ANALYSTE', 'DECIDEUR')
   getHistory(@Query('limit') limit?: string) {
     return this.reportsService.findHistory(Number(limit ?? 50));
   }
 
   @Get('history/:id/download')
-  @Roles('ADMIN', 'ANALYSTE')
+  @Roles('ADMIN', 'ANALYSTE', 'DECIDEUR')
   async downloadHistory(@Param('id') id: string, @Res() res: Response) {
     const report = await this.reportsService.findGeneratedReport(id);
     const projectRoot = resolve(process.cwd(), '..');
@@ -74,14 +74,14 @@ export class ReportsController {
   }
 
   @Delete('history/:id')
-  @Roles('ADMIN', 'ANALYSTE')
+  @Roles('ADMIN', 'ANALYSTE', 'DECIDEUR')
   deleteHistory(@Param('id') id: string) {
     return this.reportsService.deleteGeneratedReport(id);
   }
 
 
   @Get('risk-comparison')
-  @Roles('ADMIN', 'ANALYSTE')
+  @Roles('ADMIN', 'ANALYSTE', 'DECIDEUR')
   getRiskComparison(
     @Query('periodAStart') periodAStart: string,
     @Query('periodAEnd') periodAEnd: string,
@@ -101,7 +101,7 @@ export class ReportsController {
   }
 
   @Get('risk-comparison.xlsx')
-  @Roles('ADMIN', 'ANALYSTE')
+  @Roles('ADMIN', 'ANALYSTE', 'DECIDEUR')
   async riskComparisonExcel(
     @Res() res: Response,
     @Query('periodAStart') periodAStart: string,
@@ -139,7 +139,7 @@ export class ReportsController {
   }
 
   @Get('national-risk.pdf')
-  @Roles('ADMIN', 'ANALYSTE')
+  @Roles('ADMIN', 'ANALYSTE', 'DECIDEUR')
   async nationalRiskPdf(@Res() res: Response) {
     const fileName = 'riskclim-mg-rapport-national.pdf';
     const content = await this.reportsService.getNationalRiskPdf();
@@ -160,7 +160,7 @@ export class ReportsController {
   }
 
   @Get('national-risk.xlsx')
-  @Roles('ADMIN', 'ANALYSTE')
+  @Roles('ADMIN', 'ANALYSTE', 'DECIDEUR')
   async nationalRiskExcel(@Res() res: Response) {
     const fileName = 'riskclim-mg-rapport-national.xlsx';
     const content = await this.reportsService.getNationalRiskExcel();
@@ -182,7 +182,7 @@ export class ReportsController {
   }
 
   @Get('risk-summary.csv')
-  @Roles('ADMIN', 'ANALYSTE')
+  @Roles('ADMIN', 'ANALYSTE', 'DECIDEUR')
   async riskSummaryCsv(@Res() res: Response) {
     const fileName = 'risk-summary.csv';
     const content = await this.reportsService.getRiskSummaryCsv();
@@ -200,7 +200,7 @@ export class ReportsController {
   }
 
   @Get('top-risk-zones.csv')
-  @Roles('ADMIN', 'ANALYSTE')
+  @Roles('ADMIN', 'ANALYSTE', 'DECIDEUR')
   async topRiskZonesCsv(
     @Res() res: Response,
     @Query('riskType') riskType?: string,
@@ -229,7 +229,7 @@ export class ReportsController {
   }
 
   @Get('top-risk-zones.xlsx')
-  @Roles('ADMIN', 'ANALYSTE')
+  @Roles('ADMIN', 'ANALYSTE', 'DECIDEUR')
   async topRiskZonesExcel(
     @Res() res: Response,
     @Query('riskType') riskType?: string,
@@ -259,7 +259,7 @@ export class ReportsController {
   }
 
   @Get('top-risk-zones.pdf')
-  @Roles('ADMIN', 'ANALYSTE')
+  @Roles('ADMIN', 'ANALYSTE', 'DECIDEUR')
   async topRiskZonesPdf(
     @Res() res: Response,
     @Query('riskType') riskType?: string,
@@ -288,7 +288,7 @@ export class ReportsController {
   }
 
   @Get('data-sources.csv')
-  @Roles('ADMIN', 'ANALYSTE')
+  @Roles('ADMIN', 'ANALYSTE', 'DECIDEUR')
   async dataSourcesCsv(@Res() res: Response) {
     const fileName = 'data-sources.csv';
     const content = await this.reportsService.getDataSourcesCsv();
@@ -306,7 +306,7 @@ export class ReportsController {
   }
 
   @Get('data-sources.xlsx')
-  @Roles('ADMIN', 'ANALYSTE')
+  @Roles('ADMIN', 'ANALYSTE', 'DECIDEUR')
   async dataSourcesExcel(@Res() res: Response) {
     const fileName = 'data-sources.xlsx';
     const content = await this.reportsService.getDataSourcesExcel();
@@ -325,7 +325,7 @@ export class ReportsController {
   }
 
   @Get('etl-jobs.csv')
-  @Roles('ADMIN', 'ANALYSTE')
+  @Roles('ADMIN', 'ANALYSTE', 'DECIDEUR')
   async etlJobsCsv(@Res() res: Response) {
     const fileName = 'etl-jobs.csv';
     const content = await this.reportsService.getEtlJobsCsv();
@@ -343,7 +343,7 @@ export class ReportsController {
   }
 
   @Get('etl-jobs.xlsx')
-  @Roles('ADMIN', 'ANALYSTE')
+  @Roles('ADMIN', 'ANALYSTE', 'DECIDEUR')
   async etlJobsExcel(@Res() res: Response) {
     const fileName = 'etl-jobs.xlsx';
     const content = await this.reportsService.getEtlJobsExcel();

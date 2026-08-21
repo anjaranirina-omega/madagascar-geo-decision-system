@@ -10,7 +10,7 @@ export class SolapController {
   constructor(private readonly solapService: SolapService) {}
 
   @Get('risk-cube')
-  @Roles('ADMIN', 'ANALYSTE', 'OBSERVATEUR')
+  @Roles('ADMIN', 'ANALYSTE', 'DECIDEUR')
   getRiskCube(
     @Query('riskType') riskType?: string,
     @Query('zoneType') zoneType?: string,
@@ -28,7 +28,7 @@ export class SolapController {
   }
 
   @Get('risk-summary')
-  @Roles('ADMIN', 'ANALYSTE', 'OBSERVATEUR')
+  @Roles('ADMIN', 'ANALYSTE', 'DECIDEUR')
   getRiskSummary(
     @Query('riskType') riskType?: string,
     @Query('zoneType') zoneType?: string,
@@ -44,7 +44,7 @@ export class SolapController {
   }
 
   @Get('risk-drilldown')
-  @Roles('ADMIN', 'ANALYSTE', 'OBSERVATEUR')
+  @Roles('ADMIN', 'ANALYSTE', 'DECIDEUR')
   getRiskDrilldown(
     @Query('riskType') riskType?: string,
     @Query('fromLevel') fromLevel?: string,
@@ -62,7 +62,7 @@ export class SolapController {
   }
 
   @Get('risk-timeseries')
-  @Roles('ADMIN', 'ANALYSTE', 'OBSERVATEUR')
+  @Roles('ADMIN', 'ANALYSTE', 'DECIDEUR')
   getRiskTimeSeries(
     @Query('riskType') riskType?: string,
     @Query('zoneType') zoneType?: string,
