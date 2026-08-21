@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import AlertesPage from '../modules/alertes/pages/AlertesPage';
 import LoginPage from '../modules/auth/pages/LoginPage';
+import HomePage from '../modules/public/pages/HomePage';
 import CartePage from '../modules/cartographie/pages/CartePage';
 import DashboardPage from '../modules/dashboard/pages/DashboardPage';
 import AnalyseMulticriterePage from '../modules/analyse/pages/AnalyseMulticriterePage';
@@ -29,6 +30,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
+        <Route path="/" element={<HomePage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
@@ -36,7 +38,7 @@ export default function App() {
 
         <Route element={<PrivateRoute />}>
           <Route element={<MainLayout />}>
-            <Route path="/" element={<DashboardPage />} />
+            <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/carte" element={<CartePage />} />
             <Route path="/analyse" element={<AnalyseMulticriterePage />} />
             <Route path="/alertes" element={<AlertesPage />} />

@@ -47,13 +47,12 @@ function containsSuspiciousScript(value: string) {
 
 function getRedirectPathByRole(roleName?: string) {
   switch (roleName) {
-    case 'AGENT_TERRAIN':
-      return '/interventions';
     case 'ADMIN':
     case 'DECIDEUR':
     case 'ANALYSTE':
+    case 'AGENT_TERRAIN':
     default:
-      return '/';
+      return '/dashboard';
   }
 }
 
