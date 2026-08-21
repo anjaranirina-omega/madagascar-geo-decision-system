@@ -27,7 +27,7 @@ import { authService } from '../../modules/auth/auth.service';
 import { alertesService } from '../../modules/alertes/alertes.service';
 
 const menu = [
-  { label: 'Tableau de bord', path: '/', icon: Home },
+  { label: 'Tableau de bord', path: '/dashboard', icon: Home },
   { label: 'Carte des risques', path: '/carte', icon: Map },
   { label: 'Analyse multicritère', path: '/analyse', icon: BarChart3 },
   { label: 'Alertes', path: '/alertes', icon: AlertTriangle },
@@ -40,7 +40,7 @@ const menu = [
 ];
 
 const titles: Record<string, string> = {
-  '/': 'Tableau de bord',
+  '/dashboard': 'Tableau de bord',
   '/carte': 'Carte des risques',
   '/analyse': 'Analyse multicritère',
   '/alertes': 'Alertes',
@@ -53,7 +53,7 @@ const titles: Record<string, string> = {
 };
 
 const subtitles: Record<string, string> = {
-  '/': 'Vue d’ensemble des risques climatiques à Madagascar',
+  '/dashboard': 'Vue d’ensemble des risques climatiques à Madagascar',
   '/carte': 'Visualisation spatiale des risques et couches raster',
   '/analyse': 'Pondération des critères et analyse multicritère',
   '/alertes': 'Suivi des alertes climatiques et zones critiques',
