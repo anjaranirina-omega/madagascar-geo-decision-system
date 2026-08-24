@@ -85,6 +85,97 @@ const riskBadgeClasses: Record<string, string> = {
   Critique: 'bg-red-100 text-red-700 border-red-200',
 };
 
+function getRiskSourceDescription(activeRiskLayerType: string | null) {
+  if (activeRiskLayerType === 'CYCLONE_RISK_INDEX') {
+    return 'Modèle cyclone combinant l’aléa historique IBTrACS, les précipitations CHIRPS, l’occupation du sol et l’exposition de la population.';
+  }
+
+  if (activeRiskLayerType === 'LANDSLIDE_RISK_INDEX') {
+    return 'Modèle glissement de terrain combinant la pente issue du DEM Copernicus, les précipitations CHIRPS, l’occupation du sol et l’exposition.';
+  }
+
+  if (activeRiskLayerType === 'DROUGHT_RISK_INDEX') {
+    return 'Modèle sécheresse combinant le déficit pluviométrique, le stress thermique NASA POWER, l’occupation du sol et l’exposition.';
+  }
+
+  if (activeRiskLayerType === 'FLOOD_RISK_INDEX') {
+    return 'Modèle inondation combinant les précipitations CHIRPS, la proximité HydroRIVERS, la pente et l’exposition.';
+  }
+
+  return 'Indice composite global calculé à partir des critères climatiques, physiques et socio-économiques disponibles.';
+}
+
+function getDecisionAdvice(level: string, hasValue: boolean) {
+  if (!hasValue) {
+    return {
+      title: 'Lecture indisponible',
+      message:
+        'Aucune valeur raster exploitable n’est disponible pour ce point. Cela peut indiquer une zone hors emprise ou une valeur NoData.',
+      tone: 'border-slate-200 bg-slate-50 text-slate-700 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-300',
+    };
+  }
+
+  if (level === 'Faible') {
+    return {
+      title: 'Surveillance standard',
+      message:
+        'Le score indique un niveau faible. La zone reste à suivre dans le cadre de la surveillance territoriale normale.',
+      tone: 'border-green-200 bg-green-50 text-green-800 dark:border-green-900 dark:bg-green-950/30 dark:text-green-200',
+    };
+  }
+
+  if (level === 'Moyen') {
+    return {
+      title: 'Zone à suivre',
+      message:
+        'Le score indique un niveau moyen. La zone mérite un suivi régulier, surtout si les conditions météo se dégradent.',
+      tone: 'border-yellow-200 bg-yellow-50 text-yellow-800 dark:border-yellow-900 dark:bg-yellow-950/30 dark:text-yellow-200',
+    };
+  }
+
+  if (level === 'Élevé') {
+    return {
+      title: 'Surveillance prioritaire',
+      message:
+        'Le score indique un niveau élevé. Cette zone doit être priorisée pour l’analyse, la veille et la préparation opérationnelle.',
+      tone: 'border-orange-200 bg-orange-50 text-orange-800 dark:border-orange-900 dark:bg-orange-950/30 dark:text-orange-200',
+    };
+  }
+
+  return {
+    title: 'Attention renforcée',
+    message:
+      'Le score indique un niveau critique. La zone nécessite une attention renforcée et une vérification avec les données opérationnelles disponibles.',
+    tone: 'border-red-200 bg-red-50 text-red-800 dark:border-red-900 dark:bg-red-950/30 dark:text-red-200',
+  };
+}
+
+function formatRasterGrid(georaster: any | null) {
+  if (!georaster) return 'Raster non chargé';
+
+  const width = Number(georaster.width);
+  const height = Number(georaster.height);
+
+  if (!Number.isFinite(width) || !Number.isFinite(height)) {
+    return 'Dimensions indisponibles';
+  }
+
+  return `${width.toLocaleString('fr-FR')} × ${height.toLocaleString('fr-FR')} pixels`;
+}
+
+function formatRasterResolution(georaster: any | null) {
+  if (!georaster) return '—';
+
+  const pixelWidth = Math.abs(Number(georaster.pixelWidth));
+  const pixelHeight = Math.abs(Number(georaster.pixelHeight));
+
+  if (!Number.isFinite(pixelWidth) || !Number.isFinite(pixelHeight)) {
+    return 'Résolution indisponible';
+  }
+
+  return `${pixelWidth.toFixed(4)}° × ${pixelHeight.toFixed(4)}°`;
+}
+
 
 function classifyLocalRisk(value: number) {
   if (value <= 30) {
@@ -237,6 +328,10 @@ export default function MapView() {
     typeof selectedRisk?.value === 'number' ? selectedRisk.value : null;
 
   const hasSelectedRiskValue = selectedValue !== null;
+  const riskSourceDescription = getRiskSourceDescription(activeRiskLayerType);
+  const decisionAdvice = getDecisionAdvice(selectedLevel, hasSelectedRiskValue);
+  const rasterGridSummary = formatRasterGrid(georaster);
+  const rasterResolutionSummary = formatRasterResolution(georaster);
   const selectedZoneName =
     locatedZone?.commune?.nom ??
     locatedZone?.district?.nom ??
@@ -680,14 +775,26 @@ export default function MapView() {
           </MapContainer>
 
           <div className="pointer-events-none absolute inset-x-3 bottom-3 z-[500] rounded-2xl border border-slate-200 bg-white/95 p-3 shadow-xl backdrop-blur dark:border-slate-800 dark:bg-slate-950/95 sm:bottom-5 sm:left-1/2 sm:w-[78%] sm:-translate-x-1/2 sm:p-4">
-            <div className="mb-3 font-extrabold text-slate-900 dark:text-white">
-              Niveau de risque
+            <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <div className="font-extrabold text-slate-900 dark:text-white">
+                  Niveau de risque
+                </div>
+                <div className="text-xs text-slate-500 dark:text-slate-400">
+                  Indice composite normalisé sur 100 selon le modèle actif.
+                </div>
+              </div>
+
+              <div className="text-xs font-bold text-slate-500 dark:text-slate-400">
+                {activeRiskLayerLabel}
+              </div>
             </div>
-            <div className="grid grid-cols-2 gap-3 text-xs md:grid-cols-4">
-              <LegendItem color="#2f9e44" label="Faible" range="0-30" />
-              <LegendItem color="#eab308" label="Moyen" range="31-60" />
-              <LegendItem color="#f97316" label="Élevé" range="61-80" />
-              <LegendItem color="#dc2626" label="Critique" range="81-100" />
+
+            <div className="mt-3 grid grid-cols-2 gap-3 text-xs md:grid-cols-4">
+              <LegendItem color="#2f9e44" label="Faible" range="0–30" />
+              <LegendItem color="#eab308" label="Moyen" range="31–60" />
+              <LegendItem color="#f97316" label="Élevé" range="61–80" />
+              <LegendItem color="#dc2626" label="Critique" range="81–100" />
             </div>
           </div>
         </section>
@@ -740,19 +847,23 @@ export default function MapView() {
               </span>
             </div>
 
-            <div className="mt-4 text-sm">
-              Source :{' '}
-              <span className="font-bold">
-                {activeRiskLayerType === 'CYCLONE_RISK_INDEX'
-                  ? 'modèle cyclone IBTrACS / CHIRPS / occupation du sol / exposition'
-                  : activeRiskLayerType === 'LANDSLIDE_RISK_INDEX'
-                    ? 'modèle glissement Copernicus DEM / CHIRPS / occupation du sol / exposition'
-                    : activeRiskLayerType === 'DROUGHT_RISK_INDEX'
-                      ? 'modèle sécheresse NASA POWER / CHIRPS / occupation du sol / exposition'
-                      : activeRiskLayerType === 'FLOOD_RISK_INDEX'
-                        ? 'modèle inondation HydroRIVERS / CHIRPS / pente / exposition'
-                        : 'indice climatique composite'}
-              </span>
+            <div className="mt-4 rounded-2xl bg-white/55 p-3 text-sm dark:bg-slate-950/35">
+              <div className="font-extrabold">Lecture du modèle</div>
+              <p className="mt-1 leading-6">
+                {riskSourceDescription}
+              </p>
+            </div>
+
+            <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+              <div className="rounded-2xl bg-white/55 p-3 dark:bg-slate-950/35">
+                <div className="font-bold opacity-75">Latitude</div>
+                <div className="mt-1 font-black">{markerLatLng.lat.toFixed(5)}</div>
+              </div>
+
+              <div className="rounded-2xl bg-white/55 p-3 dark:bg-slate-950/35">
+                <div className="font-bold opacity-75">Longitude</div>
+                <div className="mt-1 font-black">{markerLatLng.lng.toFixed(5)}</div>
+              </div>
             </div>
           </div>
 
@@ -782,6 +893,47 @@ export default function MapView() {
               value={formatDateOnly(zoneSummary?.lastUpdated)}
               sub={formatTimeOnly(zoneSummary?.lastUpdated)}
             />
+          </div>
+
+          <div
+            className={[
+              'mb-5 rounded-3xl border p-5',
+              decisionAdvice.tone,
+            ].join(' ')}
+          >
+            <div className="flex items-start gap-3">
+              <div className="mt-0.5">
+                <Shield size={22} />
+              </div>
+
+              <div>
+                <div className="font-extrabold">
+                  Lecture décisionnelle : {decisionAdvice.title}
+                </div>
+                <p className="mt-2 text-sm leading-6">
+                  {decisionAdvice.message}
+                </p>
+                <p className="mt-3 text-xs font-semibold opacity-80">
+                  Cette interprétation est une aide à la décision. Elle doit être
+                  croisée avec les observations terrain, les bulletins officiels
+                  et les procédures institutionnelles.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="mb-5 rounded-3xl border border-slate-200 bg-slate-50 p-5 dark:border-slate-800 dark:bg-slate-950/50">
+            <div className="mb-4 font-extrabold text-slate-900 dark:text-white">
+              Couche raster active
+            </div>
+
+            <div className="space-y-3 text-sm">
+              <DecisionMetaRow label="Risque affiché" value={activeRiskLayerLabel} />
+              <DecisionMetaRow label="Type raster" value={activeRiskLayerType ?? 'Aucune couche active'} />
+              <DecisionMetaRow label="Grille" value={rasterGridSummary} />
+              <DecisionMetaRow label="Résolution" value={rasterResolutionSummary} />
+              <DecisionMetaRow label="Système de coordonnées" value="EPSG:4326" />
+            </div>
           </div>
 
           <div className="mb-5 rounded-3xl border border-sky-100 bg-sky-50 p-5 dark:border-sky-900 dark:bg-sky-950/30">
@@ -1036,6 +1188,17 @@ function LegendItem({
         {label}
       </span>
       <span className="ml-auto text-slate-500">{range}</span>
+    </div>
+  );
+}
+
+function DecisionMetaRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-start justify-between gap-4 border-b border-slate-200 pb-2 last:border-b-0 last:pb-0 dark:border-slate-800">
+      <span className="text-slate-500 dark:text-slate-400">{label}</span>
+      <span className="max-w-[58%] text-right font-extrabold text-slate-800 dark:text-slate-100">
+        {value}
+      </span>
     </div>
   );
 }
