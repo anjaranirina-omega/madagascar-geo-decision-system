@@ -70,6 +70,12 @@ export class RastersController {
     return this.sendRasterFile(layer.filePath, res, `${type}.tif`);
   }
 
+  @Get(':id/file')
+  async getFileById(@Param('id') id: string, @Res() res: Response) {
+    const layer = await this.rastersService.findOne(id);
+    return this.sendRasterFile(layer.filePath, res, `${layer.type}.tif`);
+  }
+
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.rastersService.findOne(id);

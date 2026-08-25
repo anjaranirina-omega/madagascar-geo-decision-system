@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { useMap } from 'react-leaflet';
 import parseGeoraster from 'georaster';
 import GeoRasterLayer from 'georaster-layer-for-leaflet';
+import { API_BASE_URL } from '../../../services/api';
 
 export type RasterLayerType =
   | 'RISK_INDEX'
@@ -13,6 +14,7 @@ export type RasterLayerType =
 type RasterRiskLayerProps = {
   visible: boolean;
   rasterType: RasterLayerType;
+  rasterLayerId?: string;
   onRasterLoaded?: (georaster: any | null) => void;
 };
 
@@ -44,13 +46,18 @@ function getRiskColor(value: number | null | undefined) {
   return 'rgba(220, 38, 38, 0.72)';
 }
 
-function getRasterUrl(rasterType: RasterLayerType) {
-  return `http://localhost:3001/api/rasters/latest/${rasterType}/file`;
+function getRasterUrl(rasterType: RasterLayerType, rasterLayerId?: string) {
+  if (rasterLayerId) {
+    return `${API_BASE_URL}/rasters/${rasterLayerId}/file`;
+  }
+
+  return `${API_BASE_URL}/rasters/latest/${rasterType}/file`;
 }
 
 export default function RasterRiskLayer({
   visible,
   rasterType,
+  rasterLayerId,
   onRasterLoaded,
 }: RasterRiskLayerProps) {
   const map = useMap();
@@ -67,7 +74,7 @@ export default function RasterRiskLayer({
 
     async function loadRaster() {
       try {
-        const rasterUrl = getRasterUrl(rasterType);
+        const rasterUrl = getRasterUrl(rasterType, rasterLayerId);
 
         const response = await fetch(rasterUrl);
 
@@ -131,7 +138,7 @@ export default function RasterRiskLayer({
       georasterRef.current = null;
       onRasterLoadedRef.current?.(null);
     };
-  }, [map, rasterType, visible]);
+  }, [map, rasterType, rasterLayerId, visible]);
 
   useEffect(() => {
     const layer = layerRef.current;
