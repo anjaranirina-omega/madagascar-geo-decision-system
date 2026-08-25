@@ -38,6 +38,7 @@ import type {
   SearchResultItem,
 } from '../services/geographie.service';
 import { geographieFrontendService } from '../services/geographie.service';
+import { rasterFrontendService, type RasterLayerMetadata } from '../services/rasters.service';
 import AdminBoundariesLayer from './AdminBoundariesLayer';
 import RasterRiskLayer from './RasterRiskLayer';
 import { meteoService, type CurrentWeather } from '../../meteo/services/meteo.service';
@@ -176,6 +177,19 @@ function formatRasterResolution(georaster: any | null) {
   return `${pixelWidth.toFixed(4)}° × ${pixelHeight.toFixed(4)}°`;
 }
 
+function formatRasterLayerDate(value?: string | null) {
+  if (!value) return 'Date inconnue';
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) return 'Date inconnue';
+
+  return new Intl.DateTimeFormat('fr-FR', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(date);
+}
+
 
 function classifyLocalRisk(value: number) {
   if (value <= 30) {
@@ -279,6 +293,10 @@ export default function MapView() {
   const [weatherLoading, setWeatherLoading] = useState(false);
   const [weatherError, setWeatherError] = useState('');
   const [selectedRisk, setSelectedRisk] = useState<RiskSelection | null>(null);
+  const [availableRasterLayers, setAvailableRasterLayers] = useState<RasterLayerMetadata[]>([]);
+  const [selectedRasterLayerId, setSelectedRasterLayerId] = useState('');
+  const [rasterLayersLoading, setRasterLayersLoading] = useState(false);
+  const [rasterLayersError, setRasterLayersError] = useState('');
 
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
@@ -332,6 +350,12 @@ export default function MapView() {
   const decisionAdvice = getDecisionAdvice(selectedLevel, hasSelectedRiskValue);
   const rasterGridSummary = formatRasterGrid(georaster);
   const rasterResolutionSummary = formatRasterResolution(georaster);
+  const selectedRasterLayer = selectedRasterLayerId
+    ? availableRasterLayers.find((layer) => layer.id === selectedRasterLayerId) ?? null
+    : null;
+  const selectedRasterLayerLabel = selectedRasterLayer
+    ? formatRasterLayerDate(selectedRasterLayer.updatedAt ?? selectedRasterLayer.createdAt)
+    : 'Dernière version disponible';
   const selectedZoneName =
     locatedZone?.commune?.nom ??
     locatedZone?.district?.nom ??
@@ -455,6 +479,46 @@ export default function MapView() {
   const handleRasterLoaded = useCallback((raster: any | null) => {
     setGeoraster(raster);
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadRasterVersions = async () => {
+      setSelectedRasterLayerId('');
+      setAvailableRasterLayers([]);
+      setRasterLayersError('');
+
+      if (!activeRiskLayerType) {
+        return;
+      }
+
+      setRasterLayersLoading(true);
+
+      try {
+        const layers = await rasterFrontendService.findByType(activeRiskLayerType);
+
+        if (!cancelled) {
+          setAvailableRasterLayers(layers);
+        }
+      } catch (error) {
+        console.error('[MapView] Impossible de charger les versions raster:', error);
+
+        if (!cancelled) {
+          setRasterLayersError('Versions indisponibles');
+        }
+      } finally {
+        if (!cancelled) {
+          setRasterLayersLoading(false);
+        }
+      }
+    };
+
+    loadRasterVersions();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeRiskLayerType]);
 
   const updateRiskFromMarkerPosition = useCallback(
     (lat: number, lng: number) => {
@@ -634,6 +698,15 @@ export default function MapView() {
               icon={<AlertTriangle size={16} />}
             />
 
+            <RasterVersionSelect
+              activeRiskLayerLabel={activeRiskLayerLabel}
+              layers={availableRasterLayers}
+              loading={rasterLayersLoading}
+              error={rasterLayersError}
+              selectedRasterLayerId={selectedRasterLayerId}
+              onChange={setSelectedRasterLayerId}
+            />
+
             <LayerCheckbox
               checked={showBoundaries}
               onChange={setShowBoundaries}
@@ -718,9 +791,10 @@ export default function MapView() {
 
             {activeRiskLayerType && (
               <RasterRiskLayer
-                key={activeRiskLayerType}
+                key={`${activeRiskLayerType}-${selectedRasterLayerId || 'latest'}`}
                 visible={showRiskRaster}
                 rasterType={activeRiskLayerType}
+                rasterLayerId={selectedRasterLayerId || undefined}
                 onRasterLoaded={handleRasterLoaded}
               />
             )}
@@ -929,6 +1003,7 @@ export default function MapView() {
 
             <div className="space-y-3 text-sm">
               <DecisionMetaRow label="Risque affiché" value={activeRiskLayerLabel} />
+              <DecisionMetaRow label="Version affichée" value={selectedRasterLayerLabel} />
               <DecisionMetaRow label="Type raster" value={activeRiskLayerType ?? 'Aucune couche active'} />
               <DecisionMetaRow label="Grille" value={rasterGridSummary} />
               <DecisionMetaRow label="Résolution" value={rasterResolutionSummary} />
@@ -1099,6 +1174,63 @@ function FilterSelect({
           </option>
         ))}
       </select>
+    </div>
+  );
+}
+
+function RasterVersionSelect({
+  activeRiskLayerLabel,
+  layers,
+  loading,
+  error,
+  selectedRasterLayerId,
+  onChange,
+}: {
+  activeRiskLayerLabel: string;
+  layers: RasterLayerMetadata[];
+  loading: boolean;
+  error: string;
+  selectedRasterLayerId: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <div className="rounded-2xl border border-slate-200 p-3 dark:border-slate-800">
+      <div className="mb-1 text-sm font-extrabold text-slate-700 dark:text-slate-200">
+        Version de la couche raster
+      </div>
+
+      <p className="mb-3 text-xs leading-5 text-slate-500">
+        {activeRiskLayerLabel} — choix de la version affichée.
+      </p>
+
+      <select
+        value={selectedRasterLayerId}
+        onChange={(event) => onChange(event.target.value)}
+        disabled={loading || layers.length === 0}
+        className="h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700 outline-none transition focus:border-blue-400 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100"
+      >
+        <option value="">
+          {loading ? 'Chargement des versions...' : 'Dernière version disponible'}
+        </option>
+
+        {layers.map((layer) => (
+          <option key={layer.id} value={layer.id}>
+            {formatRasterLayerDate(layer.updatedAt ?? layer.createdAt)} — {layer.name}
+          </option>
+        ))}
+      </select>
+
+      {error ? (
+        <div className="mt-2 text-xs font-bold text-red-600">{error}</div>
+      ) : (
+        <div className="mt-2 text-xs text-slate-500">
+          {layers.length > 0
+            ? `${layers.length} version(s) disponible(s)`
+            : loading
+              ? 'Recherche des versions...'
+              : 'Aucune version enregistrée pour cette couche'}
+        </div>
+      )}
     </div>
   );
 }
