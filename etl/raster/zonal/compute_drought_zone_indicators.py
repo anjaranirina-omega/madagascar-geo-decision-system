@@ -7,7 +7,7 @@ import rasterio
 import requests
 from dotenv import load_dotenv
 from rasterio.mask import mask
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
@@ -30,6 +30,39 @@ SQLALCHEMY_DATABASE_URL = DATABASE_URL.replace(
 )
 
 BACKEND_API_URL = os.getenv("BACKEND_API_URL", "http://localhost:3001/api")
+
+
+def ensure_raster_layer_id_column(conn):
+    """Ajoute la colonne raster_layer_id si elle n'existe pas encore."""
+    result = conn.execute(
+        text("""
+            SELECT 1 FROM information_schema.columns
+            WHERE table_name = 'zone_risk_indicators'
+              AND column_name = 'raster_layer_id'
+            LIMIT 1;
+        """)
+    )
+    if result.fetchone() is None:
+        conn.execute(
+            text("ALTER TABLE zone_risk_indicators ADD COLUMN raster_layer_id uuid;")
+        )
+        print("  Colonne raster_layer_id ajoutée à zone_risk_indicators.")
+
+
+def get_active_raster_layer_id(conn, raster_type: str) -> str | None:
+    """Retourne l'id de la version active du raster demandé, ou None."""
+    result = conn.execute(
+        text("""
+            SELECT id FROM raster_layers
+            WHERE type = :type AND is_active = true
+            ORDER BY updated_at DESC
+            LIMIT 1;
+        """),
+        {"type": raster_type},
+    )
+    row = result.mappings().first()
+    return row["id"] if row else None
+
 
 POPULATION_RASTER = (
     PROJECT_ROOT
@@ -160,7 +193,6 @@ def upsert_drought_indicator(payload: dict):
     url = f"{BACKEND_API_URL}/zone-indicators/risk/upsert"
 
     response = requests.post(url, json=payload, timeout=30)
-
     if response.status_code >= 400:
         print("Erreur API:", response.status_code, response.text[:1000])
         print("Payload envoyé:", payload)
@@ -169,7 +201,7 @@ def upsert_drought_indicator(payload: dict):
     return response.json()
 
 
-def process_table(zone_type: str, table_name: str):
+def process_table(zone_type: str, table_name: str, raster_layer_id: str | None):
     print(f"\nTraitement sécheresse {zone_type} depuis table {table_name}")
 
     zones = read_zones(table_name)
@@ -218,6 +250,7 @@ def process_table(zone_type: str, table_name: str):
                 "riskMax": round(risk_max, 2) if risk_max is not None else None,
                 "hazardMean": round(hazard_mean, 2) if hazard_mean is not None else None,
                 "riskLevel": risk_level,
+                "rasterLayerId": raster_layer_id,
             }
 
             upsert_drought_indicator(payload)
@@ -244,8 +277,18 @@ def main():
     print(f"Drought hazard raster : {DROUGHT_HAZARD_RASTER}")
     print(f"Backend API : {BACKEND_API_URL}")
 
-    for zone_type, table_name in TABLES:
-        process_table(zone_type, table_name)
+    engine = create_engine(SQLALCHEMY_DATABASE_URL)
+
+    with engine.begin() as conn:
+        ensure_raster_layer_id_column(conn)
+        raster_layer_id = get_active_raster_layer_id(conn, "DROUGHT_RISK_INDEX")
+        if raster_layer_id:
+            print(f"  Raster layer ID (DROUGHT_RISK_INDEX) : {raster_layer_id}")
+        else:
+            print("  Avertissement : aucun raster_layer_id actif trouvé pour DROUGHT_RISK_INDEX")
+
+        for zone_type, table_name in TABLES:
+            process_table(zone_type, table_name, raster_layer_id)
 
     print("Calcul des indicateurs zonaux sécheresse terminé.")
 

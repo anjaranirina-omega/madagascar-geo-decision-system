@@ -34,4 +34,8 @@ export class UpsertZoneIndicatorDto {
   @IsOptional()
   @IsEnum(ZoneRiskLevel)
   riskLevel?: ZoneRiskLevel;
+
+  @IsOptional()
+  @IsUUID()
+  rasterLayerId?: string;
 }

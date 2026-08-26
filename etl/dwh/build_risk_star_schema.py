@@ -39,6 +39,42 @@ def execute(conn, sql: str, params: dict | None = None):
     conn.execute(text(sql), params or {})
 
 
+def safe_add_column(conn, table: str, column: str, definition: str):
+    """Ajoute une colonne seulement si elle n'existe pas déjà (idempotent)."""
+    result = conn.execute(
+        text(f"""
+            SELECT 1 FROM information_schema.columns
+            WHERE table_schema = 'dwh'
+              AND table_name = '{table}'
+              AND column_name = '{column}'
+            LIMIT 1;
+        """)
+    )
+    if result.fetchone() is None:
+        execute(conn, f"ALTER TABLE dwh.{table} ADD COLUMN {column} {definition};")
+        print(f"  Colonne {column} ajoutée à dwh.{table}.")
+    else:
+        print(f"  Colonne {column} déjà présente dans dwh.{table}.")
+
+
+def migrate_operational_tables(conn):
+    """Ajoute raster_layer_id aux tables opérationnelles si absent."""
+    for table in ("zone_indicators", "zone_risk_indicators"):
+        result = conn.execute(
+            text(f"""
+                SELECT 1 FROM information_schema.columns
+                WHERE table_name = '{table}'
+                  AND column_name = 'raster_layer_id'
+                LIMIT 1;
+            """)
+        )
+        if result.fetchone() is None:
+            execute(conn, f"ALTER TABLE {table} ADD COLUMN raster_layer_id uuid;")
+            print(f"  Colonne raster_layer_id ajoutée à {table}.")
+        else:
+            print(f"  Colonne raster_layer_id déjà présente dans {table}.")
+
+
 def create_schema(conn):
     print("Création du schéma DWH...")
 
@@ -140,7 +176,8 @@ def create_schema(conn):
             area_km2 double precision,
             risk_level varchar(50),
             source_table varchar(80),
-            operational_updated_at timestamp
+            operational_updated_at timestamp,
+            raster_layer_id uuid
         );
         """,
     )
@@ -464,7 +501,8 @@ def populate_fact_risk_indicator(conn):
             area_km2,
             risk_level,
             source_table,
-            operational_updated_at
+            operational_updated_at,
+            raster_layer_id
         )
         SELECT
             CAST(TO_CHAR(zi.updated_at::date, 'YYYYMMDD') AS integer) AS time_key,
@@ -477,7 +515,8 @@ def populate_fact_risk_indicator(conn):
             zi.area_km2,
             zi.risk_level::text,
             'zone_indicators' AS source_table,
-            zi.updated_at
+            zi.updated_at,
+            zi.raster_layer_id
         FROM zone_indicators zi
         JOIN dwh.dim_zone dz
           ON dz.zone_type = zi.zone_type::text
@@ -503,7 +542,8 @@ def populate_fact_risk_indicator(conn):
             area_km2,
             risk_level,
             source_table,
-            operational_updated_at
+            operational_updated_at,
+            raster_layer_id
         )
         SELECT
             CAST(TO_CHAR(zri.updated_at::date, 'YYYYMMDD') AS integer) AS time_key,
@@ -516,7 +556,8 @@ def populate_fact_risk_indicator(conn):
             zri.area_km2,
             zri.risk_level::text,
             'zone_risk_indicators' AS source_table,
-            zri.updated_at
+            zri.updated_at,
+            zri.raster_layer_id
         FROM zone_risk_indicators zri
         JOIN dwh.dim_zone dz
           ON dz.zone_type = zri.zone_type::text
@@ -629,6 +670,10 @@ def main():
 
     with engine.begin() as conn:
         create_schema(conn)
+        print("Migration des tables opérationnelles...")
+        migrate_operational_tables(conn)
+        print("Migration de dwh.fact_risk_indicator...")
+        safe_add_column(conn, "fact_risk_indicator", "raster_layer_id", "uuid")
         reset_facts(conn)
         populate_dim_time(conn)
         populate_dim_zone(conn)

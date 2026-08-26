@@ -87,6 +87,10 @@ export class ZoneIndicatorsService {
       });
     }
 
+    const rasterLayerId = (raw.rasterLayerId ?? raw.raster_layer_id ?? null) as
+      | string
+      | null;
+
     return {
       riskType: riskType as RiskType,
       zoneType: zoneType as ZoneType,
@@ -101,6 +105,7 @@ export class ZoneIndicatorsService {
       ),
       areaKm2: this.toNullableNumber(raw.areaKm2 ?? raw.area_km2),
       riskLevel: riskLevel as ZoneRiskLevel | null,
+      rasterLayerId: rasterLayerId ?? undefined,
     };
   }
 

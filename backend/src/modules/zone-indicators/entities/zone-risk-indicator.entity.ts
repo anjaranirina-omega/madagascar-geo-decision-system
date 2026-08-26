@@ -85,6 +85,9 @@ export class ZoneRiskIndicator {
   })
   riskLevel?: ZoneRiskLevel | null;
 
+  @Column({ name: 'raster_layer_id', type: 'uuid', nullable: true })
+  rasterLayerId?: string | null;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;
 
