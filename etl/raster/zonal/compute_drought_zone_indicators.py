@@ -53,7 +53,7 @@ def get_active_raster_layer_id(conn, raster_type: str) -> str | None:
     """Retourne l'id de la version active du raster demandé, ou None."""
     result = conn.execute(
         text("""
-            SELECT id FROM raster_layers
+            SELECT id::text AS id FROM raster_layers
             WHERE type = :type AND is_active = true
             ORDER BY updated_at DESC
             LIMIT 1;
