@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { CreateRasterLayerDto } from './dto/create-raster-layer.dto';
 import {
   RasterLayer,
@@ -12,6 +12,8 @@ export class RastersService {
   constructor(
     @InjectRepository(RasterLayer)
     private readonly rasterLayersRepository: Repository<RasterLayer>,
+
+    private readonly dataSource: DataSource,
   ) {}
 
   async register(dto: CreateRasterLayerDto) {
@@ -44,23 +46,27 @@ export class RastersService {
     // When registering a NEW layer (no existing row for this filePath),
     // deactivate all previous versions of the same type so that only one
     // version per type can be isActive=true at any given time.
+    // Both the deactivation UPDATE and the INSERT are wrapped in a single
+    // transaction: if the INSERT fails, the deactivation is rolled back.
     const isActive = dto.isActive ?? true;
 
-    if (isActive) {
-      await this.rasterLayersRepository
-        .createQueryBuilder()
-        .update()
-        .set({ isActive: false })
-        .where('type = :type AND is_active = true', { type: dto.type })
-        .execute();
-    }
+    return this.dataSource.transaction(async (manager) => {
+      if (isActive) {
+        await manager
+          .createQueryBuilder()
+          .update(RasterLayer)
+          .set({ isActive: false })
+          .where('type = :type AND is_active = true', { type: dto.type })
+          .execute();
+      }
 
-    const layer = this.rasterLayersRepository.create({
-      ...dto,
-      isActive,
+      const layer = manager.create(RasterLayer, {
+        ...dto,
+        isActive,
+      });
+
+      return manager.save(layer);
     });
-
-    return this.rasterLayersRepository.save(layer);
   }
 
   findAll(type?: RasterLayerType) {
