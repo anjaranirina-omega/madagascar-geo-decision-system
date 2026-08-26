@@ -41,9 +41,23 @@ export class RastersService {
       return this.rasterLayersRepository.save(existing);
     }
 
+    // When registering a NEW layer (no existing row for this filePath),
+    // deactivate all previous versions of the same type so that only one
+    // version per type can be isActive=true at any given time.
+    const isActive = dto.isActive ?? true;
+
+    if (isActive) {
+      await this.rasterLayersRepository
+        .createQueryBuilder()
+        .update()
+        .set({ isActive: false })
+        .where('type = :type AND is_active = true', { type: dto.type })
+        .execute();
+    }
+
     const layer = this.rasterLayersRepository.create({
       ...dto,
-      isActive: dto.isActive ?? true,
+      isActive,
     });
 
     return this.rasterLayersRepository.save(layer);
