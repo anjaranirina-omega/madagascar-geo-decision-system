@@ -237,10 +237,10 @@ export default function HomePage() {
           <LogoMark />
 
           <nav className="hidden items-center gap-8 text-[15px] font-semibold text-slate-200 lg:flex">
-            <a href="#accueil" className="border-b-2 border-blue-300 pb-0.5 text-blue-100">Accueil</a>
+            <a href="#accueil" className="border-t border-b border-blue-300 py-0.5 text-blue-100">Accueil</a>
             <a href="#objectifs" className="transition hover:text-white">À propos</a>
             <a href="#fonctionnalites" className="transition hover:text-white">Fonctionnalités</a>
-            <a href="#fonctionnement" className="flex items-center gap-1 transition hover:text-white">Ressources <ArrowDown size={14} className="text-slate-400" /></a>
+            <a href="#fonctionnement" className="transition hover:text-white">Ressources</a>
             <a href="#contact" className="transition hover:text-white">Contact</a>
           </nav>
 
@@ -286,11 +286,34 @@ export default function HomePage() {
             </div>
 
             <div className="relative hidden min-h-[470px] lg:block">
-              <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[380px] h-[380px]">
-                <img src="/images/Madagascar.jpg" alt="Vue satellite de Madagascar" className="w-full h-full rounded-[2.5rem] object-cover shadow-2xl ring-1 ring-white/10 opacity-95" />
+              <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[320px] h-[320px] lg:w-[360px] lg:h-[360px] p-3">
+                <img
+                  src="/images/Madagascar.jpg"
+                  alt="Vue satellite de Madagascar"
+                  className="relative z-10 w-full h-full rounded-[2.5rem] object-cover shadow-[0_20px_60px_-10px_rgba(0,0,0,0.6)] opacity-95"
+                  style={{
+                    maskImage: 'radial-gradient(circle at center, black 65%, transparent 100%)',
+                    WebkitMaskImage: 'radial-gradient(circle at center, black 65%, transparent 100%)',
+                  }}
+                />
+                <div className="absolute inset-3 pointer-events-none rounded-[2.5rem] shadow-[inset_0_0_60px_30px_#030814]" />
+
+                <div className="absolute top-[22%] left-[50%] -translate-x-1/2 z-20">
+                  <span className="relative flex h-3 w-3">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60" />
+                    <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500 ring-2 ring-emerald-300/40" />
+                  </span>
+                </div>
+
+                <div className="absolute top-[68%] left-[52%] -translate-x-1/2 z-20">
+                  <span className="relative flex h-3 w-3">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60" />
+                    <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500 ring-2 ring-emerald-300/40" />
+                  </span>
+                </div>
               </div>
 
-              <div className="absolute left-1 top-6 z-20 w-56 rounded-2xl border border-white/10 bg-slate-950/60 p-4 shadow-2xl shadow-black/40 backdrop-blur-xl lg:left-3 lg:top-10 lg:w-60">
+              <div className="absolute left-3 -top-12 z-20 w-56 rounded-2xl border border-white/10 bg-slate-950/60 p-4 shadow-2xl shadow-black/40 backdrop-blur-xl lg:left-6 lg:-top-14 lg:w-60">
                 <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-500/20 text-blue-300 ring-1 ring-blue-300/20">
                   <CloudRain size={20} strokeWidth={2} />
                 </div>
@@ -298,7 +321,7 @@ export default function HomePage() {
                 <p className="mt-0.5 text-xs font-medium text-slate-300">Mises à jour régulières</p>
               </div>
 
-              <div className="absolute -right-6 top-[35%] z-20 w-56 rounded-2xl border border-white/10 bg-slate-950/60 p-4 shadow-2xl shadow-black/40 backdrop-blur-xl lg:-right-10 lg:top-[40%] lg:w-60">
+              <div className="absolute -right-8 top-[35%] z-20 w-56 rounded-2xl border border-white/10 bg-slate-950/60 p-4 shadow-2xl shadow-black/40 backdrop-blur-xl lg:-right-14 lg:top-[38%] lg:w-60">
                 <div className="flex h-10 w-10 items-center justify-center rounded-full bg-green-500/20 text-green-300 ring-1 ring-green-300/20">
                   <BarChart3 size={20} strokeWidth={2} />
                 </div>
@@ -306,7 +329,7 @@ export default function HomePage() {
                 <p className="mt-0.5 text-xs font-medium text-slate-300">Modèles multicritères</p>
               </div>
 
-              <div className="absolute -left-6 bottom-8 z-20 w-56 rounded-2xl border border-white/10 bg-slate-950/60 p-4 shadow-2xl shadow-black/40 backdrop-blur-xl lg:-left-10 lg:bottom-10 lg:w-60">
+              <div className="absolute left-3 -bottom-14 z-20 w-56 rounded-2xl border border-white/10 bg-slate-950/60 p-4 shadow-2xl shadow-black/40 backdrop-blur-xl lg:left-6 lg:-bottom-16 lg:w-60">
                 <div className="flex h-10 w-10 items-center justify-center rounded-full bg-green-500/20 text-green-300 ring-1 ring-green-300/20">
                   <Bell size={20} strokeWidth={2} />
                 </div>
