@@ -1,7 +1,9 @@
 import {
   Activity,
   AlertTriangle,
+  ArrowDown,
   ArrowRight,
+  Play,
   BarChart3,
   Bell,
   CloudRain,
@@ -23,18 +25,12 @@ import { Link } from 'react-router-dom';
 function LogoMark() {
   return (
     <Link to="/" className="flex items-center gap-3" aria-label="Accueil RISKCLIM-MG">
-      <div className="relative flex h-11 w-11 items-center justify-center text-white">
-        <CloudRain size={38} strokeWidth={2.2} />
-        <Leaf
-          size={23}
-          strokeWidth={2.4}
-          className="absolute bottom-0 right-0 text-green-400"
-        />
+      <div className="relative flex h-11 w-11 items-center justify-center rounded-full bg-white text-slate-950 shadow-lg shadow-black/25 ring-2 ring-white/20">
+        <CloudRain size={26} strokeWidth={2.2} className="text-blue-700" />
+        <span className="absolute bottom-1.5 right-1.5 h-2.5 w-2.5 rounded-full bg-green-500 shadow-sm ring-2 ring-white" />
       </div>
-
-      <div className="text-xl font-black tracking-tight">
-        <span className="text-white">RISK</span>
-        <span className="text-blue-400">CLIM</span>
+      <div className="text-xl font-black tracking-tight leading-none">
+        <span className="text-white">RISKCLIM</span>
         <span className="text-green-400">-MG</span>
       </div>
     </Link>
@@ -233,123 +229,89 @@ function accentClasses(accent: string) {
 export default function HomePage() {
   return (
     <main className="min-h-screen overflow-hidden bg-slate-950 text-white">
-      <section className="relative min-h-screen">
-        <div
-          className="absolute inset-0 bg-cover bg-center"
-          style={{
-            backgroundImage: 'url("/images/Madagascar.jpg")',
-          }}
-        />
-        <div className="absolute inset-0 bg-gradient-to-br from-slate-950 via-slate-950/88 to-slate-950/40" />
-        <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/50 to-transparent" />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_18%,rgba(34,197,94,0.20),transparent_26%),radial-gradient(circle_at_72%_18%,rgba(59,130,246,0.24),transparent_32%),radial-gradient(circle_at_82%_70%,rgba(14,165,233,0.13),transparent_30%)]" />
+      <section className="relative min-h-[92vh] overflow-hidden bg-[#030814]">
+        <div className="absolute inset-0 bg-gradient-to-b from-[#01040e] via-[#030814] to-[#02050a]" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_30%,rgba(34,197,94,0.10),transparent_35%),radial-gradient(circle_at_85%_20%,rgba(59,130,246,0.12),transparent_40%),radial-gradient(circle_at_70%_80%,rgba(14,165,233,0.10),transparent_35%)]" />
 
-        <header className="relative z-20 mx-auto flex max-w-7xl items-center justify-between px-5 py-5 sm:px-8 lg:px-10">
+        <header className="relative z-20 mx-auto flex max-w-7xl items-center justify-between px-6 py-5 sm:px-10 lg:px-12">
           <LogoMark />
 
-          <nav className="hidden items-center gap-8 text-sm font-semibold text-slate-200 lg:flex">
-            <a className="text-green-300" href="#accueil">Accueil</a>
-            <a className="transition hover:text-green-300" href="#objectifs">À propos</a>
-            <a className="transition hover:text-green-300" href="#fonctionnalites">Fonctionnalités</a>
-            <a className="transition hover:text-green-300" href="#fonctionnement">Fonctionnement</a>
-            <a className="transition hover:text-green-300" href="#utilisateurs">Utilisateurs</a>
+          <nav className="hidden items-center gap-8 text-[15px] font-semibold text-slate-200 lg:flex">
+            <a href="#accueil" className="border-b-2 border-blue-300 pb-0.5 text-blue-100">Accueil</a>
+            <a href="#objectifs" className="transition hover:text-white">À propos</a>
+            <a href="#fonctionnalites" className="transition hover:text-white">Fonctionnalités</a>
+            <a href="#fonctionnement" className="flex items-center gap-1 transition hover:text-white">Ressources <ArrowDown size={14} className="text-slate-400" /></a>
+            <a href="#contact" className="transition hover:text-white">Contact</a>
           </nav>
 
           <Link
             to="/login"
-            className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-green-500 to-blue-600 px-4 text-sm font-extrabold text-white shadow-lg shadow-blue-950/30 transition hover:scale-[1.02] hover:shadow-xl"
+            className="inline-flex h-11 items-center gap-2.5 rounded-full bg-gradient-to-r from-green-400 to-emerald-500 px-5 text-sm font-extrabold text-white shadow-lg shadow-green-950/30 transition hover:scale-[1.04] hover:shadow-xl"
           >
-            <Lock size={17} />
-            <span className="hidden sm:inline">Se connecter</span>
+            <Lock size={16} />
+            <span>Se connecter</span>
           </Link>
         </header>
 
         <div id="accueil" className="relative z-10 mx-auto max-w-7xl px-5 pb-10 pt-12 sm:px-8 lg:px-10 lg:pt-16">
           <div className="grid items-center gap-12 lg:grid-cols-[1.05fr_0.95fr]">
             <div>
-              <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-green-400/25 bg-green-400/10 px-4 py-2 text-sm font-bold text-green-200 backdrop-blur">
-                <span className="h-2 w-2 rounded-full bg-green-400" />
-                Système géodécisionnel climatique pour Madagascar
-              </div>
-
               <h1 className="max-w-3xl text-4xl font-black leading-tight tracking-tight sm:text-5xl lg:text-6xl">
                 Anticiper aujourd’hui,
                 <br />
                 <span className="text-green-400">protéger</span> demain.
               </h1>
 
-              <p className="mt-7 max-w-2xl text-base font-medium leading-8 text-slate-200 sm:text-lg">
-                RISKCLIM-MG intègre les données climatiques, géospatiales et
-                socio-économiques pour analyser les risques, produire des
-                indicateurs territoriaux, générer des alertes et appuyer les
-                décisions pour un territoire plus résilient.
+              <p className="mt-7 max-w-2xl text-base font-medium leading-8 text-slate-300 sm:text-lg">
+                RISKCLIM-MG intègre les données climatiques, géospatiales et socio-économiques pour analyser les risques, produire des indicateurs territoriaux, générer des alertes et appuyer les décisions pour un territoire plus résilient.
               </p>
 
-              <div className="mt-9 flex flex-col gap-4 sm:flex-row">
+              <div className="mt-8 flex flex-wrap gap-4">
                 <Link
                   to="/login"
-                  className="inline-flex h-13 items-center justify-center gap-3 rounded-xl bg-gradient-to-r from-green-500 to-blue-600 px-6 py-4 text-sm font-extrabold text-white shadow-xl shadow-blue-950/30 transition hover:scale-[1.02]"
+                  className="inline-flex h-14 items-center gap-3 rounded-full bg-gradient-to-r from-green-400 to-emerald-500 px-7 text-base font-extrabold text-white shadow-xl shadow-green-950/25 transition hover:scale-[1.03]"
                 >
-                  Accéder à la plateforme
+                  Explorer la plateforme
                   <ArrowRight size={19} />
                 </Link>
 
                 <a
                   href="#fonctionnement"
-                  className="inline-flex h-13 items-center justify-center gap-3 rounded-xl border border-white/25 bg-white/10 px-6 py-4 text-sm font-extrabold text-white backdrop-blur transition hover:bg-white/15"
+                  className="inline-flex h-14 items-center gap-3 rounded-full border border-white/25 bg-white/[0.04] px-7 text-base font-extrabold text-white backdrop-blur transition hover:bg-white/[0.10]"
                 >
                   Découvrir le système
-                  <ArrowRight size={19} />
+                  <Play size={19} className="fill-white text-white" />
                 </a>
               </div>
             </div>
 
             <div className="relative hidden min-h-[470px] lg:block">
-              <div className="absolute right-6 top-4 w-72 rounded-3xl border border-white/15 bg-slate-950/45 p-5 shadow-2xl shadow-black/30 backdrop-blur-md">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-500/20 text-blue-300">
-                    <CloudRain size={27} />
-                  </div>
-                  <div>
-                    <div className="font-black">Données climatiques</div>
-                    <div className="text-sm text-slate-300">CHIRPS, NASA POWER, OpenWeather</div>
-                  </div>
-                </div>
+              <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[380px] h-[380px]">
+                <img src="/images/Madagascar.jpg" alt="Vue satellite de Madagascar" className="w-full h-full rounded-[2.5rem] object-cover shadow-2xl ring-1 ring-white/10 opacity-95" />
               </div>
 
-              <div className="absolute left-6 top-4 w-72 rounded-3xl border border-white/15 bg-slate-950/45 p-5 shadow-2xl shadow-black/30 backdrop-blur-md">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-green-500/20 text-green-300">
-                    <Map size={27} />
-                  </div>
-                  <div>
-                    <div className="font-black">Territoire malgache</div>
-                    <div className="text-sm text-slate-300">Régions, districts et communes</div>
-                  </div>
+              <div className="absolute left-1 top-6 z-20 w-56 rounded-2xl border border-white/10 bg-slate-950/60 p-4 shadow-2xl shadow-black/40 backdrop-blur-xl lg:left-3 lg:top-10 lg:w-60">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-500/20 text-blue-300 ring-1 ring-blue-300/20">
+                  <CloudRain size={20} strokeWidth={2} />
                 </div>
+                <h3 className="mt-2 text-sm font-black text-white">Données en temps réel</h3>
+                <p className="mt-0.5 text-xs font-medium text-slate-300">Mises à jour régulières</p>
               </div>
 
-              <div className="absolute bottom-6 left-6 w-80 rounded-3xl border border-white/15 bg-slate-950/45 p-5 shadow-2xl shadow-black/30 backdrop-blur-md">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-500/20 text-emerald-300">
-                    <ShieldCheck size={27} />
-                  </div>
-                  <div>
-                    <div className="font-black">Aide à la décision</div>
-                    <div className="text-sm text-slate-300">Alertes, rapports et indicateurs SOLAP</div>
-                  </div>
+              <div className="absolute -right-6 top-[35%] z-20 w-56 rounded-2xl border border-white/10 bg-slate-950/60 p-4 shadow-2xl shadow-black/40 backdrop-blur-xl lg:-right-10 lg:top-[40%] lg:w-60">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-green-500/20 text-green-300 ring-1 ring-green-300/20">
+                  <BarChart3 size={20} strokeWidth={2} />
                 </div>
+                <h3 className="mt-2 text-sm font-black text-white">Analyses avancées</h3>
+                <p className="mt-0.5 text-xs font-medium text-slate-300">Modèles multicritères</p>
               </div>
 
-              <div className="absolute left-1/2 top-1/2 h-80 w-80 -translate-x-1/2 -translate-y-1/2 rounded-full border border-blue-400/20 bg-blue-500/10 blur-2xl" />
-              <div className="absolute left-1/2 top-1/2 flex h-72 w-72 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-white/10 bg-slate-950/25 shadow-2xl backdrop-blur-sm">
-                <div className="text-center">
-                  <MapPin className="mx-auto mb-4 text-green-400" size={72} />
-                  <div className="text-3xl font-black">Madagascar</div>
-                  <div className="mt-2 text-sm font-semibold text-slate-300">
-                    Analyse géospatiale multi-risques
-                  </div>
+              <div className="absolute -left-6 bottom-8 z-20 w-56 rounded-2xl border border-white/10 bg-slate-950/60 p-4 shadow-2xl shadow-black/40 backdrop-blur-xl lg:-left-10 lg:bottom-10 lg:w-60">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-green-500/20 text-green-300 ring-1 ring-green-300/20">
+                  <Bell size={20} strokeWidth={2} />
                 </div>
+                <h3 className="mt-2 text-sm font-black text-white">Alertes intelligentes</h3>
+                <p className="mt-0.5 text-xs font-medium text-slate-300">Notifications proactives</p>
               </div>
             </div>
           </div>
