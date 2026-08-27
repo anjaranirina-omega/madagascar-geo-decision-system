@@ -237,7 +237,7 @@ export default function HomePage() {
         <div
           className="absolute inset-0 bg-cover bg-center"
           style={{
-            backgroundImage: 'url("/images/login-risk-bg.png")',
+            backgroundImage: 'url("/images/Madagascar.jpg")',
           }}
         />
         <div className="absolute inset-0 bg-gradient-to-br from-slate-950 via-slate-950/88 to-slate-950/40" />
