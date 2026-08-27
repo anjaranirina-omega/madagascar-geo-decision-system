@@ -237,7 +237,7 @@ export default function HomePage() {
         <div
           className="absolute inset-0 bg-cover bg-center"
           style={{
-            backgroundImage: "url(https://earthobservatory.nasa.gov/images/large/30773_madagascar-dust.jpg)",
+            backgroundImage: 'url("/images/login-risk-bg.png")',
           }}
         />
         <div className="absolute inset-0 bg-gradient-to-br from-slate-950 via-slate-950/88 to-slate-950/40" />
