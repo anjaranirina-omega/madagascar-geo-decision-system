@@ -122,7 +122,7 @@ export class MeteoService {
     const defaultQuota = 950;
     const maxQuota = Number(quotaEnv) || defaultQuota;
 
-    const sourceRepo = this.dataSourcesService.findOne(DataSourceCode.OPENWEATHER);
+    const sourceRepo = await this.dataSourcesService.findOne(DataSourceCode.OPENWEATHER);
     if (!sourceRepo) {
       this.logger.warn('Source OpenWeather non trouvee en base, pas de protection de quota.');
       return;
