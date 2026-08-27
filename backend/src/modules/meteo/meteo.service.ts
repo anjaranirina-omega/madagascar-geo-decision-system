@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Injectable,
+  ServiceUnavailableException,
   InternalServerErrorException,
   Logger,
 } from '@nestjs/common';
@@ -111,7 +112,52 @@ export class MeteoService {
       );
     }
 
+    // Check daily quota before returning response
+    await this.checkOpenWeatherQuota();
+
     return (await response.json()) as OpenWeatherResponse;
+  }
+  private async checkOpenWeatherQuota() {
+    const quotaEnv = process.env.OPENWEATHER_DAILY_QUOTA;
+    const defaultQuota = 950;
+    const maxQuota = Number(quotaEnv) || defaultQuota;
+
+    const sourceRepo = this.dataSourcesService.findOne(DataSourceCode.OPENWEATHER);
+    if (!sourceRepo) {
+      this.logger.warn('Source OpenWeather non trouvee en base, pas de protection de quota.');
+      return;
+    }
+
+    const metadata = sourceRepo.metadata ?? {};
+    const dailyCount = Number(metadata.dailyCallCount) || 0;
+    const lastReset = metadata.lastResetDate;
+    const today = new Date().toISOString().split('T')[0];
+
+    // Reset counter if new day
+    if (lastReset !== today) {
+      this.logger.log('Reset compteur quotidien OpenWeather (nouvelle journee).');
+      await this.dataSourcesService.markSuccess(DataSourceCode.OPENWEATHER, {
+        metadata: {
+          dailyCallCount: 0,
+          lastResetDate: today,
+        },
+      });
+      return;
+    }
+
+    if (dailyCount >= maxQuota) {
+      throw new ServiceUnavailableException(
+        `Quota OpenWeather quotidien atteint (${dailyCount} / ${maxQuota}). Reessayez demain.`
+      );
+    }
+
+    // Increment counter after successful check
+    await this.dataSourcesService.markSuccess(DataSourceCode.OPENWEATHER, {
+      metadata: {
+        dailyCallCount: dailyCount + 1,
+        lastResetDate: today,
+      },
+    });
   }
 
   private buildObservationPayload(params: {
