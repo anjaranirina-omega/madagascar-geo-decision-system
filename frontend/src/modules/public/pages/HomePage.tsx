@@ -237,7 +237,7 @@ export default function HomePage() {
         <div
           className="absolute inset-0 bg-cover bg-center"
           style={{
-            backgroundImage: 'url("/images/login-risk-bg.png")',
+            backgroundImage: "url(https://earthobservatory.nasa.gov/images/large/30773_madagascar-dust.jpg)",
           }}
         />
         <div className="absolute inset-0 bg-gradient-to-br from-slate-950 via-slate-950/88 to-slate-950/40" />
@@ -317,7 +317,7 @@ export default function HomePage() {
                 </div>
               </div>
 
-              <div className="absolute left-0 top-36 w-72 rounded-3xl border border-white/15 bg-slate-950/45 p-5 shadow-2xl shadow-black/30 backdrop-blur-md">
+              <div className="absolute left-6 top-4 w-72 rounded-3xl border border-white/15 bg-slate-950/45 p-5 shadow-2xl shadow-black/30 backdrop-blur-md">
                 <div className="flex items-center gap-3">
                   <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-green-500/20 text-green-300">
                     <Map size={27} />
@@ -329,7 +329,7 @@ export default function HomePage() {
                 </div>
               </div>
 
-              <div className="absolute bottom-12 right-0 w-80 rounded-3xl border border-white/15 bg-slate-950/45 p-5 shadow-2xl shadow-black/30 backdrop-blur-md">
+              <div className="absolute bottom-6 left-6 w-80 rounded-3xl border border-white/15 bg-slate-950/45 p-5 shadow-2xl shadow-black/30 backdrop-blur-md">
                 <div className="flex items-center gap-3">
                   <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-500/20 text-emerald-300">
                     <ShieldCheck size={27} />
