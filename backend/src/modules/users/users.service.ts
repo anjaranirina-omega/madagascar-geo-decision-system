@@ -1,11 +1,15 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcrypt';
+import { extname } from 'path';
 import { Repository } from 'typeorm';
+import { StorageService } from '../storage/storage.service';
 import { CreateRoleDto } from './dto/create-role.dto';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -14,12 +18,16 @@ import { User } from './entities/user.entity';
 
 @Injectable()
 export class UsersService {
+  private readonly logger = new Logger(UsersService.name);
+
   constructor(
     @InjectRepository(User)
     private readonly usersRepository: Repository<User>,
 
     @InjectRepository(Role)
     private readonly rolesRepository: Repository<Role>,
+
+    private readonly storageService: StorageService,
   ) {}
 
   async createDefaultRoles() {
@@ -175,6 +183,11 @@ export class UsersService {
 
   async remove(id: string) {
     const user = await this.findOne(id);
+
+    if (user.avatarUrl) {
+      await this.deleteAvatarFromStorage(user.avatarUrl);
+    }
+
     await this.usersRepository.remove(user);
 
     return { deleted: true };
@@ -191,58 +204,93 @@ export class UsersService {
   }
 
   async setPasswordResetToken(
-  userId: string,
-  tokenHash: string,
-  expiresAt: Date,
-) {
-  const user = await this.findOne(userId);
+    userId: string,
+    tokenHash: string,
+    expiresAt: Date,
+  ) {
+    const user = await this.findOne(userId);
 
-  user.passwordResetTokenHash = tokenHash;
-  user.passwordResetExpiresAt = expiresAt;
-
-  return this.usersRepository.save(user);
-}
-
-async findByPasswordResetTokenHash(tokenHash: string) {
-  return this.usersRepository
-    .createQueryBuilder('user')
-    .addSelect('user.passwordHash')
-    .addSelect('user.refreshTokenHash')
-    .addSelect('user.passwordResetTokenHash')
-    .where('user.passwordResetTokenHash = :tokenHash', { tokenHash })
-    .getOne();
-}
-
-async updatePasswordAndClearResetToken(userId: string, newPassword: string) {
-  const user = await this.findOne(userId);
-
-  user.passwordHash = await bcrypt.hash(newPassword, 10);
-  user.refreshTokenHash = undefined;
-  user.passwordResetTokenHash = undefined;
-  user.passwordResetExpiresAt = undefined;
-
-  return this.usersRepository.save(user);
-}
-
-  async updateAvatar(id: string, filename: string) {
-    const user = await this.findOne(id);
-
-    const publicUrl =
-      process.env.BACKEND_PUBLIC_URL ??
-      `http://localhost:${process.env.BACKEND_PORT ?? 3001}`;
-
-    user.avatarUrl = `${publicUrl}/uploads/avatars/${filename}`;
+    user.passwordResetTokenHash = tokenHash;
+    user.passwordResetExpiresAt = expiresAt;
 
     return this.usersRepository.save(user);
   }
 
+  async findByPasswordResetTokenHash(tokenHash: string) {
+    return this.usersRepository
+      .createQueryBuilder('user')
+      .addSelect('user.passwordHash')
+      .addSelect('user.refreshTokenHash')
+      .addSelect('user.passwordResetTokenHash')
+      .where('user.passwordResetTokenHash = :tokenHash', { tokenHash })
+      .getOne();
+  }
+
+  async updatePasswordAndClearResetToken(userId: string, newPassword: string) {
+    const user = await this.findOne(userId);
+
+    user.passwordHash = await bcrypt.hash(newPassword, 10);
+    user.refreshTokenHash = undefined;
+    user.passwordResetTokenHash = undefined;
+    user.passwordResetExpiresAt = undefined;
+
+    return this.usersRepository.save(user);
+  }
+
+  async updateAvatar(id: string, file: Express.Multer.File) {
+    if (!file || !file.buffer) {
+      throw new BadRequestException('Aucun fichier image fourni.');
+    }
+
+    const user = await this.findOne(id);
+
+    if (user.avatarUrl) {
+      await this.deleteAvatarFromStorage(user.avatarUrl);
+    }
+
+    const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
+    const extension = extname(file.originalname).toLowerCase() || '.webp';
+    const key = `avatars/user-${id}/${uniqueSuffix}${extension}`;
+    const mimeType = file.mimetype || 'image/webp';
+
+    const avatarUrl = await this.storageService.putObject(
+      this.storageService.avatarsBucket,
+      key,
+      file.buffer,
+      mimeType,
+    );
+
+    user.avatarUrl = avatarUrl;
+
+    return this.usersRepository.save(user);
+  }
 
   async removeAvatar(id: string) {
     const user = await this.findOne(id);
+
+    if (user.avatarUrl) {
+      await this.deleteAvatarFromStorage(user.avatarUrl);
+    }
 
     user.avatarUrl = null;
 
     return this.usersRepository.save(user);
   }
 
+  private async deleteAvatarFromStorage(avatarUrl: string): Promise<void> {
+    try {
+      const keyInfo = this.storageService.extractKeyFromUrl(
+        avatarUrl,
+        this.storageService.avatarsBucket,
+      );
+
+      if (keyInfo) {
+        await this.storageService.deleteObject(keyInfo.bucket, keyInfo.key);
+      }
+    } catch (err: any) {
+      this.logger.warn(
+        `Impossible de supprimer l'avatar de stockage (${avatarUrl}): ${err?.message}`,
+      );
+    }
+  }
 }
