@@ -319,7 +319,7 @@ export default function HomePage() {
             </div>
 
             <div className="relative hidden min-h-[470px] lg:block lg:translate-x-20">
-              <div className="absolute z-20 right-6 top-4 w-72 rounded-3xl border border-white/15 bg-slate-950/45 p-5 shadow-2xl shadow-black/30 backdrop-blur-md">
+              <div className="absolute z-20 right-6 top-4 w-72 rounded-3xl border border-white/15 bg-slate-950/45 p-5 shadow-2xl shadow-black/30 backdrop-blur-md animate-float [animation-delay:0s]">
                 <div className="flex items-center gap-3">
                   <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-500/20 text-blue-300">
                     <CloudRain size={27} />
@@ -331,7 +331,7 @@ export default function HomePage() {
                 </div>
               </div>
 
-              <div className="absolute z-20 -left-16 top-36 w-72 rounded-3xl border border-white/15 bg-slate-950/45 p-5 shadow-2xl shadow-black/30 backdrop-blur-md">
+              <div className="absolute z-20 -left-16 top-36 w-72 rounded-3xl border border-white/15 bg-slate-950/45 p-5 shadow-2xl shadow-black/30 backdrop-blur-md animate-float [animation-delay:1.3s]">
                 <div className="flex items-center gap-3">
                   <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-green-500/20 text-green-300">
                     <Map size={27} />
@@ -343,7 +343,7 @@ export default function HomePage() {
                 </div>
               </div>
 
-              <div className="absolute z-20 bottom-12 right-0 w-80 rounded-3xl border border-white/15 bg-slate-950/45 p-5 shadow-2xl shadow-black/30 backdrop-blur-md">
+              <div className="absolute z-20 bottom-12 right-0 w-80 rounded-3xl border border-white/15 bg-slate-950/45 p-5 shadow-2xl shadow-black/30 backdrop-blur-md animate-float [animation-delay:2.6s]">
                 <div className="flex items-center gap-3">
                   <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-500/20 text-emerald-300">
                     <ShieldCheck size={27} />
