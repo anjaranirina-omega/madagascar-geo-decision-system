@@ -81,7 +81,7 @@ const risks = [
     level: 'high',
     icon: <Waves size={25} />,
     accent: 'blue',
-    image: '/images/risks/inondation.png',
+    image: '/images/risks/inondation.webp',
   },
   {
     title: 'Sécheresse',
@@ -91,7 +91,7 @@ const risks = [
     level: 'moderate',
     icon: <Sun size={25} />,
     accent: 'amber',
-    image: '/images/risks/secheresse.png',
+    image: '/images/risks/secheresse.webp',
   },
   {
     title: 'Cyclone',
@@ -101,7 +101,7 @@ const risks = [
     level: 'high',
     icon: <Zap size={25} />,
     accent: 'purple',
-    image: '/images/risks/cyclone.png',
+    image: '/images/risks/cyclone.webp',
   },
   {
     title: 'Glissement de terrain',
@@ -111,7 +111,7 @@ const risks = [
     level: 'moderate',
     icon: <AlertTriangle size={25} />,
     accent: 'green',
-    image: '/images/risks/glissement.png',
+    image: '/images/risks/glissement.webp',
   },
 ];
 
@@ -251,7 +251,7 @@ export default function HomePage() {
         <div
           className="absolute inset-0 bg-cover bg-center"
           style={{
-            backgroundImage: 'url("/images/login-risk-bg.png")',
+            backgroundImage: 'url("/images/login-risk-bg.webp")',
           }}
         />
         <div className="absolute inset-0 bg-gradient-to-br from-slate-950 via-slate-950/88 to-slate-950/40" />

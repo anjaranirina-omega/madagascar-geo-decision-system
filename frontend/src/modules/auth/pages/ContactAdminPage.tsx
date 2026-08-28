@@ -74,7 +74,7 @@ export default function ContactAdminPage() {
           <div
             className="absolute inset-0 bg-cover bg-center"
             style={{
-              backgroundImage: 'url("/images/login-risk-bg.png")',
+              backgroundImage: 'url("/images/login-risk-bg.webp")',
             }}
           />
           <div className="absolute inset-0 bg-gradient-to-br from-slate-950/92 via-slate-950/72 to-slate-950/36" />
