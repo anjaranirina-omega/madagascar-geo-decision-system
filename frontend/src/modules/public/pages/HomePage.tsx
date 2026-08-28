@@ -77,33 +77,41 @@ const risks = [
     title: 'Inondation',
     description:
       'Analyse des zones exposées aux fortes précipitations, à la proximité hydrographique et aux faibles pentes.',
-    badge: 'Risque hydrologique',
+    badge: 'Risque élevé',
+    level: 'high',
     icon: <Waves size={25} />,
     accent: 'blue',
+    image: '/images/risks/inondation.png',
   },
   {
     title: 'Sécheresse',
     description:
-      'Suivi du déficit pluviométrique, du stress thermique et de la sensibilité de l’occupation du sol.',
-    badge: 'Risque climatique',
+      'Suivi du déficit pluviométrique, du stress thermique et de la sensibilité de l\u2019occupation du sol.',
+    badge: 'Risque modéré',
+    level: 'moderate',
     icon: <Sun size={25} />,
     accent: 'amber',
+    image: '/images/risks/secheresse.png',
   },
   {
     title: 'Cyclone',
     description:
-      'Analyse de l’exposition cyclonique à partir des trajectoires historiques, de la pluie et de l’exposition territoriale.',
-    badge: 'Risque côtier',
+      'Analyse de l\u2019exposition cyclonique à partir des trajectoires historiques, de la pluie et de l\u2019exposition territoriale.',
+    badge: 'Risque élevé',
+    level: 'high',
     icon: <Zap size={25} />,
     accent: 'purple',
+    image: '/images/risks/cyclone.png',
   },
   {
     title: 'Glissement de terrain',
     description:
-      'Identification des zones sensibles selon la pente, les précipitations et les caractéristiques d’occupation du sol.',
-    badge: 'Risque géomorphologique',
+      'Identification des zones sensibles selon la pente, les précipitations et les caractéristiques d\u2019occupation du sol.',
+    badge: 'Risque modéré',
+    level: 'moderate',
     icon: <AlertTriangle size={25} />,
     accent: 'green',
+    image: '/images/risks/glissement.png',
   },
 ];
 
@@ -205,6 +213,12 @@ const audiences = [
   },
 ];
 
+function levelBadgeClasses(level: string) {
+  return level === 'high'
+    ? 'bg-red-500/15 text-red-300 border-red-400/40'
+    : 'bg-amber-500/15 text-amber-300 border-amber-400/40';
+}
+
 function accentClasses(accent: string) {
   switch (accent) {
     case 'blue':
@@ -304,8 +318,8 @@ export default function HomePage() {
               </div>
             </div>
 
-            <div className="relative hidden min-h-[470px] lg:block">
-              <div className="absolute right-6 top-4 w-72 rounded-3xl border border-white/15 bg-slate-950/45 p-5 shadow-2xl shadow-black/30 backdrop-blur-md">
+            <div className="relative hidden min-h-[470px] lg:block lg:translate-x-20">
+              <div className="absolute z-20 right-6 top-4 w-72 rounded-3xl border border-white/15 bg-slate-950/45 p-5 shadow-2xl shadow-black/30 backdrop-blur-md">
                 <div className="flex items-center gap-3">
                   <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-500/20 text-blue-300">
                     <CloudRain size={27} />
@@ -317,7 +331,7 @@ export default function HomePage() {
                 </div>
               </div>
 
-              <div className="absolute left-0 top-36 w-72 rounded-3xl border border-white/15 bg-slate-950/45 p-5 shadow-2xl shadow-black/30 backdrop-blur-md">
+              <div className="absolute z-20 -left-16 top-36 w-72 rounded-3xl border border-white/15 bg-slate-950/45 p-5 shadow-2xl shadow-black/30 backdrop-blur-md">
                 <div className="flex items-center gap-3">
                   <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-green-500/20 text-green-300">
                     <Map size={27} />
@@ -329,7 +343,7 @@ export default function HomePage() {
                 </div>
               </div>
 
-              <div className="absolute bottom-12 right-0 w-80 rounded-3xl border border-white/15 bg-slate-950/45 p-5 shadow-2xl shadow-black/30 backdrop-blur-md">
+              <div className="absolute z-20 bottom-12 right-0 w-80 rounded-3xl border border-white/15 bg-slate-950/45 p-5 shadow-2xl shadow-black/30 backdrop-blur-md">
                 <div className="flex items-center gap-3">
                   <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-500/20 text-emerald-300">
                     <ShieldCheck size={27} />
@@ -391,18 +405,26 @@ export default function HomePage() {
               return (
                 <article
                   key={risk.title}
-                  className="group overflow-hidden rounded-[1.7rem] border border-white/10 bg-white/[0.06] p-5 shadow-xl shadow-black/15 backdrop-blur transition hover:-translate-y-1 hover:border-green-400/30 hover:bg-white/[0.08]"
+                  className="group relative overflow-hidden rounded-[1.7rem] border border-white/10 shadow-xl shadow-black/15 transition hover:-translate-y-1 hover:border-green-400/30"
                 >
-                  <div className={`mb-12 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br ${classes.icon} text-white shadow-lg`}>
-                    {risk.icon}
+                  <div
+                    className="absolute inset-0 bg-cover bg-center transition duration-500 group-hover:scale-105"
+                    style={{ backgroundImage: `url("${risk.image}")` }}
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/80 to-slate-950/30" />
+
+                  <div className="relative flex h-full min-h-[280px] flex-col justify-end p-5">
+                    <div className={`mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br ${classes.icon} text-white shadow-lg`}>
+                      {risk.icon}
+                    </div>
+                    <h3 className="text-xl font-black text-white">{risk.title}</h3>
+                    <p className="mt-3 text-sm leading-6 text-slate-200">
+                      {risk.description}
+                    </p>
+                    <span className={`mt-4 inline-flex w-fit rounded-full border px-3 py-1 text-xs font-extrabold ${levelBadgeClasses(risk.level)}`}>
+                      {risk.badge}
+                    </span>
                   </div>
-                  <h3 className="text-xl font-black">{risk.title}</h3>
-                  <p className="mt-3 min-h-[96px] text-sm leading-6 text-slate-300">
-                    {risk.description}
-                  </p>
-                  <span className={`mt-4 inline-flex rounded-full border px-3 py-1 text-xs font-extrabold ${classes.badge}`}>
-                    {risk.badge}
-                  </span>
                 </article>
               );
             })}
