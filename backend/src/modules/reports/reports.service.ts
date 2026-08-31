@@ -330,27 +330,39 @@ export class ReportsService {
   async getRiskSummaryRows() {
     return this.query(`
       SELECT
-        rt.risk_type AS "riskType",
-        rt.label AS "riskLabel",
-        z.zone_type AS "zoneType",
+        latest.risk_type AS "riskType",
+        latest.label AS "riskLabel",
+        latest.zone_type AS "zoneType",
         COUNT(*) AS "recordsCount",
-        COUNT(DISTINCT z.zone_id) AS "zoneCount",
-        ROUND(AVG(f.risk_mean)::numeric, 2) AS "riskMean",
-        ROUND(MAX(f.risk_max)::numeric, 2) AS "riskMax",
-        ROUND(AVG(f.hazard_mean)::numeric, 2) AS "hazardMean",
-        ROUND(SUM(f.population_exposed)::numeric, 2) AS "populationExposed"
-      FROM dwh.fact_risk_indicator f
-      JOIN dwh.dim_risk_type rt
-        ON rt.risk_type_key = f.risk_type_key
-      JOIN dwh.dim_zone z
-        ON z.zone_key = f.zone_key
+        COUNT(DISTINCT latest.zone_id) AS "zoneCount",
+        ROUND(AVG(latest.risk_mean)::numeric, 2) AS "riskMean",
+        ROUND(MAX(latest.risk_max)::numeric, 2) AS "riskMax",
+        ROUND(AVG(latest.hazard_mean)::numeric, 2) AS "hazardMean",
+        ROUND(SUM(latest.population_exposed)::numeric, 2) AS "populationExposed"
+      FROM (
+        SELECT DISTINCT ON (z.zone_id, rt.risk_type)
+          rt.risk_type,
+          rt.label,
+          z.zone_type,
+          z.zone_id,
+          f.risk_mean,
+          f.risk_max,
+          f.hazard_mean,
+          f.population_exposed
+        FROM dwh.fact_risk_indicator f
+        JOIN dwh.dim_risk_type rt
+          ON rt.risk_type_key = f.risk_type_key
+        JOIN dwh.dim_zone z
+          ON z.zone_key = f.zone_key
+        ORDER BY z.zone_id, rt.risk_type, f.operational_updated_at DESC NULLS LAST
+      ) latest
       GROUP BY
-        rt.risk_type,
-        rt.label,
-        z.zone_type
+        latest.risk_type,
+        latest.label,
+        latest.zone_type
       ORDER BY
-        rt.risk_type,
-        z.zone_type;
+        latest.risk_type,
+        latest.zone_type;
     `);
   }
 
@@ -371,28 +383,35 @@ export class ReportsService {
 
     return this.query(
       `
-      SELECT
-        rt.risk_type AS "riskType",
-        rt.label AS "riskLabel",
-        z.zone_type AS "zoneType",
-        z.zone_code AS "zoneCode",
-        z.zone_nom AS "zoneNom",
-        ROUND(f.risk_mean::numeric, 2) AS "riskMean",
-        ROUND(f.risk_max::numeric, 2) AS "riskMax",
-        ROUND(f.hazard_mean::numeric, 2) AS "hazardMean",
-        ROUND(f.population_exposed::numeric, 2) AS "populationExposed",
-        ROUND(f.area_km2::numeric, 2) AS "areaKm2",
-        f.risk_level AS "riskLevel",
-        f.operational_updated_at AS "updatedAt"
-      FROM dwh.fact_risk_indicator f
-      JOIN dwh.dim_risk_type rt
-        ON rt.risk_type_key = f.risk_type_key
-      JOIN dwh.dim_zone z
-        ON z.zone_key = f.zone_key
-      WHERE ${filters.join(' AND ')}
-        AND f.risk_max IS NOT NULL
+      SELECT *
+      FROM (
+        SELECT DISTINCT ON (z.zone_id, rt.risk_type)
+          rt.risk_type AS "riskType",
+          rt.label AS "riskLabel",
+          z.zone_type AS "zoneType",
+          z.zone_code AS "zoneCode",
+          z.zone_nom AS "zoneNom",
+          ROUND(f.risk_mean::numeric, 2) AS "riskMean",
+          ROUND(f.risk_max::numeric, 2) AS "riskMax",
+          ROUND(f.hazard_mean::numeric, 2) AS "hazardMean",
+          ROUND(f.population_exposed::numeric, 2) AS "populationExposed",
+          ROUND(f.area_km2::numeric, 2) AS "areaKm2",
+          f.risk_level AS "riskLevel",
+          f.operational_updated_at AS "updatedAt"
+        FROM dwh.fact_risk_indicator f
+        JOIN dwh.dim_risk_type rt
+          ON rt.risk_type_key = f.risk_type_key
+        JOIN dwh.dim_zone z
+          ON z.zone_key = f.zone_key
+        WHERE ${filters.join(' AND ')}
+          AND f.risk_max IS NOT NULL
+        ORDER BY
+          z.zone_id,
+          rt.risk_type,
+          f.operational_updated_at DESC NULLS LAST
+      ) latest
       ORDER BY
-        f.risk_max DESC NULLS LAST
+        "riskMax" DESC NULLS LAST
       LIMIT ${limitParam};
       `,
       params,
