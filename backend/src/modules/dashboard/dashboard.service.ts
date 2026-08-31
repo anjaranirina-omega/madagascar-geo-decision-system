@@ -28,31 +28,45 @@ export class DashboardService {
   async getSummary() {
     const [globalRisk] = await this.query(`
       SELECT
-        AVG(f.risk_mean) AS risk_mean_national,
-        MAX(f.risk_max) AS risk_max_national,
-        SUM(f.population_exposed) AS population_exposed
-      FROM dwh.fact_risk_indicator f
-      JOIN dwh.dim_risk_type rt
-        ON rt.risk_type_key = f.risk_type_key
-      JOIN dwh.dim_zone z
-        ON z.zone_key = f.zone_key
-      WHERE rt.risk_type = 'GLOBAL'
-        AND z.zone_type = 'region'
+        AVG(latest.risk_mean) AS risk_mean_national,
+        MAX(latest.risk_max) AS risk_max_national,
+        SUM(latest.population_exposed) AS population_exposed
+      FROM (
+        SELECT DISTINCT ON (z.zone_id, rt.risk_type)
+          f.risk_mean,
+          f.risk_max,
+          f.population_exposed
+        FROM dwh.fact_risk_indicator f
+        JOIN dwh.dim_risk_type rt
+          ON rt.risk_type_key = f.risk_type_key
+        JOIN dwh.dim_zone z
+          ON z.zone_key = f.zone_key
+        WHERE rt.risk_type = 'GLOBAL'
+          AND z.zone_type = 'region'
+        ORDER BY z.zone_id, rt.risk_type, f.operational_updated_at DESC NULLS LAST
+      ) latest
     `);
 
     const [multiRisk] = await this.query(`
       SELECT
-        COUNT(*) FILTER (WHERE f.risk_level = 'CRITIQUE') AS critical_zones,
-        COUNT(*) FILTER (WHERE f.risk_level = 'ELEVE') AS high_zones,
-        COUNT(*) FILTER (WHERE f.risk_level IN ('ELEVE', 'CRITIQUE')) AS elevated_or_critical_zones,
-        AVG(f.risk_mean) AS multi_risk_mean,
-        MAX(f.risk_max) AS multi_risk_max
-      FROM dwh.fact_risk_indicator f
-      JOIN dwh.dim_risk_type rt
-        ON rt.risk_type_key = f.risk_type_key
-      JOIN dwh.dim_zone z
-        ON z.zone_key = f.zone_key
-      WHERE z.zone_type = 'region'
+        COUNT(*) FILTER (WHERE latest.risk_level = 'CRITIQUE') AS critical_zones,
+        COUNT(*) FILTER (WHERE latest.risk_level = 'ELEVE') AS high_zones,
+        COUNT(*) FILTER (WHERE latest.risk_level IN ('ELEVE', 'CRITIQUE')) AS elevated_or_critical_zones,
+        AVG(latest.risk_mean) AS multi_risk_mean,
+        MAX(latest.risk_max) AS multi_risk_max
+      FROM (
+        SELECT DISTINCT ON (z.zone_id, rt.risk_type)
+          f.risk_level,
+          f.risk_mean,
+          f.risk_max
+        FROM dwh.fact_risk_indicator f
+        JOIN dwh.dim_risk_type rt
+          ON rt.risk_type_key = f.risk_type_key
+        JOIN dwh.dim_zone z
+          ON z.zone_key = f.zone_key
+        WHERE z.zone_type = 'region'
+        ORDER BY z.zone_id, rt.risk_type, f.operational_updated_at DESC NULLS LAST
+      ) latest
     `);
 
     const [sourceStats] = await this.query(`
@@ -137,28 +151,32 @@ export class DashboardService {
 
     return this.query(
       `
-      SELECT
-        rt.risk_type AS "riskType",
-        rt.label AS "riskLabel",
-        z.zone_type AS "zoneType",
-        z.zone_id AS "zoneId",
-        z.zone_code AS "zoneCode",
-        z.zone_nom AS "zoneNom",
-        f.population_exposed AS "populationExposed",
-        f.area_km2 AS "areaKm2",
-        f.risk_mean AS "riskMean",
-        f.risk_max AS "riskMax",
-        f.hazard_mean AS "hazardMean",
-        f.risk_level AS "riskLevel",
-        f.operational_updated_at AS "updatedAt"
-      FROM dwh.fact_risk_indicator f
-      JOIN dwh.dim_risk_type rt
-        ON rt.risk_type_key = f.risk_type_key
-      JOIN dwh.dim_zone z
-        ON z.zone_key = f.zone_key
-      WHERE ${filters.join(' AND ')}
-        AND f.risk_max IS NOT NULL
-      ORDER BY f.risk_max DESC NULLS LAST
+      SELECT *
+      FROM (
+        SELECT DISTINCT ON (z.zone_id, rt.risk_type)
+          rt.risk_type AS "riskType",
+          rt.label AS "riskLabel",
+          z.zone_type AS "zoneType",
+          z.zone_id AS "zoneId",
+          z.zone_code AS "zoneCode",
+          z.zone_nom AS "zoneNom",
+          f.population_exposed AS "populationExposed",
+          f.area_km2 AS "areaKm2",
+          f.risk_mean AS "riskMean",
+          f.risk_max AS "riskMax",
+          f.hazard_mean AS "hazardMean",
+          f.risk_level AS "riskLevel",
+          f.operational_updated_at AS "updatedAt"
+        FROM dwh.fact_risk_indicator f
+        JOIN dwh.dim_risk_type rt
+          ON rt.risk_type_key = f.risk_type_key
+        JOIN dwh.dim_zone z
+          ON z.zone_key = f.zone_key
+        WHERE ${filters.join(' AND ')}
+          AND f.risk_max IS NOT NULL
+        ORDER BY z.zone_id, rt.risk_type, f.operational_updated_at DESC NULLS LAST
+      ) latest
+      ORDER BY "riskMax" DESC NULLS LAST
       LIMIT ${limitParam}
       `,
       params,
@@ -177,16 +195,21 @@ export class DashboardService {
     const rows = await this.query(
       `
       SELECT
-        f.risk_level AS level,
+        latest.risk_level AS level,
         COUNT(*) AS count
-      FROM dwh.fact_risk_indicator f
-      JOIN dwh.dim_risk_type rt
-        ON rt.risk_type_key = f.risk_type_key
-      JOIN dwh.dim_zone z
-        ON z.zone_key = f.zone_key
-      WHERE ${filters.join(' AND ')}
-        AND f.risk_level IS NOT NULL
-      GROUP BY f.risk_level
+      FROM (
+        SELECT DISTINCT ON (z.zone_id, rt.risk_type)
+          f.risk_level
+        FROM dwh.fact_risk_indicator f
+        JOIN dwh.dim_risk_type rt
+          ON rt.risk_type_key = f.risk_type_key
+        JOIN dwh.dim_zone z
+          ON z.zone_key = f.zone_key
+        WHERE ${filters.join(' AND ')}
+          AND f.risk_level IS NOT NULL
+        ORDER BY z.zone_id, rt.risk_type, f.operational_updated_at DESC NULLS LAST
+      ) latest
+      GROUP BY latest.risk_level
       `,
       params,
     );
@@ -205,25 +228,31 @@ export class DashboardService {
   async getRiskByRegion() {
     const rows = await this.query(`
       SELECT
-        z.zone_id AS "zoneId",
-        z.zone_nom AS "zoneNom",
-        rt.risk_type AS "riskType",
-        AVG(f.risk_mean) AS "riskMean",
-        MAX(f.risk_max) AS "riskMax",
-        MAX(f.risk_level) AS "riskLevel"
-      FROM dwh.fact_risk_indicator f
-      JOIN dwh.dim_risk_type rt
-        ON rt.risk_type_key = f.risk_type_key
-      JOIN dwh.dim_zone z
-        ON z.zone_key = f.zone_key
-      WHERE z.zone_type = 'region'
-      GROUP BY
-        z.zone_id,
-        z.zone_nom,
-        rt.risk_type
+        latest.zone_id AS "zoneId",
+        latest.zone_nom AS "zoneNom",
+        latest.risk_type AS "riskType",
+        latest.risk_mean AS "riskMean",
+        latest.risk_max AS "riskMax",
+        latest.risk_level AS "riskLevel"
+      FROM (
+        SELECT DISTINCT ON (z.zone_id, rt.risk_type)
+          z.zone_id,
+          z.zone_nom,
+          rt.risk_type,
+          f.risk_mean,
+          f.risk_max,
+          f.risk_level
+        FROM dwh.fact_risk_indicator f
+        JOIN dwh.dim_risk_type rt
+          ON rt.risk_type_key = f.risk_type_key
+        JOIN dwh.dim_zone z
+          ON z.zone_key = f.zone_key
+        WHERE z.zone_type = 'region'
+        ORDER BY z.zone_id, rt.risk_type, f.operational_updated_at DESC NULLS LAST
+      ) latest
       ORDER BY
-        z.zone_nom,
-        rt.risk_type
+        latest.zone_nom,
+        latest.risk_type
     `);
 
     const grouped = new Map<string, any>();
