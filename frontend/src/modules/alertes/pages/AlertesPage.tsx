@@ -2,8 +2,10 @@ import {
   Activity,
   AlertTriangle,
   CheckCircle2,
-  Clock,
+  Filter,
   RefreshCw,
+  RotateCcw,
+  Search,
   ShieldAlert,
   Wand2,
   XCircle,
@@ -11,10 +13,12 @@ import {
 import { useEffect, useMemo, useState } from 'react';
 import Tabs from '../../../shared/components/ui/Tabs';
 import OperationalSignalsPanel from '../../operational-signals/components/OperationalSignalsPanel';
+import AlerteDetailDrawer from '../components/AlerteDetailDrawer';
 import {
   Alerte,
   AlerteNiveau,
   AlerteStatus,
+  AlerteType,
   alertesService,
 } from '../alertes.service';
 
@@ -28,18 +32,35 @@ const niveauLabels: Record<AlerteNiveau, string> = {
 };
 
 const niveauClasses: Record<AlerteNiveau, string> = {
-  FAIBLE: 'bg-green-50 text-green-700 border-green-200 dark:bg-green-950/40 dark:text-green-200 dark:border-green-900',
-  MOYEN: 'bg-yellow-50 text-yellow-700 border-yellow-200 dark:bg-yellow-950/40 dark:text-yellow-200 dark:border-yellow-900',
-  ELEVE: 'bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-950/40 dark:text-orange-200 dark:border-orange-900',
-  CRITIQUE: 'bg-red-50 text-red-700 border-red-200 dark:bg-red-950/40 dark:text-red-200 dark:border-red-900',
+  FAIBLE:
+    'bg-green-50 text-green-700 border-green-200 dark:bg-green-950/40 dark:text-green-200 dark:border-green-900',
+  MOYEN:
+    'bg-yellow-50 text-yellow-700 border-yellow-200 dark:bg-yellow-950/40 dark:text-yellow-200 dark:border-yellow-900',
+  ELEVE:
+    'bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-950/40 dark:text-orange-200 dark:border-orange-900',
+  CRITIQUE:
+    'bg-red-50 text-red-700 border-red-200 dark:bg-red-950/40 dark:text-red-200 dark:border-red-900',
+};
+
+const typeLabels: Record<string, string> = {
+  RISQUE_GLOBAL: 'Risque global',
+  INONDATION: 'Inondation',
+  CYCLONE: 'Cyclone',
+  SECHERESSE: 'Sécheresse',
+  GLISSEMENT_TERRAIN: 'Glissement de terrain',
+  VENT_VIOLENT: 'Vent violent',
 };
 
 function formatDate(value: string) {
-  return new Intl.DateTimeFormat('fr-FR', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-    timeZone: 'Indian/Antananarivo',
-  }).format(new Date(value));
+  try {
+    return new Intl.DateTimeFormat('fr-FR', {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+      timeZone: 'Indian/Antananarivo',
+    }).format(new Date(value));
+  } catch {
+    return value;
+  }
 }
 
 function formatPopulation(value?: number) {
@@ -63,10 +84,18 @@ export default function AlertesPage() {
   const [alertes, setAlertes] = useState<Alerte[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
-  const [statusFilter, setStatusFilter] = useState<AlerteStatus | 'ALL'>('ALL');
   const [zoneType, setZoneType] = useState('region');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+
+  // Filtres P2
+  const [searchQuery, setSearchQuery] = useState('');
+  const [typeFilter, setTypeFilter] = useState<AlerteType | 'ALL'>('ALL');
+  const [niveauFilter, setNiveauFilter] = useState<AlerteNiveau | 'ALL'>('ALL');
+  const [statusFilter, setStatusFilter] = useState<AlerteStatus | 'ALL'>('ALL');
+
+  // Tiroir P3
+  const [selectedAlerte, setSelectedAlerte] = useState<Alerte | null>(null);
 
   const loadAlertes = async () => {
     setLoading(true);
@@ -75,6 +104,14 @@ export default function AlertesPage() {
     try {
       const data = await alertesService.findAll();
       setAlertes(data);
+
+      // Si une alerte était sélectionnée, actualiser ses données
+      if (selectedAlerte) {
+        const refreshed = data.find((a) => a.id === selectedAlerte.id);
+        if (refreshed) {
+          setSelectedAlerte(refreshed);
+        }
+      }
     } catch {
       setError('Impossible de charger les alertes.');
     } finally {
@@ -84,21 +121,64 @@ export default function AlertesPage() {
 
   useEffect(() => {
     loadAlertes();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const activeAlertes = useMemo(() => {
-    if (statusFilter === 'ALL') {
-      return alertes.filter((alerte) => alerte.status === 'ACTIVE');
-    }
-
-    return alertes.filter((alerte) => alerte.status === statusFilter);
-  }, [alertes, statusFilter]);
-
-  const historyAlertes = useMemo(() => {
-    return alertes.filter((alerte) =>
-      ['RESOLUE', 'IGNOREE'].includes(alerte.status),
+  const hasActiveFilters = useMemo(() => {
+    return (
+      searchQuery.trim() !== '' ||
+      typeFilter !== 'ALL' ||
+      niveauFilter !== 'ALL' ||
+      statusFilter !== 'ALL'
     );
-  }, [alertes]);
+  }, [searchQuery, typeFilter, niveauFilter, statusFilter]);
+
+  const handleResetFilters = () => {
+    setSearchQuery('');
+    setTypeFilter('ALL');
+    setNiveauFilter('ALL');
+    setStatusFilter('ALL');
+  };
+
+  // Filtrage combiné (ET logique)
+  const filteredAlertes = useMemo(() => {
+    const baseList =
+      activeTab === 'history'
+        ? alertes.filter((alerte) =>
+            ['RESOLUE', 'IGNOREE'].includes(alerte.status),
+          )
+        : alertes.filter((alerte) => alerte.status === 'ACTIVE');
+
+    return baseList.filter((alerte) => {
+      // 1. Filtre par recherche textuelle sur zoneNom
+      if (searchQuery.trim() !== '') {
+        const query = searchQuery.trim().toLowerCase();
+        const zoneNom = (alerte.zoneNom ?? '').toLowerCase();
+        const titre = (alerte.titre ?? '').toLowerCase();
+
+        if (!zoneNom.includes(query) && !titre.includes(query)) {
+          return false;
+        }
+      }
+
+      // 2. Filtre par type de risque
+      if (typeFilter !== 'ALL' && alerte.type !== typeFilter) {
+        return false;
+      }
+
+      // 3. Filtre par niveau / gravité
+      if (niveauFilter !== 'ALL' && alerte.niveau !== niveauFilter) {
+        return false;
+      }
+
+      // 4. Filtre par statut
+      if (statusFilter !== 'ALL' && alerte.status !== statusFilter) {
+        return false;
+      }
+
+      return true;
+    });
+  }, [alertes, activeTab, searchQuery, typeFilter, niveauFilter, statusFilter]);
 
   const stats = useMemo(() => {
     return {
@@ -109,21 +189,23 @@ export default function AlertesPage() {
     };
   }, [alertes]);
 
+  // P1 : Appel corrigé vers POST /alertes/generate-from-risk
   const handleGenerateValidatedRiskAlerts = async () => {
     setActionLoading(true);
     setError('');
     setSuccess('');
 
     try {
-      const result: any = await alertesService.generateValidatedRiskAlerts({
+      const result: any = await alertesService.generateFromRisk({
         zoneType,
-        riskTypes: ['FLOOD', 'DROUGHT', 'LANDSLIDE', 'CYCLONE'],
-        riskMeanThreshold: 60,
-        riskMaxThreshold: 70,
-        limit: 10,
+        thresholdEleve: 61,
+        thresholdCritique: 81,
       });
 
-      setSuccess(result.message ?? 'Génération des alertes validées terminée.');
+      setSuccess(
+        result.message ??
+          'Vérification et génération des alertes validées terminées.',
+      );
 
       await loadAlertes();
     } catch {
@@ -162,8 +244,11 @@ export default function AlertesPage() {
 
     try {
       await alertesService.resolve(alerte.id);
-      setSuccess('Alerte marquée comme résolue.');
+      setSuccess(`Alerte pour ${alerte.zoneNom ?? 'la zone'} marquée comme résolue.`);
       await loadAlertes();
+      if (selectedAlerte?.id === alerte.id) {
+        setSelectedAlerte(null);
+      }
     } catch {
       setError('Impossible de résoudre cette alerte.');
     } finally {
@@ -178,8 +263,11 @@ export default function AlertesPage() {
 
     try {
       await alertesService.ignore(alerte.id);
-      setSuccess('Alerte ignorée.');
+      setSuccess(`Alerte pour ${alerte.zoneNom ?? 'la zone'} ignorée.`);
       await loadAlertes();
+      if (selectedAlerte?.id === alerte.id) {
+        setSelectedAlerte(null);
+      }
     } catch {
       setError('Impossible d’ignorer cette alerte.');
     } finally {
@@ -187,15 +275,13 @@ export default function AlertesPage() {
     }
   };
 
-  const displayedAlertes =
-    activeTab === 'history' ? historyAlertes : activeAlertes;
-
   return (
     <div className="space-y-6">
+      {/* En-tête principal */}
       <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-soft dark:border-slate-800 dark:bg-slate-900">
         <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-red-500 to-orange-500 text-white">
+            <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-red-500 to-orange-500 text-white shadow-md">
               <ShieldAlert size={30} />
             </div>
 
@@ -205,8 +291,8 @@ export default function AlertesPage() {
 
             <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-500 dark:text-slate-400">
               Les alertes validées sont générées à partir des indicateurs zonaux
-              réels et des signaux opérationnels temps réel. Aucune alerte
-              spécifique n’est simulée.
+              réels et des signaux opérationnels temps réel. Cliquez sur une ligne
+              pour ouvrir le tiroir d'analyse détaillée.
             </p>
           </div>
 
@@ -214,7 +300,7 @@ export default function AlertesPage() {
             <select
               value={zoneType}
               onChange={(event) => setZoneType(event.target.value)}
-              className="h-11 rounded-xl border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+              className="h-11 rounded-xl border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 outline-none dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
             >
               <option value="region">Régions</option>
               <option value="district">Districts</option>
@@ -251,6 +337,7 @@ export default function AlertesPage() {
         </div>
       </div>
 
+      {/* Cartes statistiques */}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
         <StatCard label="Total" value={stats.total} tone="slate" />
         <StatCard label="Actives" value={stats.active} tone="orange" />
@@ -258,6 +345,7 @@ export default function AlertesPage() {
         <StatCard label="Résolues" value={stats.resolved} tone="green" />
       </div>
 
+      {/* Onglets */}
       <Tabs
         active={activeTab}
         onChange={setActiveTab}
@@ -274,7 +362,7 @@ export default function AlertesPage() {
           {
             id: 'history',
             label: 'Historique',
-            count: historyAlertes.length,
+            count: alertes.filter((a) => ['RESOLUE', 'IGNOREE'].includes(a.status)).length,
           },
         ]}
       />
@@ -283,48 +371,136 @@ export default function AlertesPage() {
 
       {activeTab !== 'signals' && (
         <>
+          {/* Barre de filtres et recherche interactive (P2) */}
           <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-soft dark:border-slate-800 dark:bg-slate-900">
-            <select
-              value={statusFilter}
-              onChange={(event) =>
-                setStatusFilter(event.target.value as AlerteStatus | 'ALL')
-              }
-              className="h-12 rounded-xl border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 outline-none dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
-            >
-              <option value="ALL">Tous les statuts</option>
-              <option value="ACTIVE">Actives</option>
-              <option value="RESOLUE">Résolues</option>
-              <option value="IGNOREE">Ignorées</option>
-            </select>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+              {/* Recherche textuelle sur zoneNom */}
+              <div className="relative">
+                <Search
+                  size={18}
+                  className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"
+                />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(event) => setSearchQuery(event.target.value)}
+                  placeholder="Rechercher une zone (ex: Analamanga)..."
+                  className="h-11 w-full rounded-xl border border-slate-300 bg-white pl-10 pr-4 text-sm font-medium text-slate-800 outline-none transition focus:border-red-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+                />
+              </div>
+
+              {/* Filtre par type de risque */}
+              <select
+                value={typeFilter}
+                onChange={(event) =>
+                  setTypeFilter(event.target.value as AlerteType | 'ALL')
+                }
+                className="h-11 rounded-xl border border-slate-300 bg-white px-3.5 text-sm font-semibold text-slate-700 outline-none transition focus:border-red-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+              >
+                <option value="ALL">Tous les types de risque</option>
+                <option value="RISQUE_GLOBAL">Risque global</option>
+                <option value="INONDATION">Inondation</option>
+                <option value="CYCLONE">Cyclone</option>
+                <option value="SECHERESSE">Sécheresse</option>
+                <option value="GLISSEMENT_TERRAIN">Glissement de terrain</option>
+                <option value="VENT_VIOLENT">Vent violent</option>
+              </select>
+
+              {/* Filtre par niveau / gravité */}
+              <select
+                value={niveauFilter}
+                onChange={(event) =>
+                  setNiveauFilter(event.target.value as AlerteNiveau | 'ALL')
+                }
+                className="h-11 rounded-xl border border-slate-300 bg-white px-3.5 text-sm font-semibold text-slate-700 outline-none transition focus:border-red-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+              >
+                <option value="ALL">Toutes les gravités</option>
+                <option value="CRITIQUE">Critique</option>
+                <option value="ELEVE">Élevé</option>
+                <option value="MOYEN">Moyen</option>
+                <option value="FAIBLE">Faible</option>
+              </select>
+
+              {/* Filtre par statut */}
+              <select
+                value={statusFilter}
+                onChange={(event) =>
+                  setStatusFilter(event.target.value as AlerteStatus | 'ALL')
+                }
+                className="h-11 rounded-xl border border-slate-300 bg-white px-3.5 text-sm font-semibold text-slate-700 outline-none transition focus:border-red-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+              >
+                <option value="ALL">Tous les statuts</option>
+                <option value="ACTIVE">Actives</option>
+                <option value="RESOLUE">Résolues</option>
+                <option value="IGNOREE">Ignorées</option>
+              </select>
+            </div>
+
+            {/* Barre de résumé des filtres & Réinitialisation */}
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-3 dark:border-slate-800">
+              <div className="flex items-center gap-2 text-xs font-semibold text-slate-500 dark:text-slate-400">
+                <Filter size={14} className="text-slate-400" />
+                <span>
+                  {filteredAlertes.length} alerte(s) affichée(s)
+                </span>
+                {hasActiveFilters && (
+                  <span className="rounded-md bg-red-50 px-2 py-0.5 text-xs font-bold text-red-600 dark:bg-red-950/40 dark:text-red-300">
+                    Filtres actifs
+                  </span>
+                )}
+              </div>
+
+              {hasActiveFilters && (
+                <button
+                  onClick={handleResetFilters}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-bold text-slate-600 transition hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+                >
+                  <RotateCcw size={13} />
+                  Réinitialiser les filtres
+                </button>
+              )}
+            </div>
 
             {error && (
-              <div className="mt-5 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200">
+              <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200">
                 {error}
               </div>
             )}
 
             {success && (
-              <div className="mt-5 rounded-2xl border border-green-200 bg-green-50 px-4 py-3 text-sm font-semibold text-green-700 dark:border-green-900 dark:bg-green-950/40 dark:text-green-200">
+              <div className="mt-4 rounded-2xl border border-green-200 bg-green-50 px-4 py-3 text-sm font-semibold text-green-700 dark:border-green-900 dark:bg-green-950/40 dark:text-green-200">
                 {success}
               </div>
             )}
           </div>
 
+          {/* Tableau des alertes (avec lignes cliquables P3) */}
           <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-soft dark:border-slate-800 dark:bg-slate-900">
             {loading ? (
               <div className="flex h-72 items-center justify-center text-slate-500 dark:text-slate-400">
                 <RefreshCw className="mr-3 animate-spin" size={22} />
                 Chargement des alertes...
               </div>
-            ) : displayedAlertes.length === 0 ? (
+            ) : filteredAlertes.length === 0 ? (
               <div className="flex h-72 flex-col items-center justify-center text-center">
                 <AlertTriangle size={44} className="mb-3 text-slate-300" />
                 <p className="font-bold text-slate-700 dark:text-slate-200">
                   Aucune alerte trouvée
                 </p>
                 <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                  Aucune alerte ne correspond au filtre sélectionné.
+                  {hasActiveFilters
+                    ? 'Aucune alerte ne correspond aux critères de filtre sélectionnés.'
+                    : 'Aucune alerte enregistrée pour cette vue.'}
                 </p>
+                {hasActiveFilters && (
+                  <button
+                    onClick={handleResetFilters}
+                    className="mt-4 inline-flex items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200"
+                  >
+                    <RotateCcw size={14} />
+                    Effacer les filtres
+                  </button>
+                )}
               </div>
             ) : (
               <div className="max-h-[620px] overflow-auto">
@@ -343,16 +519,27 @@ export default function AlertesPage() {
                   </thead>
 
                   <tbody>
-                    {displayedAlertes.map((alerte) => (
+                    {filteredAlertes.map((alerte) => (
                       <tr
                         key={alerte.id}
-                        className="border-t border-slate-100 align-top transition hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-800/60"
+                        onClick={() => setSelectedAlerte(alerte)}
+                        className={[
+                          'cursor-pointer border-t border-slate-100 align-top transition hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-800/60',
+                          selectedAlerte?.id === alerte.id
+                            ? 'bg-red-50/40 dark:bg-red-950/20'
+                            : '',
+                        ].join(' ')}
                       >
                         <td className="px-5 py-5">
-                          <div className="font-extrabold text-slate-900 dark:text-white">
-                            {alerte.titre}
+                          <div className="flex items-center gap-2">
+                            <span className="font-extrabold text-slate-900 dark:text-white">
+                              {alerte.titre}
+                            </span>
+                            <span className="rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                              {typeLabels[alerte.type] ?? alerte.type}
+                            </span>
                           </div>
-                          <div className="mt-1 max-w-md text-slate-500 dark:text-slate-400">
+                          <div className="mt-1 max-w-md line-clamp-2 text-slate-500 dark:text-slate-400">
                             {alerte.message}
                           </div>
                         </td>
@@ -404,7 +591,10 @@ export default function AlertesPage() {
 
                         <td className="px-5 py-5">
                           {alerte.status === 'ACTIVE' ? (
-                            <div className="flex justify-end gap-2">
+                            <div
+                              className="flex justify-end gap-2"
+                              onClick={(e) => e.stopPropagation()}
+                            >
                               <button
                                 onClick={() => handleResolve(alerte)}
                                 disabled={actionLoading}
@@ -424,9 +614,14 @@ export default function AlertesPage() {
                               </button>
                             </div>
                           ) : (
-                            <span className="text-xs text-slate-400">
-                              Aucune action
-                            </span>
+                            <div
+                              className="flex justify-end text-xs text-slate-400"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <span className="rounded-md bg-slate-100 px-2 py-1 dark:bg-slate-800">
+                                Détail →
+                              </span>
+                            </div>
                           )}
                         </td>
                       </tr>
@@ -438,6 +633,15 @@ export default function AlertesPage() {
           </div>
         </>
       )}
+
+      {/* Tiroir latéral de détail d'alerte (P3) */}
+      <AlerteDetailDrawer
+        alerte={selectedAlerte}
+        onClose={() => setSelectedAlerte(null)}
+        onResolve={handleResolve}
+        onIgnore={handleIgnore}
+        actionLoading={actionLoading}
+      />
     </div>
   );
 }

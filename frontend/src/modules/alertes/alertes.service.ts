@@ -2,10 +2,17 @@ import { api } from '../../services/api';
 
 export type AlerteNiveau = 'FAIBLE' | 'MOYEN' | 'ELEVE' | 'CRITIQUE';
 export type AlerteStatus = 'ACTIVE' | 'RESOLUE' | 'IGNOREE';
+export type AlerteType =
+  | 'RISQUE_GLOBAL'
+  | 'INONDATION'
+  | 'CYCLONE'
+  | 'SECHERESSE'
+  | 'GLISSEMENT_TERRAIN'
+  | 'VENT_VIOLENT';
 
 export type Alerte = {
   id: string;
-  type: string;
+  type: AlerteType | string;
   niveau: AlerteNiveau;
   titre: string;
   message: string;
@@ -32,12 +39,29 @@ export const alertesService = {
     return response.data;
   },
 
-  async generateFromRisk(zoneType = 'region') {
-    const response = await api.post('/alertes/generate-from-risk', {
-      zoneType,
-      thresholdEleve: 61,
-      thresholdCritique: 81,
-    });
+  async generateFromRisk(
+    payload:
+      | {
+          zoneType?: string;
+          thresholdEleve?: number;
+          thresholdCritique?: number;
+        }
+      | string = 'region',
+  ) {
+    const body =
+      typeof payload === 'string'
+        ? {
+            zoneType: payload,
+            thresholdEleve: 61,
+            thresholdCritique: 81,
+          }
+        : {
+            zoneType: payload?.zoneType ?? 'region',
+            thresholdEleve: payload?.thresholdEleve ?? 61,
+            thresholdCritique: payload?.thresholdCritique ?? 81,
+          };
+
+    const response = await api.post('/alertes/generate-from-risk', body);
 
     return response.data;
   },
@@ -50,19 +74,23 @@ export const alertesService = {
     return response.data;
   },
 
-  async generateValidatedRiskAlerts(payload: {
-    zoneType?: string;
-    riskTypes?: string[];
-    riskMeanThreshold?: number;
-    riskMaxThreshold?: number;
-    limit?: number;
-  }) {
-    const response = await api.post(
-      '/alertes/generate-validated-risk-alerts',
-      payload,
-    );
-
-    return response.data;
+  async generateValidatedRiskAlerts(
+    payload: {
+      zoneType?: string;
+      thresholdEleve?: number;
+      thresholdCritique?: number;
+      riskTypes?: string[];
+      riskMeanThreshold?: number;
+      riskMaxThreshold?: number;
+      limit?: number;
+    } = {},
+  ) {
+    // Redirection vers la route backend réelle POST /alertes/generate-from-risk
+    return this.generateFromRisk({
+      zoneType: payload.zoneType ?? 'region',
+      thresholdEleve: payload.thresholdEleve ?? payload.riskMeanThreshold ?? 61,
+      thresholdCritique: payload.thresholdCritique ?? payload.riskMaxThreshold ?? 81,
+    });
   },
 
   async resolve(id: string) {
