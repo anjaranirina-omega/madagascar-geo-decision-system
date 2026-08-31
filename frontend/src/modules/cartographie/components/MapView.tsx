@@ -1215,7 +1215,7 @@ function RasterVersionSelect({
 
         {layers.map((layer) => (
           <option key={layer.id} value={layer.id}>
-            {formatRasterLayerDate(layer.updatedAt ?? layer.createdAt)} — {layer.name}
+            {formatRasterLayerDate(layer.updatedAt ?? layer.createdAt)} — {layer.name}{layer.isActive ? ' (Active)' : ''}
           </option>
         ))}
       </select>

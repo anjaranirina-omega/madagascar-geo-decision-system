@@ -25,8 +25,11 @@ export class RastersController {
   }
 
   @Get()
-  findAll(@Query('type') type?: RasterLayerType) {
-    return this.rastersService.findAll(type);
+  findAll(
+    @Query('type') type?: RasterLayerType,
+    @Query('activeOnly') activeOnly?: string,
+  ) {
+    return this.rastersService.findAll(type, activeOnly === 'true');
   }
 
   /**
