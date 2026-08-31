@@ -59,6 +59,25 @@ services:
     ports:
       - "8000:8000"
 
+  minio:
+    image: minio/minio:latest
+    container_name: geodecisionnel-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin123}
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
   superset:
     image: apache/superset:latest
     container_name: geodecisionnel-superset
@@ -72,3 +91,4 @@ services:
 
 volumes:
   postgres_data:
+  minio_data:

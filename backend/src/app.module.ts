@@ -16,6 +16,7 @@ import { ReportsModule } from './modules/reports/reports.module';
 import { SigModule } from './modules/sig/sig.module';
 import { SettingsModule } from './modules/settings/settings.module';
 import { SolapModule } from './modules/solap/solap.module';
+import { StorageModule } from './modules/storage/storage.module';
 import { UsersModule } from './modules/users/users.module';
 import { EtlModule } from './modules/etl/etl.module';
 import { MeteoModule } from './modules/meteo/meteo.module';
@@ -35,6 +36,7 @@ import { RisquesModule } from './modules/risques/risques.module';
       autoLoadEntities: true,
       synchronize: true,
     }),
+    StorageModule,
     AuthModule,
     UsersModule,
     EtlModule,

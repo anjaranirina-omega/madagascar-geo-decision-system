@@ -195,7 +195,7 @@ export default function MainLayout() {
         <div
           className="absolute inset-x-0 bottom-0 h-[42%] bg-cover bg-center opacity-45"
           style={{
-            backgroundImage: 'url("/images/sidebar-risk-bg.png")',
+            backgroundImage: 'url("/images/sidebar-risk-bg.webp")',
           }}
         />
         <div className="absolute inset-0 bg-gradient-to-b from-[#061827] via-[#071b2e]/96 to-[#061827]/86" />
