@@ -1,8 +1,9 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { existsSync, mkdirSync, unlinkSync, writeFileSync } from 'fs';
+import { existsSync, unlinkSync } from 'fs';
 import { join, resolve } from 'path';
 import { DataSource, Repository } from 'typeorm';
+import { StorageService } from '../storage/storage.service';
 import { GeneratedReport } from './entities/generated-report.entity';
 import ExcelJS = require('exceljs');
 import PDFDocument = require('pdfkit');
@@ -15,11 +16,15 @@ type TopRiskQuery = {
 
 @Injectable()
 export class ReportsService {
+  private readonly logger = new Logger(ReportsService.name);
+
   constructor(
     private readonly dataSource: DataSource,
 
     @InjectRepository(GeneratedReport)
     private readonly generatedReportsRepository: Repository<GeneratedReport>,
+
+    private readonly storageService: StorageService,
   ) {}
 
   private query(sql: string, params: unknown[] = []) {
@@ -159,17 +164,6 @@ export class ReportsService {
     }).format(new Date());
   }
 
-  private getReportsDir() {
-    const projectRoot = resolve(process.cwd(), '..');
-    const reportsDir = join(projectRoot, 'backend', 'uploads', 'reports');
-
-    if (!existsSync(reportsDir)) {
-      mkdirSync(reportsDir, { recursive: true });
-    }
-
-    return reportsDir;
-  }
-
   async saveGeneratedReport(payload: {
     title: string;
     reportType: string;
@@ -180,19 +174,24 @@ export class ReportsService {
     filters?: Record<string, unknown> | null;
     generatedBy?: string | null;
   }) {
-    const reportsDir = this.getReportsDir();
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const timestamp = now.toISOString().replace(/[:.]/g, '-');
     const safeFileName = `${timestamp}-${payload.fileName}`.replace(/\s+/g, '-');
-    const absolutePath = join(reportsDir, safeFileName);
+    const s3Key = `reports/${year}/${month}/${safeFileName}`;
 
     const buffer =
       typeof payload.content === 'string'
         ? Buffer.from(payload.content, 'utf8')
         : payload.content;
 
-    writeFileSync(absolutePath, buffer);
-
-    const relativePath = `backend/uploads/reports/${safeFileName}`;
+    await this.storageService.putObject(
+      this.storageService.reportsBucket,
+      s3Key,
+      buffer,
+      payload.mimeType,
+    );
 
     return this.generatedReportsRepository.save(
       this.generatedReportsRepository.create({
@@ -200,7 +199,7 @@ export class ReportsService {
         reportType: payload.reportType,
         format: payload.format,
         fileName: payload.fileName,
-        filePath: relativePath,
+        filePath: s3Key,
         mimeType: payload.mimeType,
         filters: payload.filters ?? null,
         generatedBy: payload.generatedBy ?? null,
@@ -235,11 +234,35 @@ export class ReportsService {
 
   async deleteGeneratedReport(id: string) {
     const report = await this.findGeneratedReport(id);
-    const projectRoot = resolve(process.cwd(), '..');
-    const absolutePath = join(projectRoot, report.filePath);
 
-    if (existsSync(absolutePath)) {
-      unlinkSync(absolutePath);
+    // Retrocompatibility: handle old local file paths vs S3 keys
+    if (
+      report.filePath.startsWith('backend/uploads/') ||
+      report.filePath.startsWith('uploads/')
+    ) {
+      const projectRoot = resolve(process.cwd(), '..');
+      const absolutePath = join(projectRoot, report.filePath);
+
+      if (existsSync(absolutePath)) {
+        try {
+          unlinkSync(absolutePath);
+        } catch (err: any) {
+          this.logger.warn(
+            `Impossible de supprimer le fichier local (${absolutePath}): ${err?.message}`,
+          );
+        }
+      }
+    } else {
+      try {
+        await this.storageService.deleteObject(
+          this.storageService.reportsBucket,
+          report.filePath,
+        );
+      } catch (err: any) {
+        this.logger.warn(
+          `Impossible de supprimer le rapport MinIO/S3 (${report.filePath}): ${err?.message}`,
+        );
+      }
     }
 
     await this.generatedReportsRepository.delete(id);

@@ -13,12 +13,16 @@ import { join, resolve } from 'path';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
+import { StorageService } from '../storage/storage.service';
 import { ReportsService } from './reports.service';
 
 @Controller('reports')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class ReportsController {
-  constructor(private readonly reportsService: ReportsService) {}
+  constructor(
+    private readonly reportsService: ReportsService,
+    private readonly storageService: StorageService,
+  ) {}
 
   private sendCsv(res: Response, filename: string, content: string) {
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
@@ -54,15 +58,6 @@ export class ReportsController {
   @Roles('ADMIN', 'ANALYSTE', 'DECIDEUR')
   async downloadHistory(@Param('id') id: string, @Res() res: Response) {
     const report = await this.reportsService.findGeneratedReport(id);
-    const projectRoot = resolve(process.cwd(), '..');
-    const absolutePath = join(projectRoot, report.filePath);
-
-    if (!existsSync(absolutePath)) {
-      res.status(404).json({
-        message: 'Fichier du rapport introuvable.',
-      });
-      return;
-    }
 
     res.setHeader('Content-Type', report.mimeType);
     res.setHeader(
@@ -70,7 +65,41 @@ export class ReportsController {
       `attachment; filename="${report.fileName}"`,
     );
 
-    return res.sendFile(absolutePath);
+    // Retrocompatibility: local files saved before MinIO migration
+    if (
+      report.filePath.startsWith('backend/uploads/') ||
+      report.filePath.startsWith('uploads/')
+    ) {
+      const projectRoot = resolve(process.cwd(), '..');
+      const absolutePath = join(projectRoot, report.filePath);
+
+      if (existsSync(absolutePath)) {
+        return res.sendFile(absolutePath);
+      }
+    }
+
+    try {
+      const stream = await this.storageService.getObjectStream(
+        this.storageService.reportsBucket,
+        report.filePath,
+      );
+
+      stream.on('error', () => {
+        if (!res.headersSent) {
+          res.status(500).json({
+            message: 'Erreur lors de la lecture du fichier du rapport.',
+          });
+        }
+      });
+
+      return stream.pipe(res);
+    } catch {
+      if (!res.headersSent) {
+        res.status(404).json({
+          message: 'Fichier du rapport introuvable sur le stockage objet.',
+        });
+      }
+    }
   }
 
   @Delete('history/:id')
