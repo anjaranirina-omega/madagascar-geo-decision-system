@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import { MailService } from '../auth/mail.service';
 import { MeteoService } from '../meteo/meteo.service';
 import { UsersService } from '../users/users.service';
+import { AlertesGateway } from './alertes.gateway';
 import { CreateAlerteDto } from './dto/create-alerte.dto';
 import { GenerateRiskAlertesDto } from './dto/generate-risk-alertes.dto';
 import { GenerateWeatherRiskAlertDto } from './dto/generate-weather-risk-alert.dto';
@@ -26,6 +27,7 @@ export class AlertesService {
     private readonly meteoService: MeteoService,
     private readonly mailService: MailService,
     private readonly usersService: UsersService,
+    private readonly alertesGateway: AlertesGateway,
   ) {}
 
   private async notifyCriticalAlert(alerte: Alerte) {
@@ -100,6 +102,8 @@ export class AlertesService {
       await this.notifyCriticalAlert(saved);
     }
 
+    this.alertesGateway.broadcastAlert(saved);
+
     return saved;
   }
 
@@ -140,7 +144,10 @@ export class AlertesService {
     alerte.status = AlerteStatus.RESOLUE;
     alerte.resolvedAt = new Date();
 
-    return this.alertesRepository.save(alerte);
+    const saved = await this.alertesRepository.save(alerte);
+    this.alertesGateway.broadcastAlert(saved);
+
+    return saved;
   }
 
   async ignore(id: string) {
@@ -148,7 +155,10 @@ export class AlertesService {
 
     alerte.status = AlerteStatus.IGNOREE;
 
-    return this.alertesRepository.save(alerte);
+    const saved = await this.alertesRepository.save(alerte);
+    this.alertesGateway.broadcastAlert(saved);
+
+    return saved;
   }
 
   private getNiveauFromRisk(
@@ -286,6 +296,7 @@ export class AlertesService {
 
         const saved = await this.alertesRepository.save(existing);
         updated.push(saved);
+        this.alertesGateway.broadcastAlert(saved);
 
         if (!wasCritical && niveau === AlerteNiveau.CRITIQUE) {
           await this.notifyCriticalAlert(saved);
@@ -309,6 +320,7 @@ export class AlertesService {
 
       const saved = await this.alertesRepository.save(alerte);
       created.push(saved);
+      this.alertesGateway.broadcastAlert(saved);
 
       if (niveau === AlerteNiveau.CRITIQUE) {
         await this.notifyCriticalAlert(saved);
@@ -479,6 +491,7 @@ export class AlertesService {
 
         const saved = await this.alertesRepository.save(existing);
         updated.push(saved);
+        this.alertesGateway.broadcastAlert(saved);
 
         if (!wasCritical && niveau === AlerteNiveau.CRITIQUE) {
           await this.notifyCriticalAlert(saved);
@@ -504,6 +517,7 @@ export class AlertesService {
 
       const saved = await this.alertesRepository.save(alerte);
       created.push(saved);
+      this.alertesGateway.broadcastAlert(saved);
 
       if (niveau === AlerteNiveau.CRITIQUE) {
         await this.notifyCriticalAlert(saved);
@@ -684,6 +698,7 @@ export class AlertesService {
       existing.populationExposed = populationExposed;
 
       const updated = await this.alertesRepository.save(existing);
+      this.alertesGateway.broadcastAlert(updated);
 
       if (!wasCritical && niveau === AlerteNiveau.CRITIQUE) {
         await this.notifyCriticalAlert(updated);
@@ -713,6 +728,7 @@ export class AlertesService {
     });
 
     const created = await this.alertesRepository.save(alerte);
+    this.alertesGateway.broadcastAlert(created);
 
     if (niveau === AlerteNiveau.CRITIQUE) {
       await this.notifyCriticalAlert(created);

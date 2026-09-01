@@ -25,6 +25,7 @@
     "react-hook-form": "^7.81.0",
     "react-leaflet": "latest",
     "react-router-dom": "latest",
+    "socket.io-client": "^4.8.3",
     "zod": "^4.4.3",
     "zustand": "latest"
   },
