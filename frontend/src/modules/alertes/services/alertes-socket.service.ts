@@ -8,16 +8,12 @@ type AlertListener = (alert: Alerte) => void;
 const alertListeners: Set<AlertListener> = new Set();
 
 export function getAlertsSocketUrl(): string {
-  const envUrl = import.meta.env.VITE_API_BASE_URL;
-  if (envUrl && envUrl.startsWith('http')) {
-    return envUrl.replace(/\/api\/?$/, '');
+  const envUrl = import.meta.env.VITE_API_URL;
+  if (envUrl && typeof envUrl === 'string' && envUrl.trim() !== '') {
+    return envUrl.trim().replace(/\/api\/?$/, '');
   }
 
-  if (typeof window !== 'undefined') {
-    return window.location.origin;
-  }
-
-  return 'http://localhost:4000';
+  return 'http://localhost:3001';
 }
 
 export function initializeAlertsSocket(onAlertReceived?: AlertListener): () => void {
