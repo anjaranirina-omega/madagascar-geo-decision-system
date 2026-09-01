@@ -1,7 +1,9 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { MailService } from '../auth/mail.service';
 import { MeteoService } from '../meteo/meteo.service';
+import { UsersService } from '../users/users.service';
 import { CreateAlerteDto } from './dto/create-alerte.dto';
 import { GenerateRiskAlertesDto } from './dto/generate-risk-alertes.dto';
 import { GenerateWeatherRiskAlertDto } from './dto/generate-weather-risk-alert.dto';
@@ -15,20 +17,90 @@ import {
 
 @Injectable()
 export class AlertesService {
+  private readonly logger = new Logger(AlertesService.name);
+
   constructor(
     @InjectRepository(Alerte)
     private readonly alertesRepository: Repository<Alerte>,
 
     private readonly meteoService: MeteoService,
+    private readonly mailService: MailService,
+    private readonly usersService: UsersService,
   ) {}
 
-  create(dto: CreateAlerteDto) {
+  private async notifyCriticalAlert(alerte: Alerte) {
+    if (alerte.niveau !== AlerteNiveau.CRITIQUE || alerte.status !== AlerteStatus.ACTIVE) {
+      return;
+    }
+
+    try {
+      const recipients = await this.usersService.findCrisisNotificationRecipients();
+      const adminEmail = process.env.ADMIN_CONTACT_EMAIL;
+
+      const emailsSent = new Set<string>();
+
+      for (const user of recipients) {
+        if (user.email && !emailsSent.has(user.email)) {
+          emailsSent.add(user.email);
+          await this.mailService.sendCriticalAlertEmail({
+            to: user.email,
+            recipientName: `${user.firstName} ${user.lastName}`.trim(),
+            alert: {
+              id: alerte.id,
+              titre: alerte.titre,
+              message: alerte.message,
+              type: alerte.type,
+              niveau: alerte.niveau,
+              zoneNom: alerte.zoneNom,
+              zoneType: alerte.zoneType,
+              riskValue: alerte.riskValue,
+              riskMean: alerte.riskMean,
+              populationExposed: alerte.populationExposed,
+              createdAt: alerte.createdAt,
+            },
+          });
+        }
+      }
+
+      if (emailsSent.size === 0 && adminEmail) {
+        await this.mailService.sendCriticalAlertEmail({
+          to: adminEmail,
+          recipientName: 'Administrateur',
+          alert: {
+            id: alerte.id,
+            titre: alerte.titre,
+            message: alerte.message,
+            type: alerte.type,
+            niveau: alerte.niveau,
+            zoneNom: alerte.zoneNom,
+            zoneType: alerte.zoneType,
+            riskValue: alerte.riskValue,
+            riskMean: alerte.riskMean,
+            populationExposed: alerte.populationExposed,
+            createdAt: alerte.createdAt,
+          },
+        });
+      }
+    } catch (error: any) {
+      this.logger.warn(
+        `[AlertesService] Erreur lors de l’envoi des notifications d’alerte critique: ${error?.message}`,
+      );
+    }
+  }
+
+  async create(dto: CreateAlerteDto) {
     const alerte = this.alertesRepository.create({
       ...dto,
       status: AlerteStatus.ACTIVE,
     });
 
-    return this.alertesRepository.save(alerte);
+    const saved = await this.alertesRepository.save(alerte);
+
+    if (saved.niveau === AlerteNiveau.CRITIQUE) {
+      await this.notifyCriticalAlert(saved);
+    }
+
+    return saved;
   }
 
   findAll() {
@@ -204,6 +276,7 @@ export class AlertesService {
       });
 
       if (existing) {
+        const wasCritical = existing.niveau === AlerteNiveau.CRITIQUE;
         existing.niveau = niveau;
         existing.titre = titre;
         existing.message = message;
@@ -211,7 +284,12 @@ export class AlertesService {
         existing.riskMean = riskMean;
         existing.populationExposed = populationExposed;
 
-        updated.push(await this.alertesRepository.save(existing));
+        const saved = await this.alertesRepository.save(existing);
+        updated.push(saved);
+
+        if (!wasCritical && niveau === AlerteNiveau.CRITIQUE) {
+          await this.notifyCriticalAlert(saved);
+        }
         continue;
       }
 
@@ -229,7 +307,12 @@ export class AlertesService {
         status: AlerteStatus.ACTIVE,
       });
 
-      created.push(await this.alertesRepository.save(alerte));
+      const saved = await this.alertesRepository.save(alerte);
+      created.push(saved);
+
+      if (niveau === AlerteNiveau.CRITIQUE) {
+        await this.notifyCriticalAlert(saved);
+      }
     }
 
     /**
@@ -384,6 +467,7 @@ export class AlertesService {
       });
 
       if (existing) {
+        const wasCritical = existing.niveau === AlerteNiveau.CRITIQUE;
         existing.niveau = niveau;
         existing.titre = titre;
         existing.message = message;
@@ -393,7 +477,12 @@ export class AlertesService {
             ? Number(signal.background_risk_mean)
             : undefined;
 
-        updated.push(await this.alertesRepository.save(existing));
+        const saved = await this.alertesRepository.save(existing);
+        updated.push(saved);
+
+        if (!wasCritical && niveau === AlerteNiveau.CRITIQUE) {
+          await this.notifyCriticalAlert(saved);
+        }
         continue;
       }
 
@@ -413,7 +502,12 @@ export class AlertesService {
         status: AlerteStatus.ACTIVE,
       });
 
-      created.push(await this.alertesRepository.save(alerte));
+      const saved = await this.alertesRepository.save(alerte);
+      created.push(saved);
+
+      if (niveau === AlerteNiveau.CRITIQUE) {
+        await this.notifyCriticalAlert(saved);
+      }
     }
 
     const activeOperationalAlerts = await this.alertesRepository
@@ -581,6 +675,7 @@ export class AlertesService {
     )} mm, vent ${windKmh.toFixed(1)} km/h.`;
 
     if (existing) {
+      const wasCritical = existing.niveau === AlerteNiveau.CRITIQUE;
       existing.niveau = niveau;
       existing.titre = titre;
       existing.message = message;
@@ -589,6 +684,10 @@ export class AlertesService {
       existing.populationExposed = populationExposed;
 
       const updated = await this.alertesRepository.save(existing);
+
+      if (!wasCritical && niveau === AlerteNiveau.CRITIQUE) {
+        await this.notifyCriticalAlert(updated);
+      }
 
       return {
         message: 'Alerte météo-risque existante mise à jour.',
@@ -614,6 +713,10 @@ export class AlertesService {
     });
 
     const created = await this.alertesRepository.save(alerte);
+
+    if (niveau === AlerteNiveau.CRITIQUE) {
+      await this.notifyCriticalAlert(created);
+    }
 
     return {
       message: 'Alerte météo-risque générée.',

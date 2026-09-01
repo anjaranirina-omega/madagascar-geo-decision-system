@@ -79,6 +79,17 @@ export class UsersService {
     return role;
   }
 
+  async findCrisisNotificationRecipients(): Promise<User[]> {
+    return this.usersRepository
+      .createQueryBuilder('user')
+      .leftJoinAndSelect('user.role', 'role')
+      .where('user.isActive = true')
+      .andWhere('role.name IN (:...roles)', {
+        roles: ['ADMIN', 'DECIDEUR', 'ANALYSTE'],
+      })
+      .getMany();
+  }
+
   async create(dto: CreateUserDto) {
     const exists = await this.usersRepository.findOne({
       where: { email: dto.email },
