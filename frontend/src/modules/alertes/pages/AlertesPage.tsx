@@ -14,6 +14,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Tabs from '../../../shared/components/ui/Tabs';
 import OperationalSignalsPanel from '../../operational-signals/components/OperationalSignalsPanel';
 import AlerteDetailDrawer from '../components/AlerteDetailDrawer';
+import { useAlertsNotificationStore } from '../store/alerts-notification.store';
 import {
   Alerte,
   AlerteNiveau,
@@ -104,6 +105,7 @@ export default function AlertesPage() {
     try {
       const data = await alertesService.findAll();
       setAlertes(data);
+      useAlertsNotificationStore.getState().refresh();
 
       // Si une alerte était sélectionnée, actualiser ses données
       if (selectedAlerte) {
