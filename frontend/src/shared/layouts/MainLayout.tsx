@@ -25,6 +25,7 @@ import { useAppStore } from '../../app/store';
 import { authService } from '../../modules/auth/auth.service';
 import { useAlertsNotificationStore } from '../../modules/alertes/store/alerts-notification.store';
 import NotificationBellDropdown from '../../modules/alertes/components/NotificationBellDropdown';
+import AlertToastNotification from '../../modules/alertes/components/AlertToastNotification';
 import { AppRole, normalizeRole, PAGE_ACCESS } from '../auth/roles';
 
 type MenuItem = {
@@ -153,6 +154,8 @@ export default function MainLayout() {
 
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,#eef6ff_0,#f8fafc_38%,#f1f5f9_100%)] dark:bg-[radial-gradient(circle_at_top_left,#0f172a_0,#020617_45%,#000814_100%)]">
+      <AlertToastNotification />
+
       {mobileSidebarOpen && (
         <button
           type="button"
