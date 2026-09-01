@@ -354,7 +354,7 @@ export default function MapView() {
     ? availableRasterLayers.find((layer) => layer.id === selectedRasterLayerId) ?? null
     : null;
   const selectedRasterLayerLabel = selectedRasterLayer
-    ? formatRasterLayerDate(selectedRasterLayer.updatedAt ?? selectedRasterLayer.createdAt)
+    ? formatRasterLayerDate(selectedRasterLayer.createdAt)
     : 'Dernière version disponible';
   const selectedZoneName =
     locatedZone?.commune?.nom ??
@@ -1215,7 +1215,7 @@ function RasterVersionSelect({
 
         {layers.map((layer) => (
           <option key={layer.id} value={layer.id}>
-            {formatRasterLayerDate(layer.updatedAt ?? layer.createdAt)} — {layer.name}{layer.isActive ? ' (Active)' : ''}
+            {formatRasterLayerDate(layer.createdAt)} — {layer.name}{layer.isActive ? ' (Active)' : ''}
           </option>
         ))}
       </select>

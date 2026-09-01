@@ -532,11 +532,11 @@ export class GeographieService {
 
     const latestRaster = await this.regionsRepository.query(
       `
-      SELECT updated_at
+      SELECT created_at, updated_at
       FROM raster_layers
       WHERE type = 'RISK_INDEX'
       AND is_active = true
-      ORDER BY updated_at DESC
+      ORDER BY created_at DESC
       LIMIT 1
       `,
     );
@@ -591,6 +591,7 @@ export class GeographieService {
       activeAlerts: 0,
       lastUpdated:
         indicator?.[0]?.updated_at ??
+        latestRaster?.[0]?.created_at ??
         latestRaster?.[0]?.updated_at ??
         null,
     };

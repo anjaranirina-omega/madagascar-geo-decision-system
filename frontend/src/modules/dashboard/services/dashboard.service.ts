@@ -97,6 +97,7 @@ export type DashboardRaster = {
   minValue?: number | null;
   maxValue?: number | null;
   meanValue?: number | null;
+  createdAt?: string | null;
   updatedAt?: string | null;
 };
 

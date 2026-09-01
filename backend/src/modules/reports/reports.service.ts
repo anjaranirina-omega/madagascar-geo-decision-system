@@ -469,10 +469,11 @@ export class ReportsService {
         width,
         height,
         crs,
+        created_at AS "createdAt",
         updated_at AS "updatedAt"
       FROM raster_layers
       WHERE is_active = true
-      ORDER BY updated_at DESC;
+      ORDER BY created_at DESC;
     `);
   }
 

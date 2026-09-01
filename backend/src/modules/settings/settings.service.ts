@@ -46,7 +46,7 @@ export class SettingsService {
     const [rasterStats] = await this.dataSource.query(`
       SELECT
         COUNT(*) AS "activeRasters",
-        MAX(updated_at) AS "latestRasterUpdate"
+        MAX(created_at) AS "latestRasterUpdate"
       FROM raster_layers
       WHERE is_active = true
     `);
