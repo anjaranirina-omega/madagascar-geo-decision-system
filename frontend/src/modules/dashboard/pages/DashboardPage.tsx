@@ -859,7 +859,7 @@ export default function DashboardPage() {
                   <div className="text-right text-xs text-slate-500 dark:text-slate-400">
                     max {formatNumber(raster.maxValue, 1)}
                     <br />
-                    {formatShortDate(raster.updatedAt)}
+                    {formatShortDate(raster.createdAt ?? raster.updatedAt)}
                   </div>
                 </div>
               ))}

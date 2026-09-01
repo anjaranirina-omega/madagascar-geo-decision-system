@@ -82,7 +82,7 @@ export class DashboardService {
     const [rasterStats] = await this.query(`
       SELECT
         COUNT(*) AS active_rasters,
-        MAX(updated_at) AS latest_raster_update
+        MAX(created_at) AS latest_raster_update
       FROM raster_layers
       WHERE is_active = true
     `);
@@ -332,10 +332,11 @@ export class DashboardService {
         min_value AS "minValue",
         max_value AS "maxValue",
         mean_value AS "meanValue",
+        created_at AS "createdAt",
         updated_at AS "updatedAt"
       FROM raster_layers
       WHERE is_active = true
-      ORDER BY updated_at DESC
+      ORDER BY created_at DESC
     `);
   }
 
