@@ -11,3 +11,5 @@ matplotlib
 scipy
 
 Pillow
+gdacs-api>=2.0.0
+
