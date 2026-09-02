@@ -39,7 +39,9 @@ import type {
 } from '../services/geographie.service';
 import { geographieFrontendService } from '../services/geographie.service';
 import { rasterFrontendService, type RasterLayerMetadata } from '../services/rasters.service';
+import { cyclonesService, type ActiveCyclone } from '../services/cyclones.service';
 import AdminBoundariesLayer from './AdminBoundariesLayer';
+import ActiveCyclonesLayer from './ActiveCyclonesLayer';
 import RasterRiskLayer from './RasterRiskLayer';
 import { meteoService, type CurrentWeather } from '../../meteo/services/meteo.service';
 import RiskClickHandler, { RiskSelection } from './RiskClickHandler';
@@ -278,6 +280,8 @@ export default function MapView() {
   });
 
   const [showBoundaries, setShowBoundaries] = useState(true);
+  const [showActiveCyclones, setShowActiveCyclones] = useState(true);
+  const [activeCyclones, setActiveCyclones] = useState<ActiveCyclone[]>([]);
   const [showReferencePoint, setShowReferencePoint] = useState(true);
   const [boundaryLevel, setBoundaryLevel] = useState<BoundaryLevel>('regions');
   const [georaster, setGeoraster] = useState<any | null>(null);
@@ -520,6 +524,31 @@ export default function MapView() {
     };
   }, [activeRiskLayerType]);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadCyclones = async () => {
+      try {
+        const data = await cyclonesService.getActiveCyclones();
+        if (!cancelled) {
+          setActiveCyclones(data ?? []);
+        }
+      } catch (err) {
+        console.warn('[MapView] Impossible de charger les cyclones actifs:', err);
+      }
+    };
+
+    loadCyclones();
+
+    // Rafraîchissement automatique toutes les 10 minutes (600_000 ms)
+    const interval = window.setInterval(loadCyclones, 600_000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, []);
+
   const updateRiskFromMarkerPosition = useCallback(
     (lat: number, lng: number) => {
       if (!georaster) {
@@ -715,6 +744,27 @@ export default function MapView() {
               icon={<Layers size={16} />}
             />
 
+            <LayerCheckbox
+              checked={showActiveCyclones}
+              onChange={setShowActiveCyclones}
+              label="Cyclones actifs (GDACS)"
+              subtitle={
+                activeCyclones.length > 0
+                  ? `${activeCyclones.length} cyclone(s) actif(s) en temps réel`
+                  : 'Surveillance temps réel bassin SWIO'
+              }
+              icon={
+                <Zap
+                  size={16}
+                  className={
+                    activeCyclones.length > 0
+                      ? 'text-purple-500 animate-pulse'
+                      : ''
+                  }
+                />
+              }
+            />
+
             <div className="rounded-2xl border border-slate-200 p-3 dark:border-slate-800">
               <div className="mb-3 text-sm font-extrabold text-slate-700 dark:text-slate-200">
                 Niveau administratif
@@ -762,6 +812,7 @@ export default function MapView() {
                 landslide: false,
               });
               setShowBoundaries(true);
+              setShowActiveCyclones(true);
               setBoundaryLevel('regions');
               setShowReferencePoint(true);
             }}
@@ -802,6 +853,11 @@ export default function MapView() {
             <AdminBoundariesLayer
               visible={showBoundaries}
               level={boundaryLevel}
+            />
+
+            <ActiveCyclonesLayer
+              cyclones={activeCyclones}
+              visible={showActiveCyclones}
             />
 
             {selectedBoundaryFeature && (
@@ -847,6 +903,24 @@ export default function MapView() {
 
             <MapToolbar />
           </MapContainer>
+
+          {/* Indicateur visuel discret si un ou plusieurs cyclones actifs sont détectés */}
+          {activeCyclones.length > 0 && showActiveCyclones && (
+            <div className="pointer-events-auto absolute left-3 top-3 z-[500] flex items-center gap-2.5 rounded-2xl border border-purple-200/90 bg-white/95 px-3.5 py-2 shadow-xl backdrop-blur transition dark:border-purple-900/60 dark:bg-slate-900/95">
+              <span className="relative flex h-3 w-3">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-purple-400 opacity-75"></span>
+                <span className="relative inline-flex h-3 w-3 rounded-full bg-purple-600"></span>
+              </span>
+              <div className="text-xs font-black text-slate-800 dark:text-slate-100">
+                {activeCyclones.length === 1
+                  ? `1 cyclone actif surveillé : ${activeCyclones[0].name}`
+                  : `${activeCyclones.length} cyclones actifs surveillés (SWIO)`}
+              </div>
+              <span className="rounded-md bg-purple-100 px-1.5 py-0.5 text-[10px] font-bold text-purple-700 dark:bg-purple-950 dark:text-purple-300">
+                GDACS Live
+              </span>
+            </div>
+          )}
 
           <div className="pointer-events-none absolute inset-x-3 bottom-3 z-[500] rounded-2xl border border-slate-200 bg-white/95 p-3 shadow-xl backdrop-blur dark:border-slate-800 dark:bg-slate-950/95 sm:bottom-5 sm:left-1/2 sm:w-[78%] sm:-translate-x-1/2 sm:p-4">
             <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
