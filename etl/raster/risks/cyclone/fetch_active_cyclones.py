@@ -1,15 +1,18 @@
 #!/usr/bin/env python3
 """
-ETL Cyclone - Phase 1 : Récupération en temps réel des cyclones tropicaux actifs via l'API GDACS.
+ETL Cyclone - Phase 2 : Récupération en temps réel des cyclones tropicaux actifs via l'API GDACS
+et synchronisation en base de données.
 
 Ce script interroge le Global Disaster Alert and Coordination System (GDACS, système officiel UE/ONU)
 via la bibliothèque 'gdacs-api' pour identifier les cyclones actifs dans le bassin Sud-Ouest de
-l'océan Indien (SWIO) impactant Madagascar.
+l'océan Indien (SWIO) impactant Madagascar, puis effectue un UPSERT et la désactivation automatique
+des cyclones inactifs dans PostgreSQL via l'API backend.
 
 Usage :
     python fetch_active_cyclones.py
     python fetch_active_cyclones.py --all-basins
     python fetch_active_cyclones.py --demo
+    python fetch_active_cyclones.py --no-sync
 """
 
 import argparse
@@ -21,6 +24,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
+import requests
 from dotenv import load_dotenv
 
 # Initialisation du chemin racine et des variables d'environnement
@@ -28,6 +32,9 @@ FILE_PATH = Path(__file__).resolve()
 PROJECT_ROOT = FILE_PATH.parents[4]
 load_dotenv(PROJECT_ROOT / ".env")
 load_dotenv(PROJECT_ROOT / "backend" / ".env", override=True)
+
+# Configuration API Backend
+API_BASE_URL = os.getenv("BACKEND_API_URL", "http://localhost:3001/api")
 
 # Configuration du logging
 logging.basicConfig(
@@ -266,6 +273,7 @@ def fetch_cyclones_live(
             "from_date": props.get("fromdate"),
             "to_date": props.get("todate"),
             "detailed_stats": detailed_stats,
+            "track_geojson": detailed_geojson,
             "raw_properties": props,
         }
         matched_cyclones.append(cyclone_info)
@@ -279,6 +287,32 @@ def run_demo_sample() -> Tuple[List[Dict[str, Any]], int]:
     Utilisé en mode démonstration ou secours lorsque le réseau externe est indisponible.
     """
     logger.info("[MODE DÉMO] Chargement de données de simulation fictive d'un cyclone actif dans la zone SWIO...")
+    demo_track_geojson = {
+        "type": "FeatureCollection",
+        "features": [
+            {
+                "type": "Feature",
+                "geometry": {"type": "Point", "coordinates": [52.0, -18.5]},
+                "properties": {"Class": "Observation", "wind": "150 km/h", "time": "2026-09-01T06:00:00"},
+            },
+            {
+                "type": "Feature",
+                "geometry": {"type": "Point", "coordinates": [48.8, -19.4]},
+                "properties": {"Class": "Observation", "wind": "165 km/h", "time": "2026-09-02T00:00:00"},
+            },
+            {
+                "type": "Feature",
+                "geometry": {"type": "Point", "coordinates": [46.0, -20.2]},
+                "properties": {"Class": "Forecast", "wind": "130 km/h", "time": "2026-09-03T00:00:00"},
+            },
+            {
+                "type": "Feature",
+                "geometry": {"type": "LineString", "coordinates": [[52.0, -18.5], [48.8, -19.4], [46.0, -20.2]]},
+                "properties": {"type": "TrackLine"},
+            },
+        ],
+    }
+
     demo_cyclone = {
         "event_id": "9999999",
         "episode_id": "1",
@@ -291,14 +325,63 @@ def run_demo_sample() -> Tuple[List[Dict[str, Any]], int]:
         "from_date": "2026-09-01T00:00:00",
         "to_date": "2026-09-05T12:00:00",
         "detailed_stats": {
-            "total_features": 48,
-            "track_points_count": 32,
-            "forecast_points_count": 16,
-            "wind_polygons_count": 4,
-            "track_lines_count": 2,
+            "total_features": 4,
+            "track_points_count": 3,
+            "forecast_points_count": 1,
+            "wind_polygons_count": 0,
+            "track_lines_count": 1,
         },
+        "track_geojson": demo_track_geojson,
     }
     return [demo_cyclone], 1
+
+
+def sync_to_backend(cyclones: List[Dict[str, Any]], total_global: int) -> Optional[Dict[str, Any]]:
+    """
+    Transmet les cyclones actifs vers l'API backend pour enregistrement en base de données.
+    """
+    url = f"{API_BASE_URL}/meteo/active-cyclones/sync"
+
+    cyclones_payload = []
+    for c in cyclones:
+        cyclones_payload.append({
+            "gdacsEventId": str(c.get("event_id", "")),
+            "gdacsEpisodeId": str(c.get("episode_id", "")) if c.get("episode_id") else None,
+            "name": c.get("name", "Inconnu"),
+            "latitude": c.get("latitude"),
+            "longitude": c.get("longitude"),
+            "windSpeed": c.get("wind_speed"),
+            "severityLevel": c.get("severity_level", "Inconnu"),
+            "country": c.get("country"),
+            "fromDate": c.get("from_date"),
+            "toDate": c.get("to_date"),
+            "trackGeojson": c.get("track_geojson"),
+        })
+
+    payload = {
+        "cyclones": cyclones_payload,
+        "fetchedAt": datetime.utcnow().isoformat(),
+        "totalGlobal": total_global,
+    }
+
+    logger.info(f"Envoi des données vers le backend : POST {url} ({len(cyclones_payload)} cyclone(s))...")
+
+    try:
+        response = requests.post(url, json=payload, timeout=30)
+        if response.status_code >= 400:
+            logger.error(f"Erreur API Backend HTTP {response.status_code} : {response.text[:500]}")
+            return None
+
+        data = response.json()
+        logger.info(
+            f"✔ Base de données synchronisée avec succès : {data.get('createdCount', 0)} créé(s), "
+            f"{data.get('updatedCount', 0)} mis à jour, {data.get('deactivatedCount', 0)} désactivé(s). "
+            f"Total actif(s) en base : {data.get('activeCount', 0)}"
+        )
+        return data
+    except requests.exceptions.RequestException as err:
+        logger.warning(f"Impossible de joindre le backend API ({url}) : {err}")
+        return None
 
 
 def display_results(cyclones: List[Dict[str, Any]], total_global: int, filter_swio: bool):
@@ -308,6 +391,7 @@ def display_results(cyclones: List[Dict[str, Any]], total_global: int, filter_sw
     print("=" * 76)
     print(f" Date d'exécution : {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC")
     print(f" Source des données: GDACS (Global Disaster Alert and Coordination System - UE/ONU)")
+    print(f" API Backend cible: {API_BASE_URL}/meteo/active-cyclones/sync")
     print(f" Cyclones tropicaux actifs à l'échelle mondiale : {total_global}")
     print(f" Filtre zone SWIO / Madagascar actif : {'Oui (Lat: -35° à 0°, Lon: 30° à 80°)' if filter_swio else 'Non (Tous les bassins)'}")
     print("-" * 76)
@@ -346,7 +430,7 @@ def display_results(cyclones: List[Dict[str, Any]], total_global: int, filter_sw
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Récupère les cyclones actifs en temps réel via l'API GDACS pour Madagascar."
+        description="Récupère les cyclones actifs en temps réel via l'API GDACS pour Madagascar et synchronise avec la BDD."
     )
     parser.add_argument(
         "--all-basins",
@@ -357,6 +441,11 @@ def main():
         "--demo",
         action="store_true",
         help="Exécute avec un jeu de données de test (mode simulation sans appel réseau).",
+    )
+    parser.add_argument(
+        "--no-sync",
+        action="store_true",
+        help="Désactive l'envoi HTTP vers le backend (affichage console uniquement).",
     )
     parser.add_argument(
         "--json",
@@ -385,13 +474,16 @@ def main():
                 f"\n💡 Pour tester le comportement du script en mode simulation :\n"
                 f"   python etl/raster/risks/cyclone/fetch_active_cyclones.py --demo\n"
             )
-            # Fournir la sortie de démo pour valider la logique d'affichage même en cas d'indisponibilité réseau
             cyclones, total_global = run_demo_sample()
 
     if args.json:
         print(json.dumps(cyclones, indent=2, ensure_ascii=False))
     else:
         display_results(cyclones, total_global, filter_swio=filter_swio)
+
+    # Synchronisation vers l'API Backend
+    if not args.no_sync:
+        sync_to_backend(cyclones, total_global)
 
 
 if __name__ == "__main__":
