@@ -43,7 +43,10 @@ export class MeteoController {
   /**
    * Endpoint de synchronisation ETL des cyclones actifs (GDACS).
    * Utilisé par etl/raster/risks/cyclone/fetch_active_cyclones.py.
+   * Protégé par JWT et restreint aux rôles ADMIN et ANALYSTE.
    */
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN', 'ANALYSTE')
   @Post('active-cyclones/sync')
   syncActiveCyclones(@Body() dto: SyncActiveCyclonesDto) {
     return this.meteoService.syncActiveCyclones(dto);
@@ -51,7 +54,9 @@ export class MeteoController {
 
   /**
    * Endpoint de consultation des cyclones actifs pour le frontend/SIG.
+   * Accessible à tout utilisateur authentifié.
    */
+  @UseGuards(JwtAuthGuard)
   @Get('active-cyclones')
   findActiveCyclones(@Query('all') all?: string) {
     return this.meteoService.findActiveCyclones(all === 'true');
@@ -59,7 +64,9 @@ export class MeteoController {
 
   /**
    * Détail d'un cyclone actif avec géométrie complète de trajectoire.
+   * Accessible à tout utilisateur authentifié.
    */
+  @UseGuards(JwtAuthGuard)
   @Get('active-cyclones/:id')
   findActiveCycloneById(@Param('id') id: string) {
     return this.meteoService.findActiveCycloneById(id);

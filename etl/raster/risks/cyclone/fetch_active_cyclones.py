@@ -35,6 +35,7 @@ load_dotenv(PROJECT_ROOT / "backend" / ".env", override=True)
 
 # Configuration API Backend
 API_BASE_URL = os.getenv("BACKEND_API_URL", "http://localhost:3001/api")
+API_TOKEN = os.getenv("BACKEND_API_TOKEN") or os.getenv("JWT_TOKEN")
 
 # Configuration du logging
 logging.basicConfig(
@@ -366,8 +367,12 @@ def sync_to_backend(cyclones: List[Dict[str, Any]], total_global: int) -> Option
 
     logger.info(f"Envoi des données vers le backend : POST {url} ({len(cyclones_payload)} cyclone(s))...")
 
+    headers = {"Content-Type": "application/json"}
+    if API_TOKEN:
+        headers["Authorization"] = f"Bearer {API_TOKEN}"
+
     try:
-        response = requests.post(url, json=payload, timeout=30)
+        response = requests.post(url, json=payload, headers=headers, timeout=30)
         if response.status_code >= 400:
             logger.error(f"Erreur API Backend HTTP {response.status_code} : {response.text[:500]}")
             return None
