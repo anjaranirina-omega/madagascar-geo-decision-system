@@ -275,21 +275,21 @@ def fetch_cyclones_live(
 
 def run_demo_sample() -> Tuple[List[Dict[str, Any]], int]:
     """
-    Fournit un jeu de test représentatif d'un cyclone actif dans la zone Madagascar (ex: Cyclone Freddy).
+    Fournit un jeu de données fictif de simulation d'un cyclone actif dans la zone SWIO.
     Utilisé en mode démonstration ou secours lorsque le réseau externe est indisponible.
     """
-    logger.info("[MODE DÉMO] Chargement de données de simulation d'un cyclone actif dans la zone SWIO...")
+    logger.info("[MODE DÉMO] Chargement de données de simulation fictive d'un cyclone actif dans la zone SWIO...")
     demo_cyclone = {
-        "event_id": "1000958",
-        "episode_id": "12",
-        "name": "Tropical Cyclone FREDDY",
+        "event_id": "9999999",
+        "episode_id": "1",
+        "name": "TC-SIMULATION-DEMO",
         "latitude": -19.4,
         "longitude": 48.8,
         "severity_level": "Red (Score: 2.5)",
         "wind_speed": "165 km/h",
         "country": "Madagascar",
-        "from_date": "2026-02-15T00:00:00",
-        "to_date": "2026-02-28T12:00:00",
+        "from_date": "2026-09-01T00:00:00",
+        "to_date": "2026-09-05T12:00:00",
         "detailed_stats": {
             "total_features": 48,
             "track_points_count": 32,
