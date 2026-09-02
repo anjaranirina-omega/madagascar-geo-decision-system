@@ -186,6 +186,40 @@ def analyze_detailed_track(detailed_geojson: Any) -> Dict[str, Any]:
     return stats
 
 
+def lighten_track_geojson(detailed_geojson: Any) -> Optional[Dict[str, Any]]:
+    """
+    Allège la géométrie GeoJSON d'un cyclone avant synchronisation en base :
+    1. Conserve tous les points (Point) d'observation et de prévision indispensables au suivi de la position.
+    2. Conserve les tracés linéaires de trajectoire (LineString, MultiLineString).
+    3. Exclut les volumineux polygones de vent et zones tampons (Polygon, MultiPolygon)
+       qui représentent plus de 95% du volume de données (63 à 71 polygones par cyclone dans GDACS),
+       réduisant ainsi drastiquement la taille du payload pour éviter l'erreur PayloadTooLargeError (413).
+    """
+    if not detailed_geojson:
+        return None
+
+    features = []
+    if isinstance(detailed_geojson, dict):
+        features = detailed_geojson.get("features", [])
+    elif hasattr(detailed_geojson, "features"):
+        features = detailed_geojson.features
+
+    filtered_features = []
+    for feat in features:
+        feat_dict = feat if isinstance(feat, dict) else getattr(feat, "__dict__", {})
+        geom = feat_dict.get("geometry") or {}
+        gtype = geom.get("type", "")
+
+        # Conservation stricte des points (observations & prévisions) et lignes de trajectoire
+        if gtype in ("Point", "LineString", "MultiLineString"):
+            filtered_features.append(feat_dict)
+
+    return {
+        "type": "FeatureCollection",
+        "features": filtered_features,
+    }
+
+
 def fetch_cyclones_live(
     filter_swio: bool = True,
     bounds: Dict[str, float] = DEFAULT_SWIO_BOUNDS,
@@ -340,11 +374,13 @@ def run_demo_sample() -> Tuple[List[Dict[str, Any]], int]:
 def sync_to_backend(cyclones: List[Dict[str, Any]], total_global: int) -> Optional[Dict[str, Any]]:
     """
     Transmet les cyclones actifs vers l'API backend pour enregistrement en base de données.
+    Allège préalablement les structures GeoJSON pour optimiser le transfert réseau.
     """
     url = f"{API_BASE_URL}/meteo/active-cyclones/sync"
 
     cyclones_payload = []
     for c in cyclones:
+        lightened_track = lighten_track_geojson(c.get("track_geojson"))
         cyclones_payload.append({
             "gdacsEventId": str(c.get("event_id", "")),
             "gdacsEpisodeId": str(c.get("episode_id", "")) if c.get("episode_id") else None,
@@ -356,7 +392,7 @@ def sync_to_backend(cyclones: List[Dict[str, Any]], total_global: int) -> Option
             "country": c.get("country"),
             "fromDate": c.get("from_date"),
             "toDate": c.get("to_date"),
-            "trackGeojson": c.get("track_geojson"),
+            "trackGeojson": lightened_track,
         })
 
     payload = {
