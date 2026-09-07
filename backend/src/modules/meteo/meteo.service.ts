@@ -6,6 +6,7 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { DataSourcesService } from '../data-sources/data-sources.service';
@@ -61,6 +62,7 @@ export class MeteoService {
     private readonly activeCycloneRepository: Repository<ActiveCyclone>,
     private readonly dataSource: DataSource,
     private readonly dataSourcesService: DataSourcesService,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   private getOpenWeatherConfig() {
@@ -522,7 +524,7 @@ export class MeteoService {
         `[SyncActiveCyclones] Synchronisation terminée : ${createdCount} créé(s), ${updatedCount} mis à jour, ${deactivatedCount} désactivé(s). Total actifs : ${activeCyclones.length}`,
       );
 
-      return {
+      const result = {
         message: 'Synchronisation des cyclones terminée avec succès.',
         syncedAt: fetchedAt,
         totalReceived: cyclonesList.length,
@@ -532,6 +534,14 @@ export class MeteoService {
         activeCount: activeCyclones.length,
         activeCyclones,
       };
+
+      // Émission de l'événement sans dépendance directe avec AlertesService
+      this.eventEmitter.emit('cyclones.synced', {
+        cyclones: activeCyclones,
+        syncedAt: fetchedAt,
+      });
+
+      return result;
     });
   }
 

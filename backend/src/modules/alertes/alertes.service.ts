@@ -1,7 +1,9 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { OnEvent } from '@nestjs/event-emitter';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { MailService } from '../auth/mail.service';
+import { ActiveCyclone } from '../meteo/entities/active-cyclone.entity';
 import { MeteoService } from '../meteo/meteo.service';
 import { UsersService } from '../users/users.service';
 import { AlertesGateway } from './alertes.gateway';
@@ -15,6 +17,76 @@ import {
   AlerteStatus,
   AlerteType,
 } from './entities/alerte.entity';
+
+function haversineDistanceKm(
+  lat1: number,
+  lon1: number,
+  lat2: number,
+  lon2: number,
+): number {
+  const R = 6371; // Rayon de la Terre en km
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
+function distanceToMadagascarKm(lat: number, lon: number): number {
+  // Limites géographiques approximatives de Madagascar (île principale)
+  const minLat = -25.6;
+  const maxLat = -11.9;
+  const minLon = 43.2;
+  const maxLon = 50.5;
+
+  const clampedLat = Math.max(minLat, Math.min(maxLat, lat));
+  const clampedLon = Math.max(minLon, Math.min(maxLon, lon));
+
+  return haversineDistanceKm(lat, lon, clampedLat, clampedLon);
+}
+
+function getMinForecastDistanceKm(trackGeojson: any): number | null {
+  if (!trackGeojson || !Array.isArray(trackGeojson.features)) {
+    return null;
+  }
+
+  let minDistance: number | null = null;
+
+  for (const feat of trackGeojson.features) {
+    const geom = feat.geometry;
+    if (
+      geom &&
+      geom.type === 'Point' &&
+      Array.isArray(geom.coordinates) &&
+      geom.coordinates.length >= 2
+    ) {
+      const props = feat.properties || {};
+      const isForecast = String(
+        props.Class || props.class || props.pointtype || props.type || '',
+      )
+        .toLowerCase()
+        .includes('forecast');
+
+      if (isForecast) {
+        const lon = Number(geom.coordinates[0]);
+        const lat = Number(geom.coordinates[1]);
+        if (Number.isFinite(lat) && Number.isFinite(lon)) {
+          const dist = distanceToMadagascarKm(lat, lon);
+          if (minDistance === null || dist < minDistance) {
+            minDistance = dist;
+          }
+        }
+      }
+    }
+  }
+
+  return minDistance;
+}
 
 @Injectable()
 export class AlertesService {
@@ -801,5 +873,155 @@ export class AlertesService {
       checkedZones: zones.length,
       results,
     };
+  }
+
+  /**
+   * Écouteur événementiel (@OnEvent('cyclones.synced')) déclenché après chaque synchronisation GDACS.
+   * Génère, met à jour ou résout automatiquement les alertes cycloniques basées sur la proximité à Madagascar.
+   */
+  @OnEvent('cyclones.synced')
+  async handleCyclonesSynced(payload: { cyclones: ActiveCyclone[]; syncedAt: Date }) {
+    const cyclones = payload.cyclones ?? [];
+    const thresholdKm = Number(process.env.CYCLONE_ALERT_DISTANCE_KM ?? 500);
+
+    this.logger.log(
+      `[AlertesService] Événement cyclones.synced reçu : analyse de proximité pour ${cyclones.length} cyclone(s) (Seuil d'alerte: ${thresholdKm} km)`,
+    );
+
+    const activeAlertedGdacsIds = new Set<string>();
+    const created: Alerte[] = [];
+    const updated: Alerte[] = [];
+    const resolved: Alerte[] = [];
+
+    for (const cyclone of cyclones) {
+      if (!cyclone.isActive) {
+        continue;
+      }
+
+      const hasPosition =
+        typeof cyclone.latitude === 'number' &&
+        typeof cyclone.longitude === 'number' &&
+        Number.isFinite(cyclone.latitude) &&
+        Number.isFinite(cyclone.longitude);
+
+      if (!hasPosition) {
+        this.logger.debug(
+          `[AlertesService] Cyclone ${cyclone.name} sans coordonnées valides, ignoré pour le calcul de distance.`,
+        );
+        continue;
+      }
+
+      const currentDistanceKm = distanceToMadagascarKm(
+        cyclone.latitude!,
+        cyclone.longitude!,
+      );
+
+      const minForecastDistanceKm = getMinForecastDistanceKm(cyclone.trackGeojson);
+
+      let niveau: AlerteNiveau | null = null;
+      let alertReason = '';
+
+      if (currentDistanceKm <= thresholdKm) {
+        niveau = AlerteNiveau.CRITIQUE;
+        alertReason = `Position actuelle à ~${Math.round(currentDistanceKm)} km de Madagascar`;
+      } else if (
+        minForecastDistanceKm !== null &&
+        minForecastDistanceKm <= thresholdKm
+      ) {
+        niveau = AlerteNiveau.ELEVE;
+        alertReason = `Trajectoire prévisionnelle s'approchant à ~${Math.round(minForecastDistanceKm)} km de Madagascar (Position actuelle: ~${Math.round(currentDistanceKm)} km)`;
+      }
+
+      if (!niveau) {
+        continue;
+      }
+
+      activeAlertedGdacsIds.add(cyclone.gdacsEventId);
+
+      const titre =
+        niveau === AlerteNiveau.CRITIQUE
+          ? `Alerte cyclonique critique - ${cyclone.name}`
+          : `Vigilance cyclonique trajectoire - ${cyclone.name}`;
+
+      const windInfo = cyclone.windSpeed ? `, Vents max: ${cyclone.windSpeed}` : '';
+      const zoneInfo = cyclone.country ? ` (${cyclone.country})` : '';
+
+      const message =
+        niveau === AlerteNiveau.CRITIQUE
+          ? `Le cyclone ${cyclone.name}${zoneInfo} (Sévérité: ${cyclone.severityLevel}${windInfo}) est à proximité immédiate de Madagascar (${alertReason}). Risque d'impact direct élevé.`
+          : `Le cyclone ${cyclone.name}${zoneInfo} (Sévérité: ${cyclone.severityLevel}${windInfo}) est en approche surveillée : ${alertReason}. Vigilance recommandée sur les côtes et zones vulnérables.`;
+
+      const existing = await this.alertesRepository.findOne({
+        where: {
+          gdacsEventId: cyclone.gdacsEventId,
+          type: AlerteType.CYCLONE,
+          status: AlerteStatus.ACTIVE,
+        },
+      });
+
+      const riskValue = niveau === AlerteNiveau.CRITIQUE ? 95 : 75;
+
+      if (existing) {
+        const wasCritical = existing.niveau === AlerteNiveau.CRITIQUE;
+        existing.niveau = niveau;
+        existing.titre = titre;
+        existing.message = message;
+        existing.riskValue = riskValue;
+        existing.zoneNom = 'Madagascar';
+        existing.zoneType = 'national';
+
+        const saved = await this.alertesRepository.save(existing);
+        updated.push(saved);
+        this.alertesGateway.broadcastAlert(saved);
+
+        if (!wasCritical && niveau === AlerteNiveau.CRITIQUE) {
+          await this.notifyCriticalAlert(saved);
+        }
+      } else {
+        const newAlert = this.alertesRepository.create({
+          type: AlerteType.CYCLONE,
+          niveau,
+          titre,
+          message,
+          zoneType: 'national',
+          zoneNom: 'Madagascar',
+          gdacsEventId: cyclone.gdacsEventId,
+          riskValue,
+          status: AlerteStatus.ACTIVE,
+        });
+
+        const saved = await this.alertesRepository.save(newAlert);
+        created.push(saved);
+        this.alertesGateway.broadcastAlert(saved);
+
+        if (niveau === AlerteNiveau.CRITIQUE) {
+          await this.notifyCriticalAlert(saved);
+        }
+      }
+    }
+
+    // Résolution automatique des alertes cycloniques actives dont le cyclone n'est plus menaçant ou n'est plus actif
+    const activeCycloneAlerts = await this.alertesRepository.find({
+      where: {
+        type: AlerteType.CYCLONE,
+        status: AlerteStatus.ACTIVE,
+      },
+    });
+
+    for (const alert of activeCycloneAlerts) {
+      if (alert.gdacsEventId && !activeAlertedGdacsIds.has(alert.gdacsEventId)) {
+        alert.status = AlerteStatus.RESOLUE;
+        alert.resolvedAt = new Date();
+        const saved = await this.alertesRepository.save(alert);
+        resolved.push(saved);
+        this.alertesGateway.broadcastAlert(saved);
+      }
+    }
+
+    if (created.length > 0 || updated.length > 0 || resolved.length > 0) {
+      this.logger.log(
+        `[AlertesService] Traitement alertes cycloniques terminé : ${created.length} créée(s), ${updated.length} mise(s) à jour, ${resolved.length} résolue(s).`,
+      );
+    }
   }
 }

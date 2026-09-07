@@ -82,6 +82,10 @@ export class Alerte {
   @Column({ name: 'resolved_at', type: 'timestamptz', nullable: true })
   resolvedAt?: Date;
 
+  @Column({ name: 'gdacs_event_id', type: 'varchar', length: 100, nullable: true })
+  @Index()
+  gdacsEventId?: string | null;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;
 
