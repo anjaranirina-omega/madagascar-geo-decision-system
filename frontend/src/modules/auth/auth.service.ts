@@ -55,6 +55,14 @@ export const authService = {
     return response.data;
   },
 
+  async refreshToken(refreshToken: string) {
+    const response = await api.post<{
+      accessToken: string;
+      refreshToken: string;
+    }>('/auth/refresh', { refreshToken });
+    return response.data;
+  },
+
   async logout() {
     try {
       await api.post('/auth/logout');
