@@ -20,7 +20,7 @@ import json
 import logging
 import os
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -410,7 +410,11 @@ def run_demo_sample() -> Tuple[List[Dict[str, Any]], int]:
     return [demo_cyclone], 1
 
 
-def sync_to_backend(cyclones: List[Dict[str, Any]], total_global: int) -> Optional[Dict[str, Any]]:
+def sync_to_backend(
+    cyclones: List[Dict[str, Any]],
+    total_global: int,
+    token: Optional[str] = None,
+) -> Optional[Dict[str, Any]]:
     """
     Transmet les cyclones actifs vers l'API backend pour enregistrement en base de données.
     Allège préalablement les structures GeoJSON pour optimiser le transfert réseau.
@@ -436,21 +440,22 @@ def sync_to_backend(cyclones: List[Dict[str, Any]], total_global: int) -> Option
 
     payload = {
         "cyclones": cyclones_payload,
-        "fetchedAt": datetime.utcnow().isoformat(),
+        "fetchedAt": datetime.now(timezone.utc).isoformat(),
         "totalGlobal": total_global,
     }
 
     logger.info(f"Envoi des données vers le backend : POST {url} ({len(cyclones_payload)} cyclone(s))...")
 
+    token_to_use = token or os.getenv("BACKEND_API_TOKEN") or os.getenv("JWT_TOKEN") or API_TOKEN
     headers = {"Content-Type": "application/json"}
-    if API_TOKEN:
-        headers["Authorization"] = f"Bearer {API_TOKEN}"
+    if token_to_use:
+        headers["Authorization"] = f"Bearer {token_to_use}"
 
     try:
         response = requests.post(url, json=payload, headers=headers, timeout=30)
         if response.status_code >= 400:
             logger.error(f"Erreur API Backend HTTP {response.status_code} : {response.text[:500]}")
-            return None
+            raise RuntimeError(f"Échec synchronisation Backend HTTP {response.status_code}: {response.text[:200]}")
 
         data = response.json()
         logger.info(
@@ -461,7 +466,7 @@ def sync_to_backend(cyclones: List[Dict[str, Any]], total_global: int) -> Option
         return data
     except requests.exceptions.RequestException as err:
         logger.warning(f"Impossible de joindre le backend API ({url}) : {err}")
-        return None
+        raise
 
 
 def display_results(cyclones: List[Dict[str, Any]], total_global: int, filter_swio: bool):
@@ -469,7 +474,7 @@ def display_results(cyclones: List[Dict[str, Any]], total_global: int, filter_sw
     print("\n" + "=" * 76)
     print(" 🌀 GDACS REAL-TIME TROPICAL CYCLONE MONITORING - MADAGASCAR")
     print("=" * 76)
-    print(f" Date d'exécution : {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC")
+    print(f" Date d'exécution : {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')} UTC")
     print(f" Source des données: GDACS (Global Disaster Alert and Coordination System - UE/ONU)")
     print(f" API Backend cible: {API_BASE_URL}/meteo/active-cyclones/sync")
     print(f" Cyclones tropicaux actifs à l'échelle mondiale : {total_global}")
@@ -528,6 +533,12 @@ def main():
         help="Désactive l'envoi HTTP vers le backend (affichage console uniquement).",
     )
     parser.add_argument(
+        "--token",
+        type=str,
+        default=None,
+        help="Jeton JWT d'authentification Bearer pour l'API Backend.",
+    )
+    parser.add_argument(
         "--json",
         action="store_true",
         help="Exporte le résultat au format JSON brut sur stdout.",
@@ -558,6 +569,12 @@ def main():
 
     if args.json:
         print(json.dumps(cyclones, indent=2, ensure_ascii=False))
+    else:
+        display_results(cyclones, total_global, filter_swio=filter_swio)
+
+    # Synchronisation vers l'API Backend
+    if not args.no_sync:
+        sync_to_backend(cyclones, total_global, token=args.token)
     else:
         display_results(cyclones, total_global, filter_swio=filter_swio)
 

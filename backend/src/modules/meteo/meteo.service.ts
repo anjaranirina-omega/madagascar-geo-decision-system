@@ -606,6 +606,11 @@ export class MeteoService {
     const etlDir = this.getEtlDir();
     const script = 'raster/risks/cyclone/fetch_active_cyclones.py';
 
+    const token =
+      userToken ||
+      process.env.BACKEND_API_TOKEN ||
+      process.env.JWT_TOKEN;
+
     const args = [script];
     if (options?.demo) {
       args.push('--demo');
@@ -613,16 +618,14 @@ export class MeteoService {
     if (options?.allBasins) {
       args.push('--all-basins');
     }
+    if (token) {
+      args.push('--token', token);
+    }
 
     const startedAt = Date.now();
     this.logger.log(
-      `[TriggerGdacsSync] Démarrage synchronisation GDACS : ${pythonBin} ${args.join(' ')}`,
+      `[TriggerGdacsSync] Démarrage synchronisation GDACS : ${pythonBin} ${args.filter(a => a !== token).join(' ')}`,
     );
-
-    const token =
-      userToken ||
-      process.env.BACKEND_API_TOKEN ||
-      process.env.JWT_TOKEN;
 
     try {
       const { stdout, stderr } = await execFileAsync(pythonBin, args, {

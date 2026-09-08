@@ -64,10 +64,10 @@ export class MeteoController {
   /**
    * Endpoint de synchronisation ETL des cyclones actifs (GDACS).
    * Utilisé par etl/raster/risks/cyclone/fetch_active_cyclones.py.
-   * Protégé par JWT et restreint aux rôles ADMIN et ANALYSTE.
+   * Protégé par JWT et accessible aux rôles ADMIN, ANALYSTE et DECIDEUR.
    */
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ADMIN', 'ANALYSTE')
+  @Roles('ADMIN', 'ANALYSTE', 'DECIDEUR')
   @Post('active-cyclones/sync')
   syncActiveCyclones(@Body() dto: SyncActiveCyclonesDto) {
     return this.meteoService.syncActiveCyclones(dto);
