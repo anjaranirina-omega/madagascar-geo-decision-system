@@ -575,12 +575,6 @@ def main():
     # Synchronisation vers l'API Backend
     if not args.no_sync:
         sync_to_backend(cyclones, total_global, token=args.token)
-    else:
-        display_results(cyclones, total_global, filter_swio=filter_swio)
-
-    # Synchronisation vers l'API Backend
-    if not args.no_sync:
-        sync_to_backend(cyclones, total_global)
 
 
 if __name__ == "__main__":
