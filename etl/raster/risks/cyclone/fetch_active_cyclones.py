@@ -226,25 +226,54 @@ def fetch_cyclones_live(
 ) -> Tuple[List[Dict[str, Any]], int]:
     """
     Interroge l'API GDACS en direct pour récupérer les cyclones actifs.
+    Utilise 'gdacs-api' si disponible, ou une requête HTTP directe vers le flux JSON officiel GDACS.
     """
+    client = None
+    use_fallback_requests = False
+
     try:
-        from gdacs.api import GDACSAPIError, GDACSAPIReader
+        from gdacs.api import GDACSAPIReader
+        client = GDACSAPIReader()
+        logger.info("Connexion au service GDACS via le client 'gdacs-api'...")
     except ImportError:
-        logger.error(
-            "La bibliothèque 'gdacs-api' n'est pas installée. Exécutez : pip install gdacs-api"
+        logger.warning(
+            "La bibliothèque 'gdacs-api' n'est pas installée. Utilisation du repli HTTP direct vers l'API GDACS."
         )
-        sys.exit(1)
+        use_fallback_requests = True
 
-    logger.info("Connexion au service GDACS (Global Disaster Alert and Coordination System)...")
-    client = GDACSAPIReader()
+    features: List[Dict[str, Any]] = []
 
-    try:
-        events_collection = client.latest_events(event_type="TC")
-    except Exception as err:
-        logger.error(f"Erreur lors de la récupération des cyclones sur l'API GDACS: {err}")
-        raise
+    if client and not use_fallback_requests:
+        try:
+            events_collection = client.latest_events(event_type="TC")
+            raw_features = getattr(events_collection, "features", [])
+            if not raw_features and isinstance(events_collection, dict):
+                raw_features = events_collection.get("features", [])
+            features = raw_features
+        except Exception as err:
+            logger.warning(f"Erreur client gdacs-api ({err}). Tentative via le repli HTTP direct...")
+            use_fallback_requests = True
 
-    features = getattr(events_collection, "features", [])
+    if use_fallback_requests:
+        url = "https://www.gdacs.org/gdacsapi/api/events/geteventlist/EVENTS4APP"
+        logger.info(f"Interrogation directe de l'API GDACS : GET {url}...")
+        try:
+            resp = requests.get(url, timeout=30)
+            if resp.status_code == 200:
+                data = resp.json()
+                all_events = data.get("features", [])
+                features = [
+                    e
+                    for e in all_events
+                    if str(e.get("properties", {}).get("eventtype", "")).upper() == "TC"
+                ]
+            else:
+                logger.error(f"API GDACS HTTP {resp.status_code}: {resp.text[:300]}")
+                raise RuntimeError(f"API GDACS HTTP {resp.status_code}")
+        except Exception as net_err:
+            logger.error(f"Erreur lors de la requête HTTP directe vers GDACS: {net_err}")
+            raise
+
     total_global_tc = len(features)
     logger.info(f"Événements cycloniques mondiaux actifs identifiés par GDACS : {total_global_tc}")
 
@@ -283,14 +312,24 @@ def fetch_cyclones_live(
 
         if event_id:
             try:
-                logger.info(f"Récupération de la trajectoire détaillée pour le cyclone {name} (ID: {event_id})...")
-                detailed_geojson = client.get_event(
-                    event_type="TC",
-                    event_id=event_id,
-                    episode_id=episode_id if episode_id else None,
-                    source_format="geojson",
-                )
-                detailed_stats = analyze_detailed_track(detailed_geojson)
+                if client and not use_fallback_requests:
+                    logger.info(f"Récupération de la trajectoire détaillée pour le cyclone {name} (ID: {event_id})...")
+                    detailed_geojson = client.get_event(
+                        event_type="TC",
+                        event_id=event_id,
+                        episode_id=episode_id if episode_id else None,
+                        source_format="geojson",
+                    )
+                else:
+                    file_name = f"geojson_{event_id}_{episode_id}.geojson" if episode_id else f"geojson_{event_id}.geojson"
+                    detail_url = f"https://www.gdacs.org/datareport/resources/TC/{event_id}/{file_name}"
+                    logger.info(f"Téléchargement direct de la trajectoire GeoJSON : GET {detail_url}...")
+                    d_resp = requests.get(detail_url, timeout=20)
+                    if d_resp.status_code == 200:
+                        detailed_geojson = d_resp.json()
+
+                if detailed_geojson:
+                    detailed_stats = analyze_detailed_track(detailed_geojson)
             except Exception as detail_err:
                 logger.warning(
                     f"Impossible de récupérer la géométrie détaillée pour {name} (ID {event_id}): {detail_err}"
