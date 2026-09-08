@@ -41,4 +41,15 @@ export const cyclonesService = {
     const response = await api.get<ActiveCyclone>(`/meteo/active-cyclones/${id}`);
     return response.data;
   },
+
+  async syncGdacs(options?: { demo?: boolean; allBasins?: boolean }): Promise<{
+    message: string;
+    status: string;
+    durationMs: number;
+    activeCount: number;
+    activeCyclones: ActiveCyclone[];
+  }> {
+    const response = await api.post('/meteo/active-cyclones/trigger-sync', options ?? {});
+    return response.data;
+  },
 };

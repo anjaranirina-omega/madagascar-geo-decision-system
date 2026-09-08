@@ -1,19 +1,25 @@
 import {
   BadRequestException,
   Injectable,
-  ServiceUnavailableException,
   InternalServerErrorException,
   Logger,
   NotFoundException,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectRepository } from '@nestjs/typeorm';
+import { execFile } from 'child_process';
+import { existsSync } from 'fs';
+import { join, resolve } from 'path';
 import { DataSource, Repository } from 'typeorm';
+import { promisify } from 'util';
 import { DataSourcesService } from '../data-sources/data-sources.service';
 import { DataSourceCode } from '../data-sources/entities/data-source-status.entity';
 import { SyncActiveCyclonesDto } from './dto/sync-active-cyclones.dto';
 import { ActiveCyclone } from './entities/active-cyclone.entity';
 import { WeatherObservation } from './entities/weather-observation.entity';
+
+const execFileAsync = promisify(execFile);
 
 type OpenWeatherResponse = {
   coord: {
@@ -566,5 +572,107 @@ export class MeteoService {
     }
 
     return cyclone;
+  }
+
+  private getProjectRoot() {
+    return resolve(process.cwd(), '..');
+  }
+
+  private getEtlDir() {
+    return join(this.getProjectRoot(), 'etl');
+  }
+
+  private getPythonBin() {
+    const etlDir = this.getEtlDir();
+    const venvPython = join(etlDir, '.venv', 'bin', 'python');
+
+    return process.env.PYTHON_BIN ?? (existsSync(venvPython) ? venvPython : 'python3');
+  }
+
+  private getBackendApiUrl() {
+    const backendPort = process.env.BACKEND_PORT ?? 3001;
+    return process.env.BACKEND_API_URL ?? `http://localhost:${backendPort}/api`;
+  }
+
+  /**
+   * Exécute le script Python ETL GDACS pour récupérer les cyclones actifs en temps réel
+   * ou charger le jeu de données démo.
+   */
+  async triggerGdacsSync(
+    options?: { demo?: boolean; allBasins?: boolean },
+    userToken?: string,
+  ) {
+    const pythonBin = this.getPythonBin();
+    const etlDir = this.getEtlDir();
+    const script = 'raster/risks/cyclone/fetch_active_cyclones.py';
+
+    const args = [script];
+    if (options?.demo) {
+      args.push('--demo');
+    }
+    if (options?.allBasins) {
+      args.push('--all-basins');
+    }
+
+    const startedAt = Date.now();
+    this.logger.log(
+      `[TriggerGdacsSync] Démarrage synchronisation GDACS : ${pythonBin} ${args.join(' ')}`,
+    );
+
+    const token =
+      userToken ||
+      process.env.BACKEND_API_TOKEN ||
+      process.env.JWT_TOKEN;
+
+    try {
+      const { stdout, stderr } = await execFileAsync(pythonBin, args, {
+        cwd: etlDir,
+        env: {
+          ...process.env,
+          PYTHONPATH: etlDir,
+          BACKEND_API_URL: this.getBackendApiUrl(),
+          BACKEND_API_TOKEN: token,
+          JWT_TOKEN: token,
+        },
+        timeout: 120 * 1000,
+        maxBuffer: 1024 * 1024 * 10,
+      });
+
+      const durationMs = Date.now() - startedAt;
+      this.logger.log(`[TriggerGdacsSync] Synchronisation GDACS terminée en ${durationMs}ms`);
+
+      if (stderr?.trim()) {
+        this.logger.warn(`[TriggerGdacsSync STDERR] : ${stderr.slice(0, 2000)}`);
+      }
+
+      if (stdout?.trim()) {
+        this.logger.log(`[TriggerGdacsSync STDOUT] : ${stdout.slice(-1000)}`);
+      }
+
+      const activeCyclones = await this.findActiveCyclones();
+
+      return {
+        message: options?.demo
+          ? 'Simulation cyclone démo synchronisée avec succès.'
+          : 'Synchronisation GDACS en temps réel effectuée avec succès.',
+        status: 'SUCCESS',
+        durationMs,
+        activeCount: activeCyclones.length,
+        activeCyclones,
+      };
+    } catch (error) {
+      const durationMs = Date.now() - startedAt;
+      this.logger.error(
+        '[TriggerGdacsSync] Échec de l’exécution du script GDACS',
+        error instanceof Error ? error.stack : String(error),
+      );
+
+      throw new InternalServerErrorException({
+        message: 'Échec de la synchronisation GDACS.',
+        status: 'FAILED',
+        durationMs,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
   }
 }

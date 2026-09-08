@@ -5,6 +5,7 @@ import {
   Param,
   Post,
   Query,
+  Req,
   UseGuards,
 } from '@nestjs/common';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -41,6 +42,26 @@ export class MeteoController {
   }
 
   /**
+   * Déclenchement à la demande de l'ETL GDACS (depuis le bouton frontend).
+   * Exécute le script Python, interroge GDACS, met à jour la base et émet l'événement d'alerte.
+   * Accessible aux rôles ADMIN, ANALYSTE et DECIDEUR.
+   */
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN', 'ANALYSTE', 'DECIDEUR')
+  @Post('active-cyclones/trigger-sync')
+  triggerGdacsSync(
+    @Req() req: any,
+    @Body() body?: { demo?: boolean; allBasins?: boolean },
+  ) {
+    const authHeader = req.headers?.authorization;
+    const userToken = authHeader
+      ? String(authHeader).replace(/^Bearer\s+/i, '')
+      : undefined;
+
+    return this.meteoService.triggerGdacsSync(body, userToken);
+  }
+
+  /**
    * Endpoint de synchronisation ETL des cyclones actifs (GDACS).
    * Utilisé par etl/raster/risks/cyclone/fetch_active_cyclones.py.
    * Protégé par JWT et restreint aux rôles ADMIN et ANALYSTE.
@@ -72,4 +93,5 @@ export class MeteoController {
     return this.meteoService.findActiveCycloneById(id);
   }
 }
+
 

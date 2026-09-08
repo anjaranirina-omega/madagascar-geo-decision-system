@@ -8,9 +8,11 @@ import {
   Minus,
   Move,
   Plus,
+  RefreshCw,
   RotateCcw,
   Search,
   Shield,
+  Sparkles,
   Waves,
   Zap,
   Users,
@@ -282,6 +284,8 @@ export default function MapView() {
   const [showBoundaries, setShowBoundaries] = useState(true);
   const [showActiveCyclones, setShowActiveCyclones] = useState(true);
   const [activeCyclones, setActiveCyclones] = useState<ActiveCyclone[]>([]);
+  const [cycloneSyncing, setCycloneSyncing] = useState(false);
+  const [cycloneSyncFeedback, setCycloneSyncFeedback] = useState<string | null>(null);
   const [showReferencePoint, setShowReferencePoint] = useState(true);
   const [boundaryLevel, setBoundaryLevel] = useState<BoundaryLevel>('regions');
   const [georaster, setGeoraster] = useState<any | null>(null);
@@ -524,30 +528,53 @@ export default function MapView() {
     };
   }, [activeRiskLayerType]);
 
+  const loadCyclones = useCallback(async () => {
+    try {
+      const data = await cyclonesService.getActiveCyclones();
+      setActiveCyclones(data ?? []);
+    } catch (err) {
+      console.warn('[MapView] Impossible de charger les cyclones actifs:', err);
+    }
+  }, []);
+
   useEffect(() => {
-    let cancelled = false;
-
-    const loadCyclones = async () => {
-      try {
-        const data = await cyclonesService.getActiveCyclones();
-        if (!cancelled) {
-          setActiveCyclones(data ?? []);
-        }
-      } catch (err) {
-        console.warn('[MapView] Impossible de charger les cyclones actifs:', err);
-      }
-    };
-
     loadCyclones();
 
     // Rafraîchissement automatique toutes les 10 minutes (600_000 ms)
     const interval = window.setInterval(loadCyclones, 600_000);
 
     return () => {
-      cancelled = true;
       window.clearInterval(interval);
     };
-  }, []);
+  }, [loadCyclones]);
+
+  const handleSyncGdacs = async (demo = false) => {
+    setCycloneSyncing(true);
+    setCycloneSyncFeedback(null);
+    try {
+      const res = await cyclonesService.syncGdacs({ demo });
+      await loadCyclones();
+      setShowActiveCyclones(true);
+      const count = res.activeCount ?? 0;
+      setCycloneSyncFeedback(
+        count > 0
+          ? `${res.message} (${count} cyclone(s) actif(s))`
+          : `${res.message} (0 cyclone actif)`
+      );
+    } catch (err: any) {
+      console.error('[MapView] Erreur sync GDACS:', err);
+      const msg =
+        err?.response?.data?.message ||
+        err?.message ||
+        'Échec de la synchronisation GDACS';
+      setCycloneSyncFeedback(`Erreur : ${msg}`);
+    } finally {
+      setCycloneSyncing(false);
+      window.setTimeout(() => {
+        setCycloneSyncFeedback((prev) => (prev ? null : prev));
+      }, 7000);
+    }
+  };
 
   const updateRiskFromMarkerPosition = useCallback(
     (lat: number, lng: number) => {
@@ -764,6 +791,52 @@ export default function MapView() {
                 />
               }
             />
+
+            {showActiveCyclones && (
+              <div className="mt-1 mb-2 flex flex-col gap-2 rounded-xl border border-purple-200 bg-purple-50/70 p-2.5 dark:border-purple-900/60 dark:bg-purple-950/30">
+                <div className="flex items-center justify-between text-xs font-bold text-purple-900 dark:text-purple-200">
+                  <span className="flex items-center gap-1.5">
+                    <Zap size={14} className="text-purple-600 dark:text-purple-400" />
+                    Synchronisation GDACS
+                  </span>
+                  {cycloneSyncing && (
+                    <span className="flex items-center gap-1 text-[11px] font-semibold text-purple-600 dark:text-purple-400">
+                      <RefreshCw size={11} className="animate-spin" /> En cours...
+                    </span>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-2 gap-1.5">
+                  <button
+                    type="button"
+                    disabled={cycloneSyncing}
+                    onClick={() => handleSyncGdacs(false)}
+                    className="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg bg-purple-600 px-2 text-xs font-bold text-white shadow-sm transition hover:bg-purple-700 disabled:cursor-not-allowed disabled:opacity-50"
+                    title="Interroge l'API officielle GDACS pour récupérer les cyclones actifs en direct"
+                  >
+                    <RefreshCw size={12} className={cycloneSyncing ? 'animate-spin' : ''} />
+                    Direct (API)
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={cycloneSyncing}
+                    onClick={() => handleSyncGdacs(true)}
+                    className="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg border border-purple-300 bg-white px-2 text-xs font-bold text-purple-700 shadow-sm transition hover:bg-purple-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-purple-800 dark:bg-slate-900 dark:text-purple-300"
+                    title="Charge un cyclone de simulation (mode démo) pour tester la carte et les alertes"
+                  >
+                    <Sparkles size={12} className="text-amber-500" />
+                    Cyclone Démo
+                  </button>
+                </div>
+
+                {cycloneSyncFeedback && (
+                  <div className="rounded-lg border border-purple-200/80 bg-white/90 px-2 py-1.5 text-[11px] font-medium leading-snug text-slate-800 shadow-xs dark:border-purple-800/80 dark:bg-slate-900/90 dark:text-slate-200">
+                    {cycloneSyncFeedback}
+                  </div>
+                )}
+              </div>
+            )}
 
             <div className="rounded-2xl border border-slate-200 p-3 dark:border-slate-800">
               <div className="mb-3 text-sm font-extrabold text-slate-700 dark:text-slate-200">
