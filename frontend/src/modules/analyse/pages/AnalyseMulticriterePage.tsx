@@ -26,6 +26,7 @@ import {
 } from '../services/ahp.service';
 import {
   CriteriaWeight,
+  RiskCriterionCode,
   RiskModelPart,
   RiskModelWeight,
   SpecificRiskType,
@@ -34,7 +35,7 @@ import {
 
 type AnalyseTab = 'global' | 'specific' | 'ahp' | 'methodology';
 
-type AhpPresetKey = 'FLOOD' | 'DROUGHT' | 'CYCLONE' | 'LANDSLIDE';
+type AhpPresetKey = 'GLOBAL' | 'FLOOD' | 'DROUGHT' | 'CYCLONE' | 'LANDSLIDE';
 
 const AHP_TO_DB_CRITERIA_MAP: Record<
   SpecificRiskType,
@@ -70,6 +71,17 @@ const ahpPresets: Record<
     matrix: number[][];
   }
 > = {
+  GLOBAL: {
+    name: 'Risque Global Composite (4 piliers)',
+    criteria: ['precipitations', 'pente', 'population', 'occupation_sol'],
+    labels: ['Climat & Pluie (CHIRPS)', 'Pente & Relief (DEM)', 'Densité Population (WorldPop)', 'Occupation du sol (WorldCover)'],
+    matrix: [
+      [1, 2, 2, 3],
+      [1 / 2, 1, 1, 2],
+      [1 / 2, 1, 1, 2],
+      [1 / 3, 1 / 2, 1 / 2, 1],
+    ],
+  },
   FLOOD: {
     name: 'Aléa Inondation (3 critères)',
     criteria: ['precipitations', 'pente', 'proximite_cours_eau'],
@@ -240,64 +252,110 @@ export default function AnalyseMulticriterePage() {
     setSuccess('');
 
     try {
-      // 1. Récupérer les poids actuels de la base pour cet aléa
-      const currentWeights = await risquesService.findRiskModelWeights(ahpPreset);
+      if (ahpPreset === 'GLOBAL') {
+        const globalMapping: Record<string, RiskCriterionCode> = {
+          precipitations: 'RAINFALL',
+          pente: 'SLOPE',
+          population: 'POPULATION',
+          occupation_sol: 'LANDCOVER',
+        };
 
-      const mapping = AHP_TO_DB_CRITERIA_MAP[ahpPreset];
-      if (!mapping) {
-        throw new Error(`Aucun mapping de critères configuré pour ${ahpPreset}`);
-      }
+        const currentGlobalWeights = weights.length ? weights : await risquesService.findWeights();
 
-      // 2. Mettre à jour les critères de la partie HAZARD avec les poids AHP calculés
-      const updatedList = currentWeights.map((item) => {
-        const ahpKey = Object.keys(mapping).find(
-          (k) => mapping[k].part === item.modelPart && mapping[k].criterion === item.criterion,
+        const rawGlobalList = currentGlobalWeights.map((item) => {
+          const ahpKey = Object.keys(globalMapping).find(
+            (k) => globalMapping[k] === item.criterionCode,
+          );
+          const val =
+            ahpKey && ahpResult.weights[ahpKey] !== undefined
+              ? Number(Number(ahpResult.weights[ahpKey]).toFixed(4))
+              : item.weight;
+          return {
+            criterionCode: item.criterionCode,
+            weight: val,
+          };
+        });
+
+        const sumG = rawGlobalList.reduce((acc, it) => acc + it.weight, 0);
+        const normalizedGlobal = rawGlobalList.map((it) => ({
+          criterionCode: it.criterionCode,
+          weight: Number((it.weight / (sumG || 1)).toFixed(4)),
+        }));
+
+        const updatedGlobal = await risquesService.updateWeights({
+          weights: normalizedGlobal,
+        });
+        setWeights(updatedGlobal);
+
+        setSuccess(
+          '✓ Poids du Risque Global enregistrés. Recalcul du raster global (risk_index.tif) en cours...',
         );
 
-        if (ahpKey && ahpResult.weights[ahpKey] !== undefined) {
+        await risquesService.recalculateRaster().catch(() => {});
+
+        setSuccess(
+          '✓ Modèle Risque Global et raster risk_index.tif recalculés avec succès !',
+        );
+      } else {
+        // 1. Récupérer les poids actuels de la base pour cet aléa
+        const currentWeights = await risquesService.findRiskModelWeights(ahpPreset);
+
+        const mapping = AHP_TO_DB_CRITERIA_MAP[ahpPreset];
+        if (!mapping) {
+          throw new Error(`Aucun mapping de critères configuré pour ${ahpPreset}`);
+        }
+
+        // 2. Mettre à jour les critères de la partie HAZARD avec les poids AHP calculés
+        const updatedList = currentWeights.map((item) => {
+          const ahpKey = Object.keys(mapping).find(
+            (k) => mapping[k].part === item.modelPart && mapping[k].criterion === item.criterion,
+          );
+
+          if (ahpKey && ahpResult.weights[ahpKey] !== undefined) {
+            return {
+              modelPart: item.modelPart,
+              criterion: item.criterion,
+              weight: Number(Number(ahpResult.weights[ahpKey]).toFixed(4)),
+            };
+          }
+
           return {
             modelPart: item.modelPart,
             criterion: item.criterion,
-            weight: Number(Number(ahpResult.weights[ahpKey]).toFixed(4)),
+            weight: Number(Number(item.weight).toFixed(4)),
           };
-        }
+        });
 
-        return {
-          modelPart: item.modelPart,
-          criterion: item.criterion,
-          weight: Number(Number(item.weight).toFixed(4)),
-        };
-      });
+        // 3. Normaliser la partie HAZARD pour garantir que la somme vaut exactement 1.0
+        const hazardTotal = updatedList
+          .filter((w) => w.modelPart === 'HAZARD')
+          .reduce((sum, w) => sum + w.weight, 0);
 
-      // 3. Normaliser la partie HAZARD pour garantir que la somme vaut exactement 1.0
-      const hazardTotal = updatedList
-        .filter((w) => w.modelPart === 'HAZARD')
-        .reduce((sum, w) => sum + w.weight, 0);
+        const normalizedList = updatedList.map((w) => {
+          if (w.modelPart === 'HAZARD' && hazardTotal > 0) {
+            return {
+              ...w,
+              weight: Number((w.weight / hazardTotal).toFixed(4)),
+            };
+          }
+          return w;
+        });
 
-      const normalizedList = updatedList.map((w) => {
-        if (w.modelPart === 'HAZARD' && hazardTotal > 0) {
-          return {
-            ...w,
-            weight: Number((w.weight / hazardTotal).toFixed(4)),
-          };
-        }
-        return w;
-      });
+        // 4. Sauvegarder en base de données PostgreSQL
+        const savedWeights = await risquesService.updateRiskModelWeights({
+          riskType: ahpPreset,
+          weights: normalizedList,
+        });
 
-      // 4. Sauvegarder en base de données PostgreSQL
-      const savedWeights = await risquesService.updateRiskModelWeights({
-        riskType: ahpPreset,
-        weights: normalizedList,
-      });
+        // 5. Mettre à jour l'état local du modèle spécifique
+        setModelWeights(savedWeights);
+        setSpecificRiskType(ahpPreset);
 
-      // 5. Mettre à jour l'état local du modèle spécifique
-      setModelWeights(savedWeights);
-      setSpecificRiskType(ahpPreset);
-
-      const modelName = ahpPresets[ahpPreset]?.name || ahpPreset;
-      setSuccess(
-        `✓ Poids AHP appliqués avec succès au modèle « ${modelName} » et enregistrés pour l'ETL !`,
-      );
+        const modelName = ahpPresets[ahpPreset]?.name || ahpPreset;
+        setSuccess(
+          `✓ Poids AHP appliqués avec succès au modèle « ${modelName} » et enregistrés pour l'ETL !`,
+        );
+      }
     } catch (err: any) {
       console.error("Erreur d'application des poids AHP :", err);
       setError(
@@ -907,8 +965,8 @@ export default function AnalyseMulticriterePage() {
               <div className="mb-2 text-xs font-black uppercase tracking-wider text-slate-400">
                 Choisir un modèle de risque
               </div>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                {(['FLOOD', 'DROUGHT', 'CYCLONE', 'LANDSLIDE'] as AhpPresetKey[]).map((key) => {
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+                {(['GLOBAL', 'FLOOD', 'DROUGHT', 'CYCLONE', 'LANDSLIDE'] as AhpPresetKey[]).map((key) => {
                   const preset = ahpPresets[key];
                   const active = ahpPreset === key;
                   return (
@@ -1146,10 +1204,14 @@ export default function AnalyseMulticriterePage() {
                   <div className="space-y-1">
                     <h4 className="text-base font-black text-slate-900 dark:text-white flex items-center gap-2">
                       <Database size={18} className="text-purple-600" />
-                      Appliquer au modèle de risque ETL & Modèles spécifiques
+                      {ahpPreset === 'GLOBAL'
+                        ? 'Appliquer au Risque Global (risk_index.tif)'
+                        : 'Appliquer au modèle de risque ETL & Modèles spécifiques'}
                     </h4>
                     <p className="text-xs text-slate-500 dark:text-slate-400 max-w-2xl">
-                      Enregistre directement ces poids de Saaty dans la base de données PostgreSQL (<code className="font-mono text-purple-700 dark:text-purple-300">risk_model_weights</code>). Ils alimenteront les calculs rasters du pipeline ETL et mettront à jour vos curseurs dans l’onglet « Modèles spécifiques ».
+                      {ahpPreset === 'GLOBAL'
+                        ? 'Enregistre les 4 piliers synthétiques (Climat, Pente, Population, Sol) et recalcule immédiatement le raster global composite utilisé sur la Carte des risques.'
+                        : 'Enregistre directement ces poids de Saaty dans la base de données PostgreSQL (risk_model_weights). Ils alimenteront les calculs rasters du pipeline ETL et mettront à jour vos curseurs dans l’onglet « Modèles spécifiques ».'}
                     </p>
                   </div>
 
@@ -1157,12 +1219,20 @@ export default function AnalyseMulticriterePage() {
                     <button
                       type="button"
                       onClick={() => {
-                        setSpecificRiskType(ahpPreset);
-                        setActiveTab('specific');
+                        if (ahpPreset === 'GLOBAL') {
+                          setActiveTab('global');
+                        } else {
+                          setSpecificRiskType(ahpPreset);
+                          setActiveTab('specific');
+                        }
                       }}
                       className="inline-flex h-11 items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 text-xs font-bold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200"
                     >
-                      <span>Voir Modèles spécifiques</span>
+                      <span>
+                        {ahpPreset === 'GLOBAL'
+                          ? 'Voir onglet Risque global'
+                          : 'Voir Modèles spécifiques'}
+                      </span>
                       <ArrowRight size={14} />
                     </button>
 
@@ -1180,6 +1250,8 @@ export default function AnalyseMulticriterePage() {
                       <span>
                         {applyingToEtl
                           ? 'Enregistrement en cours...'
+                          : ahpPreset === 'GLOBAL'
+                          ? 'Appliquer au Risque Global (risk_index.tif)'
                           : `Appliquer au modèle ${ahpPresets[ahpPreset]?.name.split(' ')[1] || ''}`}
                       </span>
                     </button>
