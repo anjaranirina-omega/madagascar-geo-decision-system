@@ -8,7 +8,6 @@ const ROLES: AppRole[] = ['ADMIN', 'ANALYSTE', 'DECIDEUR', 'AGENT_TERRAIN'];
 const MODULE_DEFINITIONS = [
   { key: 'dashboard', label: 'Tableau de bord', desc: 'KPIs, météo, alertes globales, séries temporelles' },
   { key: 'carte', label: 'Carte interactive & SIG', desc: 'Visualisation raster, couches vectorielles, point-and-click' },
-  { key: 'terrain', label: 'Module Terrain', desc: 'Saisie terrain, suivi des missions, alertes opérationnelles' },
   { key: 'analyse', label: 'Analyse multicritère & SOLAP', desc: 'Pondération AHP, cohérence Saaty, cube DWH' },
   { key: 'alertes', label: 'Gestion des alertes', desc: 'Déclenchement, seuils de criticité, notifications temps réel' },
   { key: 'donnees', label: 'Gestion des données', desc: 'Import raster/vectoriel, sources GDACS, CHIRPS, DEM' },

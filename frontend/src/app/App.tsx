@@ -23,7 +23,6 @@ const AnalyseHistoriquePage = React.lazy(() => import('../modules/analyse/pages/
 const AlertesPage = React.lazy(() => import('../modules/alertes/pages/AlertesPage'));
 const DonneesPage = React.lazy(() => import('../modules/donnees/pages/DonneesPage'));
 const RapportsPage = React.lazy(() => import('../modules/rapports/pages/RapportsPage'));
-const TerrainPage = React.lazy(() => import('../modules/terrain/pages/TerrainPage'));
 const ParametresPage = React.lazy(() => import('../modules/parametres/pages/ParametresPage'));
 const UsersPage = React.lazy(() => import('../modules/administration/pages/UsersPage'));
 const AccountRequestsPage = React.lazy(() => import('../modules/administration/pages/AccountRequestsPage'));
@@ -69,10 +68,6 @@ export default function App() {
 
               <Route element={<RoleRoute allowedRoles={PAGE_ACCESS.alertes} />}>
                 <Route path="/alertes" element={<AlertesPage />} />
-              </Route>
-
-              <Route element={<RoleRoute allowedRoles={PAGE_ACCESS.terrain ?? ['ADMIN', 'AGENT_TERRAIN', 'ANALYSTE', 'DECIDEUR']} />}>
-                <Route path="/terrain" element={<TerrainPage />} />
               </Route>
 
               <Route element={<RoleRoute allowedRoles={PAGE_ACCESS.donnees} />}>
