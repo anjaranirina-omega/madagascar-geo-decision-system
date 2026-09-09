@@ -996,19 +996,41 @@ export default function AnalyseMulticriterePage() {
                 Réinitialiser la matrice
               </button>
 
-              <button
-                type="button"
-                onClick={runAhpCalculation}
-                disabled={ahpLoading}
-                className="inline-flex h-11 items-center gap-2 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 px-6 text-sm font-extrabold text-white shadow-md shadow-purple-950/20 transition hover:scale-[1.01] disabled:opacity-60"
-              >
-                {ahpLoading ? (
-                  <RefreshCw size={17} className="animate-spin" />
-                ) : (
-                  <Activity size={17} />
+              <div className="flex items-center gap-2.5">
+                {ahpResult && (
+                  <button
+                    type="button"
+                    onClick={applyAhpWeightsToEtlModel}
+                    disabled={applyingToEtl}
+                    className="inline-flex h-11 items-center gap-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 px-5 text-sm font-extrabold text-white shadow-md shadow-emerald-950/20 transition hover:scale-[1.01] disabled:opacity-60"
+                  >
+                    {applyingToEtl ? (
+                      <RefreshCw size={16} className="animate-spin" />
+                    ) : (
+                      <CheckCircle2 size={16} />
+                    )}
+                    <span>
+                      {applyingToEtl
+                        ? 'Enregistrement...'
+                        : `Appliquer au modèle ETL`}
+                    </span>
+                  </button>
                 )}
-                <span>Calculer les poids AHP</span>
-              </button>
+
+                <button
+                  type="button"
+                  onClick={runAhpCalculation}
+                  disabled={ahpLoading}
+                  className="inline-flex h-11 items-center gap-2 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 px-6 text-sm font-extrabold text-white shadow-md shadow-purple-950/20 transition hover:scale-[1.01] disabled:opacity-60"
+                >
+                  {ahpLoading ? (
+                    <RefreshCw size={17} className="animate-spin" />
+                  ) : (
+                    <Activity size={17} />
+                  )}
+                  <span>Calculer les poids AHP</span>
+                </button>
+              </div>
             </div>
           </div>
 
@@ -1016,13 +1038,33 @@ export default function AnalyseMulticriterePage() {
             <>
               <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
                 <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-soft dark:border-slate-800 dark:bg-slate-900">
-                  <div className="mb-4 flex items-center justify-between">
-                    <h4 className="font-black text-slate-900 dark:text-white">
-                      Vecteur des poids calculés (w)
-                    </h4>
-                    <span className="text-xs font-bold text-purple-600 dark:text-purple-400">
-                      Source : {ahpResult.engine === 'fastapi' ? 'Microservice FastAPI' : 'Moteur interne Saaty'}
-                    </span>
+                  <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                      <h4 className="font-black text-slate-900 dark:text-white">
+                        Vecteur des poids calculés (w)
+                      </h4>
+                      <span className="text-xs font-bold text-purple-600 dark:text-purple-400">
+                        Source : {ahpResult.engine === 'fastapi' ? 'Microservice FastAPI' : 'Moteur interne Saaty'}
+                      </span>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={applyAhpWeightsToEtlModel}
+                      disabled={applyingToEtl}
+                      className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 px-3.5 text-xs font-black text-white shadow-sm shadow-emerald-950/20 transition hover:scale-[1.02] disabled:opacity-60"
+                    >
+                      {applyingToEtl ? (
+                        <RefreshCw size={13} className="animate-spin" />
+                      ) : (
+                        <CheckCircle2 size={13} />
+                      )}
+                      <span>
+                        {applyingToEtl
+                          ? 'Application...'
+                          : `Appliquer au modèle ETL`}
+                      </span>
+                    </button>
                   </div>
 
                   <div className="space-y-4">
