@@ -10,6 +10,7 @@ export const ROLE_LABELS: Record<AppRole, string> = {
 export const PAGE_ACCESS = {
   dashboard: ['ADMIN', 'ANALYSTE', 'DECIDEUR'],
   carte: ['ADMIN', 'ANALYSTE', 'DECIDEUR', 'AGENT_TERRAIN'],
+  terrain: ['ADMIN', 'ANALYSTE', 'DECIDEUR', 'AGENT_TERRAIN'],
   analyse: ['ADMIN', 'ANALYSTE'],
   alertes: ['ADMIN', 'ANALYSTE', 'DECIDEUR', 'AGENT_TERRAIN'],
   donnees: ['ADMIN', 'ANALYSTE'],
