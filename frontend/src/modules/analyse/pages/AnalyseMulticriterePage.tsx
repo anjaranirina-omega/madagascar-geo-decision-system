@@ -1,8 +1,10 @@
 import {
   Activity,
   AlertTriangle,
+  ArrowRight,
   CheckCircle2,
   Cpu,
+  Database,
   Droplets,
   HelpCircle,
   RefreshCw,
@@ -34,6 +36,31 @@ type AnalyseTab = 'global' | 'specific' | 'ahp' | 'methodology';
 
 type AhpPresetKey = 'FLOOD' | 'DROUGHT' | 'CYCLONE' | 'LANDSLIDE';
 
+const AHP_TO_DB_CRITERIA_MAP: Record<
+  SpecificRiskType,
+  Record<string, { part: RiskModelPart; criterion: string }>
+> = {
+  FLOOD: {
+    precipitations: { part: 'HAZARD', criterion: 'rainfall' },
+    pente: { part: 'HAZARD', criterion: 'inverse_slope' },
+    proximite_cours_eau: { part: 'HAZARD', criterion: 'river_proximity' },
+  },
+  DROUGHT: {
+    precipitations: { part: 'HAZARD', criterion: 'rainfall_deficit' },
+    temperature: { part: 'HAZARD', criterion: 'temperature_stress' },
+    occupation_sol: { part: 'HAZARD', criterion: 'landcover_sensitivity' },
+  },
+  LANDSLIDE: {
+    pente: { part: 'HAZARD', criterion: 'slope' },
+    precipitations: { part: 'HAZARD', criterion: 'rainfall' },
+    occupation_sol: { part: 'HAZARD', criterion: 'landcover_sensitivity' },
+  },
+  CYCLONE: {
+    vent: { part: 'HAZARD', criterion: 'track_hazard' },
+    precipitations: { part: 'HAZARD', criterion: 'rainfall' },
+  },
+};
+
 const ahpPresets: Record<
   AhpPresetKey,
   {
@@ -44,46 +71,42 @@ const ahpPresets: Record<
   }
 > = {
   FLOOD: {
-    name: 'Aléa Inondation (4 critères)',
-    criteria: ['precipitations', 'pente', 'proximite_cours_eau', 'occupation_sol'],
-    labels: ['Précipitations (CHIRPS)', 'Pente inversée', 'Proximité rivière', 'Occupation du sol'],
+    name: 'Aléa Inondation (3 critères)',
+    criteria: ['precipitations', 'pente', 'proximite_cours_eau'],
+    labels: ['Précipitations (CHIRPS)', 'Pente inversée (DEM)', 'Proximité rivière (HydroRIVERS)'],
     matrix: [
-      [1, 3, 2, 4],
-      [1 / 3, 1, 1 / 2, 2],
-      [1 / 2, 2, 1, 3],
-      [1 / 4, 1 / 2, 1 / 3, 1],
+      [1, 2, 2],
+      [1 / 2, 1, 1],
+      [1 / 2, 1, 1],
     ],
   },
   DROUGHT: {
     name: 'Aléa Sécheresse (3 critères)',
     criteria: ['precipitations', 'temperature', 'occupation_sol'],
-    labels: ['Déficit pluviométrique', 'Température', 'Sensibilité du sol'],
+    labels: ['Déficit pluviométrique', 'Stress thermique (NASA POWER)', 'Sensibilité occupation du sol'],
     matrix: [
-      [1, 3, 4],
-      [1 / 3, 1, 2],
-      [1 / 4, 1 / 2, 1],
+      [1, 2, 3],
+      [1 / 2, 1, 2],
+      [1 / 3, 1 / 2, 1],
     ],
   },
   CYCLONE: {
-    name: 'Risque Cyclonique (4 critères)',
-    criteria: ['vent', 'precipitations', 'densite_population', 'infrastructures_critiques'],
-    labels: ['Intensité du vent', 'Pluie cyclonique', 'Densité population', 'Infrastructures'],
+    name: 'Aléa Cyclonique (2 critères)',
+    criteria: ['vent', 'precipitations'],
+    labels: ['Aléa historique / Trajectoire IBTrACS', 'Pluie cyclonique (CHIRPS)'],
     matrix: [
-      [1, 2, 3, 4],
-      [1 / 2, 1, 2, 3],
-      [1 / 3, 1 / 2, 1, 2],
-      [1 / 4, 1 / 3, 1 / 2, 1],
+      [1, 3],
+      [1 / 3, 1],
     ],
   },
   LANDSLIDE: {
-    name: 'Glissement de terrain (4 critères)',
-    criteria: ['pente', 'precipitations', 'occupation_sol', 'infrastructures_critiques'],
-    labels: ['Pente (DEM)', 'Précipitations CHIRPS', 'Occupation du sol', 'Infrastructures exposées'],
+    name: 'Glissement de terrain (3 critères)',
+    criteria: ['pente', 'precipitations', 'occupation_sol'],
+    labels: ['Pente topographique (DEM)', 'Précipitations (CHIRPS)', 'Sensibilité du sol (WorldCover)'],
     matrix: [
-      [1, 2, 3, 5],
-      [1 / 2, 1, 2, 4],
-      [1 / 3, 1 / 2, 1, 2],
-      [1 / 5, 1 / 4, 1 / 2, 1],
+      [1, 2, 3],
+      [1 / 2, 1, 2],
+      [1 / 3, 1 / 2, 1],
     ],
   },
 };
@@ -207,6 +230,84 @@ export default function AnalyseMulticriterePage() {
     engineStatus?: string;
     engineUrl?: string;
   } | null>(null);
+  const [applyingToEtl, setApplyingToEtl] = useState(false);
+
+  const applyAhpWeightsToEtlModel = async () => {
+    if (!ahpResult) return;
+
+    setApplyingToEtl(true);
+    setError('');
+    setSuccess('');
+
+    try {
+      // 1. Récupérer les poids actuels de la base pour cet aléa
+      const currentWeights = await risquesService.findRiskModelWeights(ahpPreset);
+
+      const mapping = AHP_TO_DB_CRITERIA_MAP[ahpPreset];
+      if (!mapping) {
+        throw new Error(`Aucun mapping de critères configuré pour ${ahpPreset}`);
+      }
+
+      // 2. Mettre à jour les critères de la partie HAZARD avec les poids AHP calculés
+      const updatedList = currentWeights.map((item) => {
+        const ahpKey = Object.keys(mapping).find(
+          (k) => mapping[k].part === item.modelPart && mapping[k].criterion === item.criterion,
+        );
+
+        if (ahpKey && ahpResult.weights[ahpKey] !== undefined) {
+          return {
+            modelPart: item.modelPart,
+            criterion: item.criterion,
+            weight: Number(Number(ahpResult.weights[ahpKey]).toFixed(4)),
+          };
+        }
+
+        return {
+          modelPart: item.modelPart,
+          criterion: item.criterion,
+          weight: Number(Number(item.weight).toFixed(4)),
+        };
+      });
+
+      // 3. Normaliser la partie HAZARD pour garantir que la somme vaut exactement 1.0
+      const hazardTotal = updatedList
+        .filter((w) => w.modelPart === 'HAZARD')
+        .reduce((sum, w) => sum + w.weight, 0);
+
+      const normalizedList = updatedList.map((w) => {
+        if (w.modelPart === 'HAZARD' && hazardTotal > 0) {
+          return {
+            ...w,
+            weight: Number((w.weight / hazardTotal).toFixed(4)),
+          };
+        }
+        return w;
+      });
+
+      // 4. Sauvegarder en base de données PostgreSQL
+      const savedWeights = await risquesService.updateRiskModelWeights({
+        riskType: ahpPreset,
+        weights: normalizedList,
+      });
+
+      // 5. Mettre à jour l'état local du modèle spécifique
+      setModelWeights(savedWeights);
+      setSpecificRiskType(ahpPreset);
+
+      const modelName = ahpPresets[ahpPreset]?.name || ahpPreset;
+      setSuccess(
+        `✓ Poids AHP appliqués avec succès au modèle « ${modelName} » et enregistrés pour l'ETL !`,
+      );
+    } catch (err: any) {
+      console.error("Erreur d'application des poids AHP :", err);
+      setError(
+        err?.response?.data?.message ||
+          "Impossible d'appliquer et d'enregistrer les poids AHP vers le modèle spécifique.",
+      );
+    } finally {
+      setApplyingToEtl(false);
+    }
+  };
 
   const applyAhpPreset = (presetKey: AhpPresetKey) => {
     setAhpPreset(presetKey);
@@ -895,95 +996,186 @@ export default function AnalyseMulticriterePage() {
                 Réinitialiser la matrice
               </button>
 
-              <button
-                type="button"
-                onClick={runAhpCalculation}
-                disabled={ahpLoading}
-                className="inline-flex h-11 items-center gap-2 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 px-6 text-sm font-extrabold text-white shadow-md shadow-purple-950/20 transition hover:scale-[1.01] disabled:opacity-60"
-              >
-                {ahpLoading ? (
-                  <RefreshCw size={17} className="animate-spin" />
-                ) : (
-                  <Activity size={17} />
+              <div className="flex items-center gap-2.5">
+                {ahpResult && (
+                  <button
+                    type="button"
+                    onClick={applyAhpWeightsToEtlModel}
+                    disabled={applyingToEtl}
+                    className="inline-flex h-11 items-center gap-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 px-5 text-sm font-extrabold text-white shadow-md shadow-emerald-950/20 transition hover:scale-[1.01] disabled:opacity-60"
+                  >
+                    {applyingToEtl ? (
+                      <RefreshCw size={16} className="animate-spin" />
+                    ) : (
+                      <CheckCircle2 size={16} />
+                    )}
+                    <span>
+                      {applyingToEtl
+                        ? 'Enregistrement...'
+                        : `Appliquer au modèle ETL`}
+                    </span>
+                  </button>
                 )}
-                <span>Calculer les poids AHP</span>
-              </button>
+
+                <button
+                  type="button"
+                  onClick={runAhpCalculation}
+                  disabled={ahpLoading}
+                  className="inline-flex h-11 items-center gap-2 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 px-6 text-sm font-extrabold text-white shadow-md shadow-purple-950/20 transition hover:scale-[1.01] disabled:opacity-60"
+                >
+                  {ahpLoading ? (
+                    <RefreshCw size={17} className="animate-spin" />
+                  ) : (
+                    <Activity size={17} />
+                  )}
+                  <span>Calculer les poids AHP</span>
+                </button>
+              </div>
             </div>
           </div>
 
           {ahpResult && (
-            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-              <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-soft dark:border-slate-800 dark:bg-slate-900">
-                <div className="mb-4 flex items-center justify-between">
-                  <h4 className="font-black text-slate-900 dark:text-white">
-                    Vecteur des poids calculés (w)
-                  </h4>
-                  <span className="text-xs font-bold text-purple-600 dark:text-purple-400">
-                    Source : {ahpResult.engine === 'fastapi' ? 'Microservice FastAPI' : 'Moteur interne Saaty'}
-                  </span>
-                </div>
-
-                <div className="space-y-4">
-                  {ahpCriteria.map((code, idx) => {
-                    const w = ahpResult.weights[code] ?? 0;
-                    const pct = (w * 100).toFixed(1);
-                    return (
-                      <div key={code} className="space-y-1">
-                        <div className="flex justify-between text-xs font-bold">
-                          <span className="text-slate-700 dark:text-slate-200">{ahpLabels[idx]}</span>
-                          <span className="text-purple-600 dark:text-purple-400 font-black">{pct}% ({w.toFixed(4)})</span>
-                        </div>
-                        <div className="h-2.5 w-full rounded-full bg-slate-100 overflow-hidden dark:bg-slate-800">
-                          <div
-                            className="h-full rounded-full bg-gradient-to-r from-purple-500 to-indigo-500 transition-all duration-500"
-                            style={{ width: `${pct}%` }}
-                          />
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-soft dark:border-slate-800 dark:bg-slate-900 flex flex-col justify-between">
-                <div>
-                  <h4 className="font-black text-slate-900 dark:text-white mb-4">
-                    Vérification de la cohérence de Saaty
-                  </h4>
-
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 dark:bg-slate-950">
-                      <span className="text-xs font-bold text-slate-500">Ratio de cohérence (CR) :</span>
-                      <span className={[
-                        'inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black',
-                        ahpResult.isConsistent
-                          ? 'bg-green-100 text-green-800 dark:bg-green-950/50 dark:text-green-300'
-                          : 'bg-red-100 text-red-800 dark:bg-red-950/50 dark:text-red-300'
-                      ].join(' ')}>
-                        {ahpResult.isConsistent ? <CheckCircle2 size={14} /> : <XCircle size={14} />}
-                        {(ahpResult.consistencyRatio * 100).toFixed(2)}% {ahpResult.isConsistent ? '(Cohérent < 10%)' : '(Incohérent ≥ 10%)'}
+            <>
+              <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+                <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-soft dark:border-slate-800 dark:bg-slate-900">
+                  <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                      <h4 className="font-black text-slate-900 dark:text-white">
+                        Vecteur des poids calculés (w)
+                      </h4>
+                      <span className="text-xs font-bold text-purple-600 dark:text-purple-400">
+                        Source : {ahpResult.engine === 'fastapi' ? 'Microservice FastAPI' : 'Moteur interne Saaty'}
                       </span>
                     </div>
 
-                    <div className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 dark:bg-slate-950 text-xs">
-                      <span className="font-bold text-slate-500">Valeur propre maximale (λ max) :</span>
-                      <span className="font-black text-slate-900 dark:text-white">{ahpResult.lambdaMax}</span>
-                    </div>
+                    <button
+                      type="button"
+                      onClick={applyAhpWeightsToEtlModel}
+                      disabled={applyingToEtl}
+                      className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 px-3.5 text-xs font-black text-white shadow-sm shadow-emerald-950/20 transition hover:scale-[1.02] disabled:opacity-60"
+                    >
+                      {applyingToEtl ? (
+                        <RefreshCw size={13} className="animate-spin" />
+                      ) : (
+                        <CheckCircle2 size={13} />
+                      )}
+                      <span>
+                        {applyingToEtl
+                          ? 'Application...'
+                          : `Appliquer au modèle ETL`}
+                      </span>
+                    </button>
+                  </div>
 
-                    <div className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 dark:bg-slate-950 text-xs">
-                      <span className="font-bold text-slate-500">Indice de cohérence (CI) :</span>
-                      <span className="font-black text-slate-900 dark:text-white">{ahpResult.consistencyIndex}</span>
-                    </div>
+                  <div className="space-y-4">
+                    {ahpCriteria.map((code, idx) => {
+                      const w = ahpResult.weights[code] ?? 0;
+                      const pct = (w * 100).toFixed(1);
+                      return (
+                        <div key={code} className="space-y-1">
+                          <div className="flex justify-between text-xs font-bold">
+                            <span className="text-slate-700 dark:text-slate-200">{ahpLabels[idx]}</span>
+                            <span className="text-purple-600 dark:text-purple-400 font-black">{pct}% ({w.toFixed(4)})</span>
+                          </div>
+                          <div className="h-2.5 w-full rounded-full bg-slate-100 overflow-hidden dark:bg-slate-800">
+                            <div
+                              className="h-full rounded-full bg-gradient-to-r from-purple-500 to-indigo-500 transition-all duration-500"
+                              style={{ width: `${pct}%` }}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
 
-                <div className="mt-4 p-3 rounded-2xl bg-purple-50/70 border border-purple-200/80 text-xs leading-5 text-purple-900 dark:bg-purple-950/30 dark:border-purple-900/60 dark:text-purple-200">
-                  {ahpResult.isConsistent
-                    ? '✓ La matrice de comparaison respecte le seuil de cohérence de Saaty (CR < 0.10). Ces poids peuvent être utilisés pour la décision spatiale.'
-                    : '⚠ La matrice présente des jugements contradictoires (CR ≥ 0.10). Veuillez réajuster les comparaisons par paires.'}
+                <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-soft dark:border-slate-800 dark:bg-slate-900 flex flex-col justify-between">
+                  <div>
+                    <h4 className="font-black text-slate-900 dark:text-white mb-4">
+                      Vérification de la cohérence de Saaty
+                    </h4>
+
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 dark:bg-slate-950">
+                        <span className="text-xs font-bold text-slate-500">Ratio de cohérence (CR) :</span>
+                        <span className={[
+                          'inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black',
+                          ahpResult.isConsistent
+                            ? 'bg-green-100 text-green-800 dark:bg-green-950/50 dark:text-green-300'
+                            : 'bg-red-100 text-red-800 dark:bg-red-950/50 dark:text-red-300'
+                        ].join(' ')}>
+                          {ahpResult.isConsistent ? <CheckCircle2 size={14} /> : <XCircle size={14} />}
+                          {(ahpResult.consistencyRatio * 100).toFixed(2)}% {ahpResult.isConsistent ? '(Cohérent < 10%)' : '(Incohérent ≥ 10%)'}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 dark:bg-slate-950 text-xs">
+                        <span className="font-bold text-slate-500">Valeur propre maximale (λ max) :</span>
+                        <span className="font-black text-slate-900 dark:text-white">{ahpResult.lambdaMax}</span>
+                      </div>
+
+                      <div className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 dark:bg-slate-950 text-xs">
+                        <span className="font-bold text-slate-500">Indice de cohérence (CI) :</span>
+                        <span className="font-black text-slate-900 dark:text-white">{ahpResult.consistencyIndex}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 p-3 rounded-2xl bg-purple-50/70 border border-purple-200/80 text-xs leading-5 text-purple-900 dark:bg-purple-950/30 dark:border-purple-900/60 dark:text-purple-200">
+                    {ahpResult.isConsistent
+                      ? '✓ La matrice de comparaison respecte le seuil de cohérence de Saaty (CR < 0.10). Ces poids peuvent être utilisés pour la décision spatiale.'
+                      : '⚠ La matrice présente des jugements contradictoires (CR ≥ 0.10). Veuillez réajuster les comparaisons par paires.'}
+                  </div>
                 </div>
               </div>
-            </div>
+
+              {/* Action : Appliquer les poids AHP au modèle et à l'ETL */}
+              <div className="rounded-3xl border border-purple-200/80 bg-gradient-to-r from-purple-50/70 via-white to-indigo-50/70 p-6 shadow-soft dark:border-purple-900/40 dark:bg-slate-900">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="space-y-1">
+                    <h4 className="text-base font-black text-slate-900 dark:text-white flex items-center gap-2">
+                      <Database size={18} className="text-purple-600" />
+                      Appliquer au modèle de risque ETL & Modèles spécifiques
+                    </h4>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 max-w-2xl">
+                      Enregistre directement ces poids de Saaty dans la base de données PostgreSQL (<code className="font-mono text-purple-700 dark:text-purple-300">risk_model_weights</code>). Ils alimenteront les calculs rasters du pipeline ETL et mettront à jour vos curseurs dans l’onglet « Modèles spécifiques ».
+                    </p>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSpecificRiskType(ahpPreset);
+                        setActiveTab('specific');
+                      }}
+                      className="inline-flex h-11 items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 text-xs font-bold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200"
+                    >
+                      <span>Voir Modèles spécifiques</span>
+                      <ArrowRight size={14} />
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={applyAhpWeightsToEtlModel}
+                      disabled={applyingToEtl}
+                      className="inline-flex h-11 items-center gap-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 px-6 text-xs font-extrabold text-white shadow-md shadow-emerald-950/20 transition hover:scale-[1.01] disabled:opacity-60"
+                    >
+                      {applyingToEtl ? (
+                        <RefreshCw size={15} className="animate-spin" />
+                      ) : (
+                        <CheckCircle2 size={15} />
+                      )}
+                      <span>
+                        {applyingToEtl
+                          ? 'Enregistrement en cours...'
+                          : `Appliquer au modèle ${ahpPresets[ahpPreset]?.name.split(' ')[1] || ''}`}
+                      </span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </>
           )}
         </div>
       )}
