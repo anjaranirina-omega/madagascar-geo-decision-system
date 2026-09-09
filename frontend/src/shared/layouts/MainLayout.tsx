@@ -96,10 +96,55 @@ function formatDateTime(date: Date) {
 }
 
 
+function AvatarDisplay({
+  avatarUrl,
+  firstName,
+  lastName,
+  sizeClass = 'h-10 w-10 sm:h-12 sm:w-12',
+  ringClass = 'ring-2 ring-slate-200 dark:ring-slate-700',
+}: {
+  avatarUrl?: string | null;
+  firstName?: string;
+  lastName?: string;
+  sizeClass?: string;
+  ringClass?: string;
+}) {
+  const [imgError, setImgError] = useState(false);
+  const initials =
+    `${firstName?.[0] ?? ''}${lastName?.[0] ?? ''}`.toUpperCase().trim() ||
+    firstName?.[0]?.toUpperCase() ||
+    'A';
+
+  useEffect(() => {
+    setImgError(false);
+  }, [avatarUrl]);
+
+  if (avatarUrl && !imgError) {
+    return (
+      <img
+        src={avatarUrl}
+        alt={`${firstName ?? ''} ${lastName ?? ''}`.trim() || 'Utilisateur'}
+        className={`${sizeClass} rounded-full object-cover ${ringClass}`}
+        onError={() => setImgError(true)}
+      />
+    );
+  }
+
+  return (
+    <div
+      className={`flex ${sizeClass} items-center justify-center rounded-full bg-gradient-to-br from-green-500 to-blue-600 font-black text-white shadow-xs`}
+    >
+      {initials}
+    </div>
+  );
+}
+
 export default function MainLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const user = useAppStore((state) => state.user);
+  const setUser = useAppStore((state) => state.setUser);
+  const token = useAppStore((state) => state.token);
   const clearAuth = useAppStore((state) => state.clearAuth);
   const theme = useAppStore((state) => state.theme);
   const toggleTheme = useAppStore((state) => state.toggleTheme);
@@ -107,6 +152,22 @@ export default function MainLayout() {
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+
+  // Synchronisation du profil utilisateur pour s'assurer que avatarUrl et les données sont à jour
+  useEffect(() => {
+    if (token) {
+      authService
+        .profile()
+        .then((profile) => {
+          if (profile) {
+            setUser(profile);
+          }
+        })
+        .catch(() => {
+          // Ignore
+        });
+    }
+  }, [token, setUser]);
 
   const highPriorityAlertsCount = useAlertsNotificationStore(
     (state) => state.highPriorityCount,
@@ -252,13 +313,17 @@ export default function MainLayout() {
 
           <div className="mt-5 border-t border-white/10 pt-5">
             <div className="mb-4 flex items-center gap-3 rounded-2xl bg-white/8 p-3 backdrop-blur">
-              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-amber-100 text-sm font-black text-amber-800">
-                {user?.firstName?.[0] ?? 'A'}
-              </div>
+              <AvatarDisplay
+                avatarUrl={user?.avatarUrl}
+                firstName={user?.firstName}
+                lastName={user?.lastName}
+                sizeClass="h-12 w-12"
+                ringClass="ring-2 ring-white/20"
+              />
 
               <div className={sidebarCollapsed ? "hidden" : "min-w-0 flex-1"}>
                 <div className="truncate text-sm font-extrabold text-white">
-                  {user?.firstName ?? 'Admin'}
+                  {user?.firstName ? `${user.firstName} ${user.lastName ?? ''}`.trim() : 'Admin'}
                 </div>
                 <div className="flex items-center gap-1 text-xs text-green-300">
                   <span className="h-2 w-2 rounded-full bg-green-400" />
@@ -328,13 +393,17 @@ export default function MainLayout() {
                 onClick={() => setUserMenuOpen((value) => !value)}
                 className="flex items-center gap-3 rounded-2xl px-2 py-1 transition hover:bg-slate-100 dark:hover:bg-slate-800"
               >
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-100 font-black text-amber-800 sm:h-12 sm:w-12">
-                  {user?.firstName?.[0] ?? 'A'}
-                </div>
+                <AvatarDisplay
+                  avatarUrl={user?.avatarUrl}
+                  firstName={user?.firstName}
+                  lastName={user?.lastName}
+                  sizeClass="h-10 w-10 sm:h-12 sm:w-12"
+                  ringClass="ring-2 ring-slate-200 dark:ring-slate-700"
+                />
 
-                <div className="hidden text-sm md:block">
+                <div className="hidden text-sm md:block text-left">
                   <div className="font-extrabold text-slate-900 dark:text-white">
-                    {user?.firstName ?? 'Admin'}
+                    {user?.firstName ? `${user.firstName} ${user.lastName ?? ''}`.trim() : 'Admin'}
                   </div>
                   <div className="text-xs text-slate-500 dark:text-slate-400">
                     {user?.role?.name ?? 'Administrateur'}
