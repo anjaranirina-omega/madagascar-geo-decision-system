@@ -26,6 +26,7 @@ import { authService } from '../../modules/auth/auth.service';
 import { useAlertsNotificationStore } from '../../modules/alertes/store/alerts-notification.store';
 import NotificationBellDropdown from '../../modules/alertes/components/NotificationBellDropdown';
 import AlertToastNotification from '../../modules/alertes/components/AlertToastNotification';
+import { disconnectAlertsSocket } from '../../modules/alertes/services/alertes-socket.service';
 import { AppRole, normalizeRole, PAGE_ACCESS } from '../auth/roles';
 
 type MenuItem = {
@@ -208,6 +209,7 @@ export default function MainLayout() {
   };
 
   const handleLogout = async () => {
+    disconnectAlertsSocket();
     await authService.logout();
     clearAuth();
     navigate('/login');

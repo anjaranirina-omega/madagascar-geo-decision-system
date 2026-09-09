@@ -16,9 +16,25 @@ export function getAlertsSocketUrl(): string {
   return 'http://localhost:3001';
 }
 
+export function disconnectAlertsSocket(): void {
+  if (socket) {
+    socket.disconnect();
+    socket = null;
+  }
+}
+
 export function initializeAlertsSocket(onAlertReceived?: AlertListener): () => void {
   if (onAlertReceived) {
     alertListeners.add(onAlertReceived);
+  }
+
+  const token = localStorage.getItem('accessToken');
+  if (!token) {
+    return () => {
+      if (onAlertReceived) {
+        alertListeners.delete(onAlertReceived);
+      }
+    };
   }
 
   if (!socket) {
@@ -26,6 +42,11 @@ export function initializeAlertsSocket(onAlertReceived?: AlertListener): () => v
 
     socket = io(url, {
       transports: ['websocket', 'polling'],
+      auth: (cb) => {
+        cb({
+          token: localStorage.getItem('accessToken') || '',
+        });
+      },
       reconnection: true,
       reconnectionAttempts: 5,
       reconnectionDelay: 2000,
@@ -34,7 +55,7 @@ export function initializeAlertsSocket(onAlertReceived?: AlertListener): () => v
     });
 
     socket.on('connect', () => {
-      // Connected
+      // Connecté et authentifié avec succès
     });
 
     socket.on('alert', (alertData: Alerte) => {
@@ -52,7 +73,7 @@ export function initializeAlertsSocket(onAlertReceived?: AlertListener): () => v
     });
 
     socket.on('connect_error', () => {
-      // Dégradation gracieuse silencieuse vers le polling existant
+      // Dégradation gracieuse silencieuse vers le polling périodique en cas de coupure
     });
   }
 
