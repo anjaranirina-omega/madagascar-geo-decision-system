@@ -8,9 +8,11 @@ import {
   Minus,
   Move,
   Plus,
+  RefreshCw,
   RotateCcw,
   Search,
   Shield,
+  Sparkles,
   Waves,
   Zap,
   Users,
@@ -39,7 +41,9 @@ import type {
 } from '../services/geographie.service';
 import { geographieFrontendService } from '../services/geographie.service';
 import { rasterFrontendService, type RasterLayerMetadata } from '../services/rasters.service';
+import { cyclonesService, type ActiveCyclone } from '../services/cyclones.service';
 import AdminBoundariesLayer from './AdminBoundariesLayer';
+import ActiveCyclonesLayer from './ActiveCyclonesLayer';
 import RasterRiskLayer from './RasterRiskLayer';
 import { meteoService, type CurrentWeather } from '../../meteo/services/meteo.service';
 import RiskClickHandler, { RiskSelection } from './RiskClickHandler';
@@ -278,6 +282,10 @@ export default function MapView() {
   });
 
   const [showBoundaries, setShowBoundaries] = useState(true);
+  const [showActiveCyclones, setShowActiveCyclones] = useState(true);
+  const [activeCyclones, setActiveCyclones] = useState<ActiveCyclone[]>([]);
+  const [cycloneSyncing, setCycloneSyncing] = useState(false);
+  const [cycloneSyncFeedback, setCycloneSyncFeedback] = useState<string | null>(null);
   const [showReferencePoint, setShowReferencePoint] = useState(true);
   const [boundaryLevel, setBoundaryLevel] = useState<BoundaryLevel>('regions');
   const [georaster, setGeoraster] = useState<any | null>(null);
@@ -354,7 +362,7 @@ export default function MapView() {
     ? availableRasterLayers.find((layer) => layer.id === selectedRasterLayerId) ?? null
     : null;
   const selectedRasterLayerLabel = selectedRasterLayer
-    ? formatRasterLayerDate(selectedRasterLayer.updatedAt ?? selectedRasterLayer.createdAt)
+    ? formatRasterLayerDate(selectedRasterLayer.createdAt)
     : 'Dernière version disponible';
   const selectedZoneName =
     locatedZone?.commune?.nom ??
@@ -519,6 +527,54 @@ export default function MapView() {
       cancelled = true;
     };
   }, [activeRiskLayerType]);
+
+  const loadCyclones = useCallback(async () => {
+    try {
+      const data = await cyclonesService.getActiveCyclones();
+      setActiveCyclones(data ?? []);
+    } catch (err) {
+      console.warn('[MapView] Impossible de charger les cyclones actifs:', err);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadCyclones();
+
+    // Rafraîchissement automatique toutes les 10 minutes (600_000 ms)
+    const interval = window.setInterval(loadCyclones, 600_000);
+
+    return () => {
+      window.clearInterval(interval);
+    };
+  }, [loadCyclones]);
+
+  const handleSyncGdacs = async (demo = false) => {
+    setCycloneSyncing(true);
+    setCycloneSyncFeedback(null);
+    try {
+      const res = await cyclonesService.syncGdacs({ demo });
+      await loadCyclones();
+      setShowActiveCyclones(true);
+      const count = res.activeCount ?? 0;
+      setCycloneSyncFeedback(
+        count > 0
+          ? `${res.message} (${count} cyclone(s) actif(s))`
+          : `${res.message} (0 cyclone actif)`
+      );
+    } catch (err: any) {
+      console.error('[MapView] Erreur sync GDACS:', err);
+      const msg =
+        err?.response?.data?.message ||
+        err?.message ||
+        'Échec de la synchronisation GDACS';
+      setCycloneSyncFeedback(`Erreur : ${msg}`);
+    } finally {
+      setCycloneSyncing(false);
+      window.setTimeout(() => {
+        setCycloneSyncFeedback((prev) => (prev ? null : prev));
+      }, 7000);
+    }
+  };
 
   const updateRiskFromMarkerPosition = useCallback(
     (lat: number, lng: number) => {
@@ -715,6 +771,73 @@ export default function MapView() {
               icon={<Layers size={16} />}
             />
 
+            <LayerCheckbox
+              checked={showActiveCyclones}
+              onChange={setShowActiveCyclones}
+              label="Cyclones actifs (GDACS)"
+              subtitle={
+                activeCyclones.length > 0
+                  ? `${activeCyclones.length} cyclone(s) actif(s) en temps réel`
+                  : 'Surveillance temps réel bassin SWIO'
+              }
+              icon={
+                <Zap
+                  size={16}
+                  className={
+                    activeCyclones.length > 0
+                      ? 'text-purple-500 animate-pulse'
+                      : ''
+                  }
+                />
+              }
+            />
+
+            {showActiveCyclones && (
+              <div className="mt-1 mb-2 flex flex-col gap-2 rounded-xl border border-purple-200 bg-purple-50/70 p-2.5 dark:border-purple-900/60 dark:bg-purple-950/30">
+                <div className="flex items-center justify-between text-xs font-bold text-purple-900 dark:text-purple-200">
+                  <span className="flex items-center gap-1.5">
+                    <Zap size={14} className="text-purple-600 dark:text-purple-400" />
+                    Synchronisation GDACS
+                  </span>
+                  {cycloneSyncing && (
+                    <span className="flex items-center gap-1 text-[11px] font-semibold text-purple-600 dark:text-purple-400">
+                      <RefreshCw size={11} className="animate-spin" /> En cours...
+                    </span>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-2 gap-1.5">
+                  <button
+                    type="button"
+                    disabled={cycloneSyncing}
+                    onClick={() => handleSyncGdacs(false)}
+                    className="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg bg-purple-600 px-2 text-xs font-bold text-white shadow-sm transition hover:bg-purple-700 disabled:cursor-not-allowed disabled:opacity-50"
+                    title="Interroge l'API officielle GDACS pour récupérer les cyclones actifs en direct"
+                  >
+                    <RefreshCw size={12} className={cycloneSyncing ? 'animate-spin' : ''} />
+                    Direct (API)
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={cycloneSyncing}
+                    onClick={() => handleSyncGdacs(true)}
+                    className="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg border border-purple-300 bg-white px-2 text-xs font-bold text-purple-700 shadow-sm transition hover:bg-purple-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-purple-800 dark:bg-slate-900 dark:text-purple-300"
+                    title="Charge un cyclone de simulation (mode démo) pour tester la carte et les alertes"
+                  >
+                    <Sparkles size={12} className="text-amber-500" />
+                    Cyclone Démo
+                  </button>
+                </div>
+
+                {cycloneSyncFeedback && (
+                  <div className="rounded-lg border border-purple-200/80 bg-white/90 px-2 py-1.5 text-[11px] font-medium leading-snug text-slate-800 shadow-xs dark:border-purple-800/80 dark:bg-slate-900/90 dark:text-slate-200">
+                    {cycloneSyncFeedback}
+                  </div>
+                )}
+              </div>
+            )}
+
             <div className="rounded-2xl border border-slate-200 p-3 dark:border-slate-800">
               <div className="mb-3 text-sm font-extrabold text-slate-700 dark:text-slate-200">
                 Niveau administratif
@@ -762,6 +885,7 @@ export default function MapView() {
                 landslide: false,
               });
               setShowBoundaries(true);
+              setShowActiveCyclones(true);
               setBoundaryLevel('regions');
               setShowReferencePoint(true);
             }}
@@ -802,6 +926,11 @@ export default function MapView() {
             <AdminBoundariesLayer
               visible={showBoundaries}
               level={boundaryLevel}
+            />
+
+            <ActiveCyclonesLayer
+              cyclones={activeCyclones}
+              visible={showActiveCyclones}
             />
 
             {selectedBoundaryFeature && (
@@ -847,6 +976,24 @@ export default function MapView() {
 
             <MapToolbar />
           </MapContainer>
+
+          {/* Indicateur visuel discret si un ou plusieurs cyclones actifs sont détectés */}
+          {activeCyclones.length > 0 && showActiveCyclones && (
+            <div className="pointer-events-auto absolute left-3 top-3 z-[500] flex items-center gap-2.5 rounded-2xl border border-purple-200/90 bg-white/95 px-3.5 py-2 shadow-xl backdrop-blur transition dark:border-purple-900/60 dark:bg-slate-900/95">
+              <span className="relative flex h-3 w-3">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-purple-400 opacity-75"></span>
+                <span className="relative inline-flex h-3 w-3 rounded-full bg-purple-600"></span>
+              </span>
+              <div className="text-xs font-black text-slate-800 dark:text-slate-100">
+                {activeCyclones.length === 1
+                  ? `1 cyclone actif surveillé : ${activeCyclones[0].name}`
+                  : `${activeCyclones.length} cyclones actifs surveillés (SWIO)`}
+              </div>
+              <span className="rounded-md bg-purple-100 px-1.5 py-0.5 text-[10px] font-bold text-purple-700 dark:bg-purple-950 dark:text-purple-300">
+                GDACS Live
+              </span>
+            </div>
+          )}
 
           <div className="pointer-events-none absolute inset-x-3 bottom-3 z-[500] rounded-2xl border border-slate-200 bg-white/95 p-3 shadow-xl backdrop-blur dark:border-slate-800 dark:bg-slate-950/95 sm:bottom-5 sm:left-1/2 sm:w-[78%] sm:-translate-x-1/2 sm:p-4">
             <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
@@ -1215,7 +1362,7 @@ function RasterVersionSelect({
 
         {layers.map((layer) => (
           <option key={layer.id} value={layer.id}>
-            {formatRasterLayerDate(layer.updatedAt ?? layer.createdAt)} — {layer.name}
+            {formatRasterLayerDate(layer.createdAt)} — {layer.name}{layer.isActive ? ' (Active)' : ''}
           </option>
         ))}
       </select>

@@ -10,6 +10,8 @@ export type AuthUser = {
   email: string;
   firstName: string;
   lastName: string;
+  phone?: string | null;
+  avatarUrl?: string | null;
   role?: {
     id: string;
     name: string;
@@ -52,6 +54,14 @@ export const authService = {
 
   async profile() {
     const response = await api.get<AuthUser>('/auth/profile');
+    return response.data;
+  },
+
+  async refreshToken(refreshToken: string) {
+    const response = await api.post<{
+      accessToken: string;
+      refreshToken: string;
+    }>('/auth/refresh', { refreshToken });
     return response.data;
   },
 

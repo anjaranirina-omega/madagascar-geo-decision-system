@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import {
   AlertTriangle,
   BarChart3,
-  Bell,
   CalendarDays,
   ChevronDown,
   CloudRain,
@@ -24,7 +23,10 @@ import {
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAppStore } from '../../app/store';
 import { authService } from '../../modules/auth/auth.service';
-import { alertesService } from '../../modules/alertes/alertes.service';
+import { useAlertsNotificationStore } from '../../modules/alertes/store/alerts-notification.store';
+import NotificationBellDropdown from '../../modules/alertes/components/NotificationBellDropdown';
+import AlertToastNotification from '../../modules/alertes/components/AlertToastNotification';
+import { disconnectAlertsSocket } from '../../modules/alertes/services/alertes-socket.service';
 import { AppRole, normalizeRole, PAGE_ACCESS } from '../auth/roles';
 
 type MenuItem = {
@@ -51,10 +53,15 @@ const titles: Record<string, string> = {
   '/dashboard': 'Tableau de bord',
   '/carte': 'Carte des risques',
   '/analyse': 'Analyse multicritère',
+  '/analyse/solap': 'Explorateur SOLAP',
+  '/analyse/historique': 'Analyse historique',
   '/alertes': 'Alertes',
   '/donnees': 'Gestion des données',
   '/rapports': 'Rapports',
   '/parametres': 'Paramètres',
+  '/parametres/roles': 'Gestion des rôles & permissions',
+  '/parametres/poids-ahp': 'Paramétrage des poids AHP',
+  '/parametres/api': 'Configuration des clés & API',
   '/utilisateurs': 'Gestion des utilisateurs',
   '/demandes-comptes': 'Demandes de compte',
   '/aide': 'Aide',
@@ -65,10 +72,15 @@ const subtitles: Record<string, string> = {
   '/dashboard': 'Vue d’ensemble des risques climatiques à Madagascar',
   '/carte': 'Visualisation spatiale des risques et couches raster',
   '/analyse': 'Pondération des critères et analyse multicritère',
+  '/analyse/solap': 'Exploration multidimensionnelle du cube spatial et DWH',
+  '/analyse/historique': 'Évolution temporelle et tendances rétrospectives',
   '/alertes': 'Suivi des alertes climatiques et zones critiques',
   '/donnees': 'Sources, imports et qualité des données',
   '/rapports': 'Rapports décisionnels et exports',
   '/parametres': 'Configuration générale de la plateforme',
+  '/parametres/roles': 'Matrice des habilitations et privilèges système',
+  '/parametres/poids-ahp': 'Calibration des matrices de Saaty par défaut',
+  '/parametres/api': 'Intégrations GDACS, NASA POWER, CHIRPS et Copernicus',
   '/utilisateurs': 'Gestion des comptes et rôles',
   '/demandes-comptes': 'Validation des demandes d’accès',
   '/aide': 'Documentation et assistance utilisateur',
@@ -95,10 +107,55 @@ function formatDateTime(date: Date) {
 }
 
 
+function AvatarDisplay({
+  avatarUrl,
+  firstName,
+  lastName,
+  sizeClass = 'h-10 w-10 sm:h-12 sm:w-12',
+  ringClass = 'ring-2 ring-slate-200 dark:ring-slate-700',
+}: {
+  avatarUrl?: string | null;
+  firstName?: string;
+  lastName?: string;
+  sizeClass?: string;
+  ringClass?: string;
+}) {
+  const [imgError, setImgError] = useState(false);
+  const initials =
+    `${firstName?.[0] ?? ''}${lastName?.[0] ?? ''}`.toUpperCase().trim() ||
+    firstName?.[0]?.toUpperCase() ||
+    'A';
+
+  useEffect(() => {
+    setImgError(false);
+  }, [avatarUrl]);
+
+  if (avatarUrl && !imgError) {
+    return (
+      <img
+        src={avatarUrl}
+        alt={`${firstName ?? ''} ${lastName ?? ''}`.trim() || 'Utilisateur'}
+        className={`${sizeClass} rounded-full object-cover ${ringClass}`}
+        onError={() => setImgError(true)}
+      />
+    );
+  }
+
+  return (
+    <div
+      className={`flex ${sizeClass} items-center justify-center rounded-full bg-gradient-to-br from-green-500 to-blue-600 font-black text-white shadow-xs`}
+    >
+      {initials}
+    </div>
+  );
+}
+
 export default function MainLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const user = useAppStore((state) => state.user);
+  const setUser = useAppStore((state) => state.setUser);
+  const token = useAppStore((state) => state.token);
   const clearAuth = useAppStore((state) => state.clearAuth);
   const theme = useAppStore((state) => state.theme);
   const toggleTheme = useAppStore((state) => state.toggleTheme);
@@ -106,7 +163,29 @@ export default function MainLayout() {
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
-  const [activeAlertsCount, setActiveAlertsCount] = useState(0);
+
+  // Synchronisation du profil utilisateur pour s'assurer que avatarUrl et les données sont à jour
+  useEffect(() => {
+    if (token) {
+      authService
+        .profile()
+        .then((profile) => {
+          if (profile) {
+            setUser(profile);
+          }
+        })
+        .catch(() => {
+          // Ignore
+        });
+    }
+  }, [token, setUser]);
+
+  const highPriorityAlertsCount = useAlertsNotificationStore(
+    (state) => state.highPriorityCount,
+  );
+  const criticalAlertsCount = useAlertsNotificationStore(
+    (state) => state.criticalCount,
+  );
 
   useEffect(() => {
     const interval = window.setInterval(() => {
@@ -114,35 +193,6 @@ export default function MainLayout() {
     }, 1000);
 
     return () => window.clearInterval(interval);
-  }, []);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    const loadActiveAlertsCount = async () => {
-      try {
-        const activeAlerts = await alertesService.findActive();
-
-        if (!cancelled) {
-          setActiveAlertsCount(activeAlerts.length);
-        }
-      } catch (error) {
-        console.error('[MainLayout] Impossible de charger le nombre d’alertes actives:', error);
-
-        if (!cancelled) {
-          setActiveAlertsCount(0);
-        }
-      }
-    };
-
-    loadActiveAlertsCount();
-
-    const interval = window.setInterval(loadActiveAlertsCount, 60_000);
-
-    return () => {
-      cancelled = true;
-      window.clearInterval(interval);
-    };
   }, []);
 
   const { formattedDate, formattedTime } = formatDateTime(currentDate);
@@ -169,6 +219,7 @@ export default function MainLayout() {
   };
 
   const handleLogout = async () => {
+    disconnectAlertsSocket();
     await authService.logout();
     clearAuth();
     navigate('/login');
@@ -176,6 +227,8 @@ export default function MainLayout() {
 
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,#eef6ff_0,#f8fafc_38%,#f1f5f9_100%)] dark:bg-[radial-gradient(circle_at_top_left,#0f172a_0,#020617_45%,#000814_100%)]">
+      <AlertToastNotification />
+
       {mobileSidebarOpen && (
         <button
           type="button"
@@ -195,7 +248,7 @@ export default function MainLayout() {
         <div
           className="absolute inset-x-0 bottom-0 h-[42%] bg-cover bg-center opacity-45"
           style={{
-            backgroundImage: 'url("/images/sidebar-risk-bg.png")',
+            backgroundImage: 'url("/images/sidebar-risk-bg.webp")',
           }}
         />
         <div className="absolute inset-0 bg-gradient-to-b from-[#061827] via-[#071b2e]/96 to-[#061827]/86" />
@@ -255,9 +308,14 @@ export default function MainLayout() {
                     {!sidebarCollapsed && <span>{item.label}</span>}
                   </span>
 
-                  {activeAlertsCount > 0 && item.path === '/alertes' && (
-                    <span className="flex h-6 min-w-6 items-center justify-center rounded-full bg-red-500 px-2 text-xs font-black text-white">
-                      {activeAlertsCount}
+                  {highPriorityAlertsCount > 0 && item.path === '/alertes' && (
+                    <span
+                      className={[
+                        'flex h-6 min-w-6 items-center justify-center rounded-full px-2 text-xs font-black text-white shadow-sm',
+                        criticalAlertsCount > 0 ? 'bg-red-500' : 'bg-orange-500',
+                      ].join(' ')}
+                    >
+                      {highPriorityAlertsCount > 99 ? '99+' : highPriorityAlertsCount}
                     </span>
                   )}
                 </NavLink>
@@ -267,13 +325,17 @@ export default function MainLayout() {
 
           <div className="mt-5 border-t border-white/10 pt-5">
             <div className="mb-4 flex items-center gap-3 rounded-2xl bg-white/8 p-3 backdrop-blur">
-              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-amber-100 text-sm font-black text-amber-800">
-                {user?.firstName?.[0] ?? 'A'}
-              </div>
+              <AvatarDisplay
+                avatarUrl={user?.avatarUrl}
+                firstName={user?.firstName}
+                lastName={user?.lastName}
+                sizeClass="h-12 w-12"
+                ringClass="ring-2 ring-white/20"
+              />
 
               <div className={sidebarCollapsed ? "hidden" : "min-w-0 flex-1"}>
                 <div className="truncate text-sm font-extrabold text-white">
-                  {user?.firstName ?? 'Admin'}
+                  {user?.firstName ? `${user.firstName} ${user.lastName ?? ''}`.trim() : 'Admin'}
                 </div>
                 <div className="flex items-center gap-1 text-xs text-green-300">
                   <span className="h-2 w-2 rounded-full bg-green-400" />
@@ -335,20 +397,7 @@ export default function MainLayout() {
               {theme === 'dark' ? <Sun size={23} /> : <Moon size={23} />}
             </button>
 
-            <button
-              type="button"
-              onClick={() => navigate('/alertes')}
-              className="relative rounded-full p-2 text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
-              aria-label="Notifications"
-            >
-              <Bell size={23} />
-
-              {activeAlertsCount > 0 && (
-                <span className="absolute right-1 top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-black text-white">
-                  {activeAlertsCount}
-                </span>
-              )}
-            </button>
+            <NotificationBellDropdown />
 
             <div className="relative">
               <button
@@ -356,13 +405,17 @@ export default function MainLayout() {
                 onClick={() => setUserMenuOpen((value) => !value)}
                 className="flex items-center gap-3 rounded-2xl px-2 py-1 transition hover:bg-slate-100 dark:hover:bg-slate-800"
               >
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-100 font-black text-amber-800 sm:h-12 sm:w-12">
-                  {user?.firstName?.[0] ?? 'A'}
-                </div>
+                <AvatarDisplay
+                  avatarUrl={user?.avatarUrl}
+                  firstName={user?.firstName}
+                  lastName={user?.lastName}
+                  sizeClass="h-10 w-10 sm:h-12 sm:w-12"
+                  ringClass="ring-2 ring-slate-200 dark:ring-slate-700"
+                />
 
-                <div className="hidden text-sm md:block">
+                <div className="hidden text-sm md:block text-left">
                   <div className="font-extrabold text-slate-900 dark:text-white">
-                    {user?.firstName ?? 'Admin'}
+                    {user?.firstName ? `${user.firstName} ${user.lastName ?? ''}`.trim() : 'Admin'}
                   </div>
                   <div className="text-xs text-slate-500 dark:text-slate-400">
                     {user?.role?.name ?? 'Administrateur'}

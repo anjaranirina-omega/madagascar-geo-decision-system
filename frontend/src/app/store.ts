@@ -38,6 +38,9 @@ type AppState = {
   isAuthHydrated: boolean;
   theme: ThemeMode;
   setAuth: (accessToken: string, refreshToken: string, user: AuthUser) => void;
+  setUser: (user: AuthUser) => void;
+  updateUser: (partial: Partial<AuthUser>) => void;
+  setTokens: (accessToken: string, refreshToken?: string) => void;
   clearAuth: () => void;
   hydrateAuth: () => void;
   setTheme: (theme: ThemeMode) => void;
@@ -62,6 +65,30 @@ export const useAppStore = create<AppState>((set, get) => ({
       token: accessToken,
       user,
       isAuthHydrated: true,
+    });
+  },
+
+  setUser: (user) => {
+    localStorage.setItem('authUser', JSON.stringify(user));
+    set({ user });
+  },
+
+  updateUser: (partial) => {
+    const currentUser = get().user;
+    if (!currentUser) return;
+    const updated = { ...currentUser, ...partial };
+    localStorage.setItem('authUser', JSON.stringify(updated));
+    set({ user: updated });
+  },
+
+  setTokens: (accessToken, refreshToken) => {
+    localStorage.setItem('accessToken', accessToken);
+    if (refreshToken) {
+      localStorage.setItem('refreshToken', refreshToken);
+    }
+
+    set({
+      token: accessToken,
     });
   },
 

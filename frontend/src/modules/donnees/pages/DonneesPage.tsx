@@ -6,10 +6,13 @@ import {
   Database,
   PlayCircle,
   RefreshCw,
+  Sparkles,
   WifiOff,
+  Zap,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import Tabs from '../../../shared/components/ui/Tabs';
+import { cyclonesService } from '../../cartographie/services/cyclones.service';
 import {
   ClimateSyncResponse,
   climateFrontendService,
@@ -24,7 +27,7 @@ import {
   etlFrontendService,
 } from '../services/etl.service';
 
-type DonneesTab = 'pipeline' | 'sources' | 'climate' | 'jobs';
+type DonneesTab = 'pipeline' | 'sources' | 'climate' | 'cyclones' | 'jobs';
 
 function extractErrorMessage(error: unknown) {
   const maybeAxiosError = error as {
@@ -119,6 +122,7 @@ export default function DonneesPage() {
 
   const [running, setRunning] = useState(false);
   const [climateSyncing, setClimateSyncing] = useState(false);
+  const [cycloneSyncing, setCycloneSyncing] = useState(false);
 
   const [result, setResult] = useState<EtlRiskPipelineResponse | null>(null);
   const [pipelineJob, setPipelineJob] = useState<EtlPipelineJob | null>(null);
@@ -126,9 +130,15 @@ export default function DonneesPage() {
 
   const [climateResult, setClimateResult] =
     useState<ClimateSyncResponse | null>(null);
+  const [cycloneResult, setCycloneResult] = useState<{
+    message: string;
+    activeCount: number;
+    durationMs: number;
+  } | null>(null);
 
   const [error, setError] = useState('');
   const [climateError, setClimateError] = useState('');
+  const [cycloneError, setCycloneError] = useState('');
 
   const [sources, setSources] = useState<DataSourceItem[]>([]);
   const [sourcesLoading, setSourcesLoading] = useState(false);
@@ -249,6 +259,33 @@ export default function DonneesPage() {
     }
   };
 
+  const syncGdacsCyclones = async (demo = false) => {
+    setCycloneSyncing(true);
+    setCycloneError('');
+    setCycloneResult(null);
+
+    try {
+      const response = await cyclonesService.syncGdacs({ demo });
+      setCycloneResult({
+        message: response.message,
+        activeCount: response.activeCount,
+        durationMs: response.durationMs,
+      });
+      await loadSources();
+    } catch (syncError) {
+      console.error('[DonneesPage] Erreur GDACS Cyclones:', syncError);
+      const message = extractErrorMessage(syncError);
+      setCycloneError(
+        message
+          ? `Impossible de synchroniser GDACS : ${message}`
+          : 'Impossible de synchroniser GDACS.',
+      );
+      await loadSources();
+    } finally {
+      setCycloneSyncing(false);
+    }
+  };
+
   const connectedCount = sources.filter(
     (source) => source.status === 'CONNECTED',
   ).length;
@@ -268,41 +305,72 @@ export default function DonneesPage() {
 
             <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-500 dark:text-slate-400">
               Cette page centralise les sources, la synchronisation climatique,
-              le pipeline raster et les jobs ETL.
+              le suivi des cyclones GDACS et les jobs ETL.
             </p>
           </div>
 
-          <div className="flex flex-col gap-3 sm:flex-row">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end flex-wrap">
+            {/* Bouton 1 : GDACS Cyclones (En direct & Mode Démo) */}
+            <div className="inline-flex items-center rounded-2xl border border-purple-200/90 bg-white p-1 shadow-xs dark:border-purple-900/60 dark:bg-slate-900">
+              <button
+                type="button"
+                onClick={() => syncGdacsCyclones(false)}
+                disabled={cycloneSyncing || climateSyncing || running}
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-purple-50 px-4 text-xs font-black text-purple-700 transition hover:bg-purple-100 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-purple-950/40 dark:text-purple-200 dark:hover:bg-purple-900/60"
+                title="Interroge l'API GDACS en direct pour les cyclones actifs dans l'océan Indien"
+              >
+                {cycloneSyncing ? (
+                  <RefreshCw className="animate-spin text-purple-600 dark:text-purple-400" size={17} />
+                ) : (
+                  <Zap className="text-purple-600 dark:text-purple-400" size={17} />
+                )}
+                <span>{cycloneSyncing ? 'Sync GDACS...' : 'Cyclones GDACS'}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => syncGdacsCyclones(true)}
+                disabled={cycloneSyncing || climateSyncing || running}
+                className="inline-flex h-11 items-center justify-center gap-1.5 rounded-xl px-3 text-xs font-bold text-purple-600 transition hover:bg-purple-50 disabled:cursor-not-allowed disabled:opacity-60 dark:text-purple-300 dark:hover:bg-purple-950/50"
+                title="Charger un cyclone de simulation en mode démo"
+              >
+                <Sparkles className="text-amber-500" size={15} />
+                <span>Démo</span>
+              </button>
+            </div>
+
+            {/* Bouton 2 : NASA POWER Climat */}
             <button
               type="button"
               onClick={syncNasaPower}
-              disabled={climateSyncing || running}
-              className="inline-flex h-12 items-center justify-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-5 text-sm font-extrabold text-blue-700 transition hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-blue-900 dark:bg-blue-950/40 dark:text-blue-200"
+              disabled={climateSyncing || cycloneSyncing || running}
+              className="inline-flex h-[52px] items-center justify-center gap-2 rounded-2xl border border-sky-200/90 bg-white px-5 text-xs font-black text-sky-700 shadow-xs transition hover:bg-sky-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-sky-900/60 dark:bg-slate-900 dark:text-sky-200 dark:hover:bg-sky-950/40"
+              title="Synchronise les relevés climatiques journaliers (NASA POWER)"
             >
               {climateSyncing ? (
-                <RefreshCw className="animate-spin" size={20} />
+                <RefreshCw className="animate-spin text-sky-500" size={17} />
               ) : (
-                <CloudSun size={20} />
+                <CloudSun className="text-sky-500" size={18} />
               )}
-
-              {climateSyncing
-                ? 'NASA POWER en cours...'
-                : 'Synchroniser NASA POWER'}
+              <span>{climateSyncing ? 'Sync Climat...' : 'Climat NASA POWER'}</span>
             </button>
 
+            {/* Bouton 3 : Action Primaire - Pipeline de Risque Complet */}
             <button
               type="button"
               onClick={runPipeline}
-              disabled={running || climateSyncing}
-              className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-green-500 to-blue-600 px-5 text-sm font-extrabold text-white shadow-lg shadow-blue-900/10 transition hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-60"
+              disabled={running || climateSyncing || cycloneSyncing}
+              className="inline-flex h-[52px] items-center justify-center gap-2.5 rounded-2xl bg-gradient-to-r from-emerald-500 via-teal-600 to-blue-600 px-6 text-xs font-black text-white shadow-md shadow-emerald-900/15 transition hover:scale-[1.02] hover:shadow-lg hover:shadow-teal-900/20 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
+              title="Lance le calcul complet des 20 étapes du pipeline de risque matriciel"
             >
               {running ? (
-                <RefreshCw className="animate-spin" size={20} />
+                <RefreshCw className="animate-spin" size={18} />
               ) : (
-                <PlayCircle size={20} />
+                <PlayCircle size={19} className="text-emerald-100" />
               )}
-
-              {running ? 'Pipeline en cours...' : 'Lancer le pipeline de risque'}
+              <span className="tracking-wide">
+                {running ? 'Pipeline en cours...' : 'Lancer le pipeline de risque'}
+              </span>
             </button>
           </div>
         </div>
@@ -325,9 +393,9 @@ export default function DonneesPage() {
           sub={pipelineJob?.id ? `Job ${pipelineJob.id.slice(0, 8)}` : 'prêt'}
         />
         <DataKpiCard
-          label="NASA POWER"
-          value={climateSyncing ? 'SYNC' : 'OK'}
-          sub="climat régional"
+          label="Cyclones GDACS"
+          value={cycloneSyncing ? 'SYNC' : 'TEMPS RÉEL'}
+          sub="bassin océan Indien"
         />
       </div>
 
@@ -338,6 +406,7 @@ export default function DonneesPage() {
           { id: 'pipeline', label: 'Pipeline' },
           { id: 'sources', label: 'Sources', count: sources.length },
           { id: 'climate', label: 'Climat' },
+          { id: 'cyclones', label: 'Cyclones (GDACS)' },
           { id: 'jobs', label: 'Jobs ETL', count: latestJobs.length },
         ]}
       />
@@ -518,6 +587,73 @@ export default function DonneesPage() {
               )}
               {climateSyncing ? 'Synchronisation...' : 'Synchroniser NASA POWER'}
             </button>
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'cyclones' && (
+        <div className="space-y-5">
+          {cycloneError && (
+            <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
+              {cycloneError}
+            </div>
+          )}
+
+          {cycloneResult && (
+            <div className="rounded-3xl border border-purple-200 bg-purple-50 p-6 shadow-soft dark:border-purple-900 dark:bg-purple-950/40">
+              <h3 className="text-xl font-black text-purple-900 dark:text-purple-100">
+                Résultat Synchronisation GDACS
+              </h3>
+
+              <p className="mt-2 text-sm font-semibold text-purple-800 dark:text-purple-200">
+                {cycloneResult.message}
+              </p>
+
+              <div className="mt-3 text-xs text-purple-700 dark:text-purple-300">
+                Cyclones actifs enregistrés : {cycloneResult.activeCount}
+                <br />
+                Durée : {(cycloneResult.durationMs / 1000).toFixed(1)} s
+              </div>
+            </div>
+          )}
+
+          <div className="rounded-3xl border border-slate-200 bg-white p-8 text-center shadow-soft dark:border-slate-800 dark:bg-slate-900">
+            <Zap className="mx-auto mb-3 text-purple-500" size={44} />
+            <div className="font-black text-slate-900 dark:text-white">
+              Veille Cyclonique GDACS en Temps Réel
+            </div>
+            <p className="mx-auto mt-1 max-w-2xl text-sm leading-6 text-slate-500">
+              Interroge le Global Disaster Alert and Coordination System (GDACS, ONU/UE)
+              pour détecter en direct les cyclones actifs dans l’océan Indien Sud-Ouest,
+              tracer leurs trajectoires prévisionnelles sur la carte et déclencher
+              automatiquement les alertes de proximité pour Madagascar.
+            </p>
+
+            <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+              <button
+                type="button"
+                onClick={() => syncGdacsCyclones(false)}
+                disabled={cycloneSyncing || running}
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 px-6 text-sm font-extrabold text-white shadow-md shadow-purple-900/10 transition hover:scale-[1.01] disabled:opacity-60"
+              >
+                {cycloneSyncing ? (
+                  <RefreshCw className="animate-spin" size={18} />
+                ) : (
+                  <RefreshCw size={18} />
+                )}
+                {cycloneSyncing ? 'Synchronisation en cours...' : 'Synchroniser GDACS (En Direct)'}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => syncGdacsCyclones(true)}
+                disabled={cycloneSyncing || running}
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-purple-300 bg-purple-50 px-5 text-sm font-extrabold text-purple-700 transition hover:bg-purple-100 disabled:opacity-60 dark:border-purple-800 dark:bg-purple-950/40 dark:text-purple-300"
+              >
+                <Sparkles size={18} className="text-amber-500" />
+                Charger Cyclone Démo (Simulation)
+              </button>
+            </div>
           </div>
         </div>
       )}

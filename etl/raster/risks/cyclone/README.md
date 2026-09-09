@@ -44,13 +44,18 @@ cyclone_risk = 0.70 × cyclone_hazard + 0.20 × population_norm + 0.10 × landco
 - **3 = Élevé**     (61–80)
 - **4 = Critique**  (81–100)
 
-## Limites
+## Surveillance des cyclones actifs en temps réel (Phase 1)
 
-Ce modèle est un risque cyclonique historique / climatologique.
+Le script `fetch_active_cyclones.py` permet de récupérer en direct les cyclones tropicaux actifs via l'API **GDACS** (Global Disaster Alert and Coordination System) :
 
-Il ne constitue pas encore une prévision temps réel.
-Pour les alertes cycloniques temps réel, il faudra intégrer une source spécialisée, par exemple :
-- Météo-France La Réunion ;
-- JTWC ;
-- GDACS ;
-- autre source opérationnelle cyclonique.
+```bash
+# Exécution standard (bassin Sud-Ouest Océan Indien / Madagascar)
+python etl/raster/risks/cyclone/fetch_active_cyclones.py
+
+# Exécution pour tous les bassins mondiaux
+python etl/raster/risks/cyclone/fetch_active_cyclones.py --all-basins
+
+# Mode démo (simulation locale)
+python etl/raster/risks/cyclone/fetch_active_cyclones.py --demo
+```
+

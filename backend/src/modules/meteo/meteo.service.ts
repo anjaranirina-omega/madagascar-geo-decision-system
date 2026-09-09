@@ -1,15 +1,25 @@
 import {
   BadRequestException,
   Injectable,
-  ServiceUnavailableException,
   InternalServerErrorException,
   Logger,
+  NotFoundException,
+  ServiceUnavailableException,
 } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectRepository } from '@nestjs/typeorm';
+import { execFile } from 'child_process';
+import { existsSync } from 'fs';
+import { join, resolve } from 'path';
 import { DataSource, Repository } from 'typeorm';
+import { promisify } from 'util';
 import { DataSourcesService } from '../data-sources/data-sources.service';
 import { DataSourceCode } from '../data-sources/entities/data-source-status.entity';
+import { SyncActiveCyclonesDto } from './dto/sync-active-cyclones.dto';
+import { ActiveCyclone } from './entities/active-cyclone.entity';
 import { WeatherObservation } from './entities/weather-observation.entity';
+
+const execFileAsync = promisify(execFile);
 
 type OpenWeatherResponse = {
   coord: {
@@ -54,8 +64,11 @@ export class MeteoService {
   constructor(
     @InjectRepository(WeatherObservation)
     private readonly weatherRepository: Repository<WeatherObservation>,
+    @InjectRepository(ActiveCyclone)
+    private readonly activeCycloneRepository: Repository<ActiveCyclone>,
     private readonly dataSource: DataSource,
     private readonly dataSourcesService: DataSourcesService,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   private getOpenWeatherConfig() {
@@ -417,5 +430,252 @@ export class MeteoService {
       `,
       [zoneType],
     );
+  }
+
+  async syncActiveCyclones(dto: SyncActiveCyclonesDto) {
+    const fetchedAt = dto.fetchedAt ? new Date(dto.fetchedAt) : new Date();
+    const cyclonesList = dto.cyclones ?? [];
+
+    return this.dataSource.transaction(async (manager) => {
+      const activeCycloneRepo = manager.getRepository(ActiveCyclone);
+      const savedIds: string[] = [];
+      let createdCount = 0;
+      let updatedCount = 0;
+
+      for (const item of cyclonesList) {
+        let existing: ActiveCyclone | null = null;
+        if (item.gdacsEpisodeId) {
+          existing = await activeCycloneRepo.findOne({
+            where: {
+              gdacsEventId: item.gdacsEventId,
+              gdacsEpisodeId: item.gdacsEpisodeId,
+            },
+          });
+        } else {
+          existing = await activeCycloneRepo.findOne({
+            where: {
+              gdacsEventId: item.gdacsEventId,
+            },
+          });
+        }
+
+        if (existing) {
+          existing.name = item.name;
+          existing.latitude = item.latitude !== undefined ? item.latitude : existing.latitude;
+          existing.longitude = item.longitude !== undefined ? item.longitude : existing.longitude;
+          existing.windSpeed = item.windSpeed !== undefined ? item.windSpeed : existing.windSpeed;
+          existing.severityLevel = item.severityLevel ?? existing.severityLevel;
+          existing.country = item.country !== undefined ? item.country : existing.country;
+          existing.fromDate = item.fromDate ? new Date(item.fromDate) : existing.fromDate;
+          existing.toDate = item.toDate ? new Date(item.toDate) : existing.toDate;
+          if (item.trackGeojson !== undefined) {
+            existing.trackGeojson = item.trackGeojson;
+          }
+          existing.isActive = true;
+          existing.fetchedAt = fetchedAt;
+
+          const saved = await activeCycloneRepo.save(existing);
+          savedIds.push(saved.id);
+          updatedCount++;
+        } else {
+          const newCyclone = activeCycloneRepo.create({
+            gdacsEventId: item.gdacsEventId,
+            gdacsEpisodeId: item.gdacsEpisodeId ?? null,
+            name: item.name,
+            latitude: item.latitude ?? null,
+            longitude: item.longitude ?? null,
+            windSpeed: item.windSpeed ?? null,
+            severityLevel: item.severityLevel,
+            country: item.country ?? null,
+            fromDate: item.fromDate ? new Date(item.fromDate) : null,
+            toDate: item.toDate ? new Date(item.toDate) : null,
+            trackGeojson: item.trackGeojson ?? null,
+            isActive: true,
+            fetchedAt,
+          });
+
+          const saved = await activeCycloneRepo.save(newCyclone);
+          savedIds.push(saved.id);
+          createdCount++;
+        }
+      }
+
+      // Deactivate cyclones that are no longer active in this synchronization batch
+      let deactivatedCount = 0;
+      if (savedIds.length > 0) {
+        const updateResult = await activeCycloneRepo
+          .createQueryBuilder()
+          .update(ActiveCyclone)
+          .set({ isActive: false })
+          .where('isActive = :isActive', { isActive: true })
+          .andWhere('id NOT IN (:...savedIds)', { savedIds })
+          .execute();
+        deactivatedCount = updateResult.affected ?? 0;
+      } else {
+        const updateResult = await activeCycloneRepo
+          .createQueryBuilder()
+          .update(ActiveCyclone)
+          .set({ isActive: false })
+          .where('isActive = :isActive', { isActive: true })
+          .execute();
+        deactivatedCount = updateResult.affected ?? 0;
+      }
+
+      const activeCyclones = await activeCycloneRepo.find({
+        where: { isActive: true },
+        order: { fetchedAt: 'DESC', name: 'ASC' },
+      });
+
+      this.logger.log(
+        `[SyncActiveCyclones] Synchronisation terminée : ${createdCount} créé(s), ${updatedCount} mis à jour, ${deactivatedCount} désactivé(s). Total actifs : ${activeCyclones.length}`,
+      );
+
+      const result = {
+        message: 'Synchronisation des cyclones terminée avec succès.',
+        syncedAt: fetchedAt,
+        totalReceived: cyclonesList.length,
+        createdCount,
+        updatedCount,
+        deactivatedCount,
+        activeCount: activeCyclones.length,
+        activeCyclones,
+      };
+
+      // Émission de l'événement sans dépendance directe avec AlertesService
+      this.eventEmitter.emit('cyclones.synced', {
+        cyclones: activeCyclones,
+        syncedAt: fetchedAt,
+      });
+
+      return result;
+    });
+  }
+
+  async findActiveCyclones(includeInactive = false) {
+    return this.activeCycloneRepository.find({
+      where: includeInactive ? {} : { isActive: true },
+      order: {
+        isActive: 'DESC',
+        fetchedAt: 'DESC',
+        name: 'ASC',
+      },
+    });
+  }
+
+  async findActiveCycloneById(id: string) {
+    const cyclone = await this.activeCycloneRepository.findOne({
+      where: { id },
+    });
+
+    if (!cyclone) {
+      throw new NotFoundException(`Cyclone introuvable avec l'identifiant : ${id}`);
+    }
+
+    return cyclone;
+  }
+
+  private getProjectRoot() {
+    return resolve(process.cwd(), '..');
+  }
+
+  private getEtlDir() {
+    return join(this.getProjectRoot(), 'etl');
+  }
+
+  private getPythonBin() {
+    const etlDir = this.getEtlDir();
+    const venvPython = join(etlDir, '.venv', 'bin', 'python');
+
+    return process.env.PYTHON_BIN ?? (existsSync(venvPython) ? venvPython : 'python3');
+  }
+
+  private getBackendApiUrl() {
+    const backendPort = process.env.BACKEND_PORT ?? 3001;
+    return process.env.BACKEND_API_URL ?? `http://localhost:${backendPort}/api`;
+  }
+
+  /**
+   * Exécute le script Python ETL GDACS pour récupérer les cyclones actifs en temps réel
+   * ou charger le jeu de données démo.
+   */
+  async triggerGdacsSync(
+    options?: { demo?: boolean; allBasins?: boolean },
+    userToken?: string,
+  ) {
+    const pythonBin = this.getPythonBin();
+    const etlDir = this.getEtlDir();
+    const script = 'raster/risks/cyclone/fetch_active_cyclones.py';
+
+    const token =
+      userToken ||
+      process.env.BACKEND_API_TOKEN ||
+      process.env.JWT_TOKEN;
+
+    const args = [script];
+    if (options?.demo) {
+      args.push('--demo');
+    }
+    if (options?.allBasins) {
+      args.push('--all-basins');
+    }
+    if (token) {
+      args.push('--token', token);
+    }
+
+    const startedAt = Date.now();
+    this.logger.log(
+      `[TriggerGdacsSync] Démarrage synchronisation GDACS : ${pythonBin} ${args.filter(a => a !== token).join(' ')}`,
+    );
+
+    try {
+      const { stdout, stderr } = await execFileAsync(pythonBin, args, {
+        cwd: etlDir,
+        env: {
+          ...process.env,
+          PYTHONPATH: etlDir,
+          BACKEND_API_URL: this.getBackendApiUrl(),
+          BACKEND_API_TOKEN: token,
+          JWT_TOKEN: token,
+        },
+        timeout: 120 * 1000,
+        maxBuffer: 1024 * 1024 * 10,
+      });
+
+      const durationMs = Date.now() - startedAt;
+      this.logger.log(`[TriggerGdacsSync] Synchronisation GDACS terminée en ${durationMs}ms`);
+
+      if (stderr?.trim()) {
+        this.logger.warn(`[TriggerGdacsSync STDERR] : ${stderr.slice(0, 2000)}`);
+      }
+
+      if (stdout?.trim()) {
+        this.logger.log(`[TriggerGdacsSync STDOUT] : ${stdout.slice(-1000)}`);
+      }
+
+      const activeCyclones = await this.findActiveCyclones();
+
+      return {
+        message: options?.demo
+          ? 'Simulation cyclone démo synchronisée avec succès.'
+          : 'Synchronisation GDACS en temps réel effectuée avec succès.',
+        status: 'SUCCESS',
+        durationMs,
+        activeCount: activeCyclones.length,
+        activeCyclones,
+      };
+    } catch (error) {
+      const durationMs = Date.now() - startedAt;
+      this.logger.error(
+        '[TriggerGdacsSync] Échec de l’exécution du script GDACS',
+        error instanceof Error ? error.stack : String(error),
+      );
+
+      throw new InternalServerErrorException({
+        message: 'Échec de la synchronisation GDACS.',
+        status: 'FAILED',
+        durationMs,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
   }
 }

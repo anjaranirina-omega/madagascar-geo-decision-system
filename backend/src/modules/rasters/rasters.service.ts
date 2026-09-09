@@ -69,23 +69,19 @@ export class RastersService {
     });
   }
 
-  findAll(type?: RasterLayerType) {
+  findAll(type?: RasterLayerType, activeOnly = false) {
+    const whereClause: Record<string, unknown> = {};
+
     if (type) {
-      return this.rasterLayersRepository.find({
-        where: {
-          type,
-          isActive: true,
-        },
-        order: {
-          createdAt: 'DESC',
-        },
-      });
+      whereClause.type = type;
+    }
+
+    if (activeOnly) {
+      whereClause.isActive = true;
     }
 
     return this.rasterLayersRepository.find({
-      where: {
-        isActive: true,
-      },
+      where: whereClause,
       order: {
         createdAt: 'DESC',
       },

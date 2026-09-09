@@ -206,7 +206,7 @@ export default function LoginPage() {
         <div
           className="absolute inset-0 bg-cover bg-center"
           style={{
-            backgroundImage: 'url("/images/login-risk-bg.png")',
+            backgroundImage: 'url("/images/login-risk-bg.webp")',
           }}
         />
 

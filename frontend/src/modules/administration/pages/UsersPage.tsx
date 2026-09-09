@@ -12,6 +12,8 @@ import {
   XCircle,
 } from 'lucide-react';
 import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { useAppStore } from '../../../app/store';
+import { authService } from '../../auth/auth.service';
 import {
   Role,
   User,
@@ -48,6 +50,8 @@ const roleLabels: Record<string, string> = {
 };
 
 export default function UsersPage() {
+  const currentUser = useAppStore((state) => state.user);
+  const setUser = useAppStore((state) => state.setUser);
   const [users, setUsers] = useState<User[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);
   const [loading, setLoading] = useState(true);
@@ -213,6 +217,17 @@ export default function UsersPage() {
 
       closeModal();
       await loadData();
+
+      if (editingUser && currentUser && editingUser.id === currentUser.id) {
+        try {
+          const freshProfile = await authService.profile();
+          if (freshProfile) {
+            setUser(freshProfile);
+          }
+        } catch {
+          // Ignore
+        }
+      }
     } catch (error) {
       const message =
         typeof error === 'object' &&

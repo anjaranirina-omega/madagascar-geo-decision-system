@@ -1,7 +1,12 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { OnEvent } from '@nestjs/event-emitter';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { MailService } from '../auth/mail.service';
+import { ActiveCyclone } from '../meteo/entities/active-cyclone.entity';
 import { MeteoService } from '../meteo/meteo.service';
+import { UsersService } from '../users/users.service';
+import { AlertesGateway } from './alertes.gateway';
 import { CreateAlerteDto } from './dto/create-alerte.dto';
 import { GenerateRiskAlertesDto } from './dto/generate-risk-alertes.dto';
 import { GenerateWeatherRiskAlertDto } from './dto/generate-weather-risk-alert.dto';
@@ -13,22 +18,165 @@ import {
   AlerteType,
 } from './entities/alerte.entity';
 
+function haversineDistanceKm(
+  lat1: number,
+  lon1: number,
+  lat2: number,
+  lon2: number,
+): number {
+  const R = 6371; // Rayon de la Terre en km
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
+function distanceToMadagascarKm(lat: number, lon: number): number {
+  // Limites géographiques approximatives de Madagascar (île principale)
+  const minLat = -25.6;
+  const maxLat = -11.9;
+  const minLon = 43.2;
+  const maxLon = 50.5;
+
+  const clampedLat = Math.max(minLat, Math.min(maxLat, lat));
+  const clampedLon = Math.max(minLon, Math.min(maxLon, lon));
+
+  return haversineDistanceKm(lat, lon, clampedLat, clampedLon);
+}
+
+function getMinForecastDistanceKm(trackGeojson: any): number | null {
+  if (!trackGeojson || !Array.isArray(trackGeojson.features)) {
+    return null;
+  }
+
+  let minDistance: number | null = null;
+
+  for (const feat of trackGeojson.features) {
+    const geom = feat.geometry;
+    if (
+      geom &&
+      geom.type === 'Point' &&
+      Array.isArray(geom.coordinates) &&
+      geom.coordinates.length >= 2
+    ) {
+      const props = feat.properties || {};
+      const isForecast = String(
+        props.Class || props.class || props.pointtype || props.type || '',
+      )
+        .toLowerCase()
+        .includes('forecast');
+
+      if (isForecast) {
+        const lon = Number(geom.coordinates[0]);
+        const lat = Number(geom.coordinates[1]);
+        if (Number.isFinite(lat) && Number.isFinite(lon)) {
+          const dist = distanceToMadagascarKm(lat, lon);
+          if (minDistance === null || dist < minDistance) {
+            minDistance = dist;
+          }
+        }
+      }
+    }
+  }
+
+  return minDistance;
+}
+
 @Injectable()
 export class AlertesService {
+  private readonly logger = new Logger(AlertesService.name);
+
   constructor(
     @InjectRepository(Alerte)
     private readonly alertesRepository: Repository<Alerte>,
 
     private readonly meteoService: MeteoService,
+    private readonly mailService: MailService,
+    private readonly usersService: UsersService,
+    private readonly alertesGateway: AlertesGateway,
   ) {}
 
-  create(dto: CreateAlerteDto) {
+  private async notifyCriticalAlert(alerte: Alerte) {
+    if (alerte.niveau !== AlerteNiveau.CRITIQUE || alerte.status !== AlerteStatus.ACTIVE) {
+      return;
+    }
+
+    try {
+      const recipients = await this.usersService.findCrisisNotificationRecipients();
+      const adminEmail = process.env.ADMIN_CONTACT_EMAIL;
+
+      const emailsSent = new Set<string>();
+
+      for (const user of recipients) {
+        if (user.email && !emailsSent.has(user.email)) {
+          emailsSent.add(user.email);
+          await this.mailService.sendCriticalAlertEmail({
+            to: user.email,
+            recipientName: `${user.firstName} ${user.lastName}`.trim(),
+            alert: {
+              id: alerte.id,
+              titre: alerte.titre,
+              message: alerte.message,
+              type: alerte.type,
+              niveau: alerte.niveau,
+              zoneNom: alerte.zoneNom,
+              zoneType: alerte.zoneType,
+              riskValue: alerte.riskValue,
+              riskMean: alerte.riskMean,
+              populationExposed: alerte.populationExposed,
+              createdAt: alerte.createdAt,
+            },
+          });
+        }
+      }
+
+      if (emailsSent.size === 0 && adminEmail) {
+        await this.mailService.sendCriticalAlertEmail({
+          to: adminEmail,
+          recipientName: 'Administrateur',
+          alert: {
+            id: alerte.id,
+            titre: alerte.titre,
+            message: alerte.message,
+            type: alerte.type,
+            niveau: alerte.niveau,
+            zoneNom: alerte.zoneNom,
+            zoneType: alerte.zoneType,
+            riskValue: alerte.riskValue,
+            riskMean: alerte.riskMean,
+            populationExposed: alerte.populationExposed,
+            createdAt: alerte.createdAt,
+          },
+        });
+      }
+    } catch (error: any) {
+      this.logger.warn(
+        `[AlertesService] Erreur lors de l’envoi des notifications d’alerte critique: ${error?.message}`,
+      );
+    }
+  }
+
+  async create(dto: CreateAlerteDto) {
     const alerte = this.alertesRepository.create({
       ...dto,
       status: AlerteStatus.ACTIVE,
     });
 
-    return this.alertesRepository.save(alerte);
+    const saved = await this.alertesRepository.save(alerte);
+
+    if (saved.niveau === AlerteNiveau.CRITIQUE) {
+      await this.notifyCriticalAlert(saved);
+    }
+
+    this.alertesGateway.broadcastAlert(saved);
+
+    return saved;
   }
 
   findAll() {
@@ -68,7 +216,10 @@ export class AlertesService {
     alerte.status = AlerteStatus.RESOLUE;
     alerte.resolvedAt = new Date();
 
-    return this.alertesRepository.save(alerte);
+    const saved = await this.alertesRepository.save(alerte);
+    this.alertesGateway.broadcastAlert(saved);
+
+    return saved;
   }
 
   async ignore(id: string) {
@@ -76,7 +227,10 @@ export class AlertesService {
 
     alerte.status = AlerteStatus.IGNOREE;
 
-    return this.alertesRepository.save(alerte);
+    const saved = await this.alertesRepository.save(alerte);
+    this.alertesGateway.broadcastAlert(saved);
+
+    return saved;
   }
 
   private getNiveauFromRisk(
@@ -204,6 +358,7 @@ export class AlertesService {
       });
 
       if (existing) {
+        const wasCritical = existing.niveau === AlerteNiveau.CRITIQUE;
         existing.niveau = niveau;
         existing.titre = titre;
         existing.message = message;
@@ -211,7 +366,13 @@ export class AlertesService {
         existing.riskMean = riskMean;
         existing.populationExposed = populationExposed;
 
-        updated.push(await this.alertesRepository.save(existing));
+        const saved = await this.alertesRepository.save(existing);
+        updated.push(saved);
+        this.alertesGateway.broadcastAlert(saved);
+
+        if (!wasCritical && niveau === AlerteNiveau.CRITIQUE) {
+          await this.notifyCriticalAlert(saved);
+        }
         continue;
       }
 
@@ -229,7 +390,13 @@ export class AlertesService {
         status: AlerteStatus.ACTIVE,
       });
 
-      created.push(await this.alertesRepository.save(alerte));
+      const saved = await this.alertesRepository.save(alerte);
+      created.push(saved);
+      this.alertesGateway.broadcastAlert(saved);
+
+      if (niveau === AlerteNiveau.CRITIQUE) {
+        await this.notifyCriticalAlert(saved);
+      }
     }
 
     /**
@@ -384,6 +551,7 @@ export class AlertesService {
       });
 
       if (existing) {
+        const wasCritical = existing.niveau === AlerteNiveau.CRITIQUE;
         existing.niveau = niveau;
         existing.titre = titre;
         existing.message = message;
@@ -393,7 +561,13 @@ export class AlertesService {
             ? Number(signal.background_risk_mean)
             : undefined;
 
-        updated.push(await this.alertesRepository.save(existing));
+        const saved = await this.alertesRepository.save(existing);
+        updated.push(saved);
+        this.alertesGateway.broadcastAlert(saved);
+
+        if (!wasCritical && niveau === AlerteNiveau.CRITIQUE) {
+          await this.notifyCriticalAlert(saved);
+        }
         continue;
       }
 
@@ -413,7 +587,13 @@ export class AlertesService {
         status: AlerteStatus.ACTIVE,
       });
 
-      created.push(await this.alertesRepository.save(alerte));
+      const saved = await this.alertesRepository.save(alerte);
+      created.push(saved);
+      this.alertesGateway.broadcastAlert(saved);
+
+      if (niveau === AlerteNiveau.CRITIQUE) {
+        await this.notifyCriticalAlert(saved);
+      }
     }
 
     const activeOperationalAlerts = await this.alertesRepository
@@ -581,6 +761,7 @@ export class AlertesService {
     )} mm, vent ${windKmh.toFixed(1)} km/h.`;
 
     if (existing) {
+      const wasCritical = existing.niveau === AlerteNiveau.CRITIQUE;
       existing.niveau = niveau;
       existing.titre = titre;
       existing.message = message;
@@ -589,6 +770,11 @@ export class AlertesService {
       existing.populationExposed = populationExposed;
 
       const updated = await this.alertesRepository.save(existing);
+      this.alertesGateway.broadcastAlert(updated);
+
+      if (!wasCritical && niveau === AlerteNiveau.CRITIQUE) {
+        await this.notifyCriticalAlert(updated);
+      }
 
       return {
         message: 'Alerte météo-risque existante mise à jour.',
@@ -614,6 +800,11 @@ export class AlertesService {
     });
 
     const created = await this.alertesRepository.save(alerte);
+    this.alertesGateway.broadcastAlert(created);
+
+    if (niveau === AlerteNiveau.CRITIQUE) {
+      await this.notifyCriticalAlert(created);
+    }
 
     return {
       message: 'Alerte météo-risque générée.',
@@ -682,5 +873,155 @@ export class AlertesService {
       checkedZones: zones.length,
       results,
     };
+  }
+
+  /**
+   * Écouteur événementiel (@OnEvent('cyclones.synced')) déclenché après chaque synchronisation GDACS.
+   * Génère, met à jour ou résout automatiquement les alertes cycloniques basées sur la proximité à Madagascar.
+   */
+  @OnEvent('cyclones.synced')
+  async handleCyclonesSynced(payload: { cyclones: ActiveCyclone[]; syncedAt: Date }) {
+    const cyclones = payload.cyclones ?? [];
+    const thresholdKm = Number(process.env.CYCLONE_ALERT_DISTANCE_KM ?? 500);
+
+    this.logger.log(
+      `[AlertesService] Événement cyclones.synced reçu : analyse de proximité pour ${cyclones.length} cyclone(s) (Seuil d'alerte: ${thresholdKm} km)`,
+    );
+
+    const activeAlertedGdacsIds = new Set<string>();
+    const created: Alerte[] = [];
+    const updated: Alerte[] = [];
+    const resolved: Alerte[] = [];
+
+    for (const cyclone of cyclones) {
+      if (!cyclone.isActive) {
+        continue;
+      }
+
+      const hasPosition =
+        typeof cyclone.latitude === 'number' &&
+        typeof cyclone.longitude === 'number' &&
+        Number.isFinite(cyclone.latitude) &&
+        Number.isFinite(cyclone.longitude);
+
+      if (!hasPosition) {
+        this.logger.debug(
+          `[AlertesService] Cyclone ${cyclone.name} sans coordonnées valides, ignoré pour le calcul de distance.`,
+        );
+        continue;
+      }
+
+      const currentDistanceKm = distanceToMadagascarKm(
+        cyclone.latitude!,
+        cyclone.longitude!,
+      );
+
+      const minForecastDistanceKm = getMinForecastDistanceKm(cyclone.trackGeojson);
+
+      let niveau: AlerteNiveau | null = null;
+      let alertReason = '';
+
+      if (currentDistanceKm <= thresholdKm) {
+        niveau = AlerteNiveau.CRITIQUE;
+        alertReason = `Position actuelle à ~${Math.round(currentDistanceKm)} km de Madagascar`;
+      } else if (
+        minForecastDistanceKm !== null &&
+        minForecastDistanceKm <= thresholdKm
+      ) {
+        niveau = AlerteNiveau.ELEVE;
+        alertReason = `Trajectoire prévisionnelle s'approchant à ~${Math.round(minForecastDistanceKm)} km de Madagascar (Position actuelle: ~${Math.round(currentDistanceKm)} km)`;
+      }
+
+      if (!niveau) {
+        continue;
+      }
+
+      activeAlertedGdacsIds.add(cyclone.gdacsEventId);
+
+      const titre =
+        niveau === AlerteNiveau.CRITIQUE
+          ? `Alerte cyclonique critique - ${cyclone.name}`
+          : `Vigilance cyclonique trajectoire - ${cyclone.name}`;
+
+      const windInfo = cyclone.windSpeed ? `, Vents max: ${cyclone.windSpeed}` : '';
+      const zoneInfo = cyclone.country ? ` (${cyclone.country})` : '';
+
+      const message =
+        niveau === AlerteNiveau.CRITIQUE
+          ? `Le cyclone ${cyclone.name}${zoneInfo} (Sévérité: ${cyclone.severityLevel}${windInfo}) est à proximité immédiate de Madagascar (${alertReason}). Risque d'impact direct élevé.`
+          : `Le cyclone ${cyclone.name}${zoneInfo} (Sévérité: ${cyclone.severityLevel}${windInfo}) est en approche surveillée : ${alertReason}. Vigilance recommandée sur les côtes et zones vulnérables.`;
+
+      const existing = await this.alertesRepository.findOne({
+        where: {
+          gdacsEventId: cyclone.gdacsEventId,
+          type: AlerteType.CYCLONE,
+          status: AlerteStatus.ACTIVE,
+        },
+      });
+
+      const riskValue = niveau === AlerteNiveau.CRITIQUE ? 95 : 75;
+
+      if (existing) {
+        const wasCritical = existing.niveau === AlerteNiveau.CRITIQUE;
+        existing.niveau = niveau;
+        existing.titre = titre;
+        existing.message = message;
+        existing.riskValue = riskValue;
+        existing.zoneNom = 'Madagascar';
+        existing.zoneType = 'national';
+
+        const saved = await this.alertesRepository.save(existing);
+        updated.push(saved);
+        this.alertesGateway.broadcastAlert(saved);
+
+        if (!wasCritical && niveau === AlerteNiveau.CRITIQUE) {
+          await this.notifyCriticalAlert(saved);
+        }
+      } else {
+        const newAlert = this.alertesRepository.create({
+          type: AlerteType.CYCLONE,
+          niveau,
+          titre,
+          message,
+          zoneType: 'national',
+          zoneNom: 'Madagascar',
+          gdacsEventId: cyclone.gdacsEventId,
+          riskValue,
+          status: AlerteStatus.ACTIVE,
+        });
+
+        const saved = await this.alertesRepository.save(newAlert);
+        created.push(saved);
+        this.alertesGateway.broadcastAlert(saved);
+
+        if (niveau === AlerteNiveau.CRITIQUE) {
+          await this.notifyCriticalAlert(saved);
+        }
+      }
+    }
+
+    // Résolution automatique des alertes cycloniques actives dont le cyclone n'est plus menaçant ou n'est plus actif
+    const activeCycloneAlerts = await this.alertesRepository.find({
+      where: {
+        type: AlerteType.CYCLONE,
+        status: AlerteStatus.ACTIVE,
+      },
+    });
+
+    for (const alert of activeCycloneAlerts) {
+      if (alert.gdacsEventId && !activeAlertedGdacsIds.has(alert.gdacsEventId)) {
+        alert.status = AlerteStatus.RESOLUE;
+        alert.resolvedAt = new Date();
+        const saved = await this.alertesRepository.save(alert);
+        resolved.push(saved);
+        this.alertesGateway.broadcastAlert(saved);
+      }
+    }
+
+    if (created.length > 0 || updated.length > 0 || resolved.length > 0) {
+      this.logger.log(
+        `[AlertesService] Traitement alertes cycloniques terminé : ${created.length} créée(s), ${updated.length} mise(s) à jour, ${resolved.length} résolue(s).`,
+      );
+    }
   }
 }

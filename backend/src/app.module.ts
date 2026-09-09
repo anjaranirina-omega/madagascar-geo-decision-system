@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { EventEmitterModule } from '@nestjs/event-emitter';
 import { ScheduleModule } from '@nestjs/schedule';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AccountRequestsModule } from './modules/account-requests/account-requests.module';
@@ -16,6 +17,7 @@ import { ReportsModule } from './modules/reports/reports.module';
 import { SigModule } from './modules/sig/sig.module';
 import { SettingsModule } from './modules/settings/settings.module';
 import { SolapModule } from './modules/solap/solap.module';
+import { StorageModule } from './modules/storage/storage.module';
 import { UsersModule } from './modules/users/users.module';
 import { EtlModule } from './modules/etl/etl.module';
 import { MeteoModule } from './modules/meteo/meteo.module';
@@ -26,6 +28,7 @@ import { RisquesModule } from './modules/risques/risques.module';
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+    EventEmitterModule.forRoot(),
     ScheduleModule.forRoot(),
     TypeOrmModule.forRoot({
       type: 'postgres',
@@ -33,8 +36,12 @@ import { RisquesModule } from './modules/risques/risques.module';
         process.env.DATABASE_URL ??
         'postgresql://geodecisionnel:geodecisionnel@localhost:5433/geodecisionnel',
       autoLoadEntities: true,
-      synchronize: true,
+      synchronize:
+        process.env.TYPEORM_SYNCHRONIZE !== undefined
+          ? process.env.TYPEORM_SYNCHRONIZE === 'true'
+          : process.env.NODE_ENV !== 'production',
     }),
+    StorageModule,
     AuthModule,
     UsersModule,
     EtlModule,

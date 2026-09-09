@@ -9,5 +9,7 @@ rasterio
 numpy
 matplotlib
 scipy
+schedule>=1.2.0
 
 Pillow
+gdacs-api>=2.0.0
