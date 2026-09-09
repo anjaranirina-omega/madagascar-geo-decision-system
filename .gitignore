@@ -42,6 +42,8 @@ ahp-engine/.venv/
 # Docker / database backups
 *.sql
 *.dump
+!data-warehouse/**/*.sql
+!infra/docker/**/*.sql
 
 # Uploads utilisateurs
 backend/uploads/

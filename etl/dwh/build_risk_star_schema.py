@@ -119,8 +119,24 @@ def create_schema(conn):
     execute(
         conn,
         """
+        CREATE INDEX IF NOT EXISTS idx_dim_time_year_month
+        ON dwh.dim_time (year, month);
+        """,
+    )
+
+    execute(
+        conn,
+        """
         CREATE INDEX IF NOT EXISTS idx_dim_zone_type
         ON dwh.dim_zone(zone_type);
+        """,
+    )
+
+    execute(
+        conn,
+        """
+        CREATE INDEX IF NOT EXISTS idx_dim_zone_lookup
+        ON dwh.dim_zone(zone_type, zone_code);
         """,
     )
 
@@ -187,6 +203,22 @@ def create_schema(conn):
         """
         CREATE INDEX IF NOT EXISTS idx_fact_risk_indicator_dims
         ON dwh.fact_risk_indicator(time_key, zone_key, risk_type_key);
+        """,
+    )
+
+    execute(
+        conn,
+        """
+        CREATE INDEX IF NOT EXISTS idx_fact_risk_indicator_solap_query
+        ON dwh.fact_risk_indicator(risk_type_key, time_key, risk_max DESC);
+        """,
+    )
+
+    execute(
+        conn,
+        """
+        CREATE INDEX IF NOT EXISTS idx_fact_risk_indicator_zone
+        ON dwh.fact_risk_indicator(zone_key, time_key);
         """,
     )
 
@@ -645,6 +677,52 @@ def populate_fact_raster_processing(conn):
     )
 
 
+def refresh_materialized_views(conn):
+    print("Rafraîchissement des vues matérialisées DWH...")
+
+    execute(
+        conn,
+        """
+        CREATE MATERIALIZED VIEW IF NOT EXISTS dwh.mv_regional_risk_summary AS
+        SELECT
+            rt.risk_type,
+            rt.label AS risk_label,
+            z.zone_id,
+            z.zone_code,
+            z.zone_nom AS region_nom,
+            t.year,
+            t.month,
+            AVG(f.risk_mean) AS risk_mean,
+            MAX(f.risk_max) AS risk_max,
+            AVG(f.hazard_mean) AS hazard_mean,
+            SUM(f.population_exposed) AS population_exposed,
+            AVG(z.area_km2) AS area_km2,
+            COUNT(*) AS communes_count
+        FROM dwh.fact_risk_indicator f
+        JOIN dwh.dim_risk_type rt ON rt.risk_type_key = f.risk_type_key
+        JOIN dwh.dim_zone z ON z.zone_key = f.zone_key
+        JOIN dwh.dim_time t ON t.time_key = f.time_key
+        WHERE z.zone_type = 'region'
+        GROUP BY rt.risk_type, rt.label, z.zone_id, z.zone_code, z.zone_nom, t.year, t.month
+        ORDER BY risk_max DESC;
+        """,
+    )
+
+    execute(
+        conn,
+        """
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_mv_regional_risk_summary_pk
+        ON dwh.mv_regional_risk_summary (risk_type, zone_id, year, month);
+        """,
+    )
+
+    try:
+        execute(conn, "REFRESH MATERIALIZED VIEW dwh.mv_regional_risk_summary;")
+        print("  Vue matérialisée dwh.mv_regional_risk_summary rafraîchie.")
+    except Exception as e:
+        print(f"  Note rafraîchissement vue matérialisée : {e}")
+
+
 def print_summary(conn):
     print("\nRésumé DWH :")
 
@@ -682,6 +760,7 @@ def main():
         populate_fact_risk_indicator(conn)
         populate_fact_climate_observation(conn)
         populate_fact_raster_processing(conn)
+        refresh_materialized_views(conn)
         print_summary(conn)
 
     print("Data warehouse risque construit avec succès.")
