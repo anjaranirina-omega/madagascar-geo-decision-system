@@ -309,31 +309,17 @@ export default function AnalyseMulticriterePage() {
     }
   };
 
-  const applyAhpPreset = (presetKey: AhpPresetKey) => {
-    setAhpPreset(presetKey);
-    const preset = ahpPresets[presetKey];
-    setAhpCriteria([...preset.criteria]);
-    setAhpLabels([...preset.labels]);
-    setAhpMatrix(preset.matrix.map((row) => [...row]));
-    setAhpResult(null);
-  };
-
-  const updateMatrixCell = (i: number, j: number, value: number) => {
-    if (i === j) return;
-    const newMatrix = ahpMatrix.map((row) => [...row]);
-    newMatrix[i][j] = value;
-    newMatrix[j][i] = 1 / value;
-    setAhpMatrix(newMatrix);
-  };
-
-  const runAhpCalculation = async () => {
+  const runAhpCalculation = async (
+    customCriteria = ahpCriteria,
+    customMatrix = ahpMatrix,
+  ) => {
     setAhpLoading(true);
     setError('');
 
     try {
       const result = await ahpService.calculate({
-        criteria: ahpCriteria,
-        matrix: ahpMatrix,
+        criteria: customCriteria,
+        matrix: customMatrix,
         normalizedValues: ahpNormalizedValues,
       });
       setAhpResult(result);
@@ -343,6 +329,31 @@ export default function AnalyseMulticriterePage() {
     } finally {
       setAhpLoading(false);
     }
+  };
+
+  const applyAhpPreset = (presetKey: AhpPresetKey) => {
+    setAhpPreset(presetKey);
+    const preset = ahpPresets[presetKey];
+    const newCriteria = [...preset.criteria];
+    const newLabels = [...preset.labels];
+    const newMatrix = preset.matrix.map((row) => [...row]);
+
+    setAhpCriteria(newCriteria);
+    setAhpLabels(newLabels);
+    setAhpMatrix(newMatrix);
+
+    // Calcul automatique immédiat pour afficher les résultats et boutons du preset
+    runAhpCalculation(newCriteria, newMatrix);
+  };
+
+  const updateMatrixCell = (i: number, j: number, value: number) => {
+    if (i === j) return;
+    const newMatrix = ahpMatrix.map((row) => [...row]);
+    newMatrix[i][j] = value;
+    newMatrix[j][i] = 1 / value;
+    setAhpMatrix(newMatrix);
+    // Recalculer automatiquement les poids dès qu'une cellule change
+    runAhpCalculation(ahpCriteria, newMatrix);
   };
 
   useEffect(() => {
@@ -1019,7 +1030,7 @@ export default function AnalyseMulticriterePage() {
 
                 <button
                   type="button"
-                  onClick={runAhpCalculation}
+                  onClick={() => runAhpCalculation()}
                   disabled={ahpLoading}
                   className="inline-flex h-11 items-center gap-2 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 px-6 text-sm font-extrabold text-white shadow-md shadow-purple-950/20 transition hover:scale-[1.01] disabled:opacity-60"
                 >
