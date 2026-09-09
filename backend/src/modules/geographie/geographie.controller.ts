@@ -1,6 +1,15 @@
-import { BadRequestException, Controller, Get, Param, Query } from '@nestjs/common';
+import {
+  BadRequestException,
+  Controller,
+  Get,
+  Param,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { GeographieService } from './geographie.service';
 
+@UseGuards(JwtAuthGuard)
 @Controller('geographie')
 export class GeographieController {
   constructor(private readonly geographieService: GeographieService) {}

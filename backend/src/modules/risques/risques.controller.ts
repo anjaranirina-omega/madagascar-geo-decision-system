@@ -1,4 +1,12 @@
-import { Body, Controller, Get, Param, Post, Put, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Post,
+  Put,
+  UseGuards,
+} from '@nestjs/common';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -14,6 +22,7 @@ export class RisquesController {
   /**
    * Poids dynamiques du risque global.
    */
+  @UseGuards(JwtAuthGuard)
   @Get('criteria-weights')
   findWeights() {
     return this.risquesService.findWeights();
@@ -26,6 +35,7 @@ export class RisquesController {
     return this.risquesService.updateWeights(dto);
   }
 
+  @UseGuards(JwtAuthGuard)
   @Get('criteria-weights/object')
   getWeightsAsObject() {
     return this.risquesService.getWeightsAsObject();
@@ -35,16 +45,19 @@ export class RisquesController {
    * Poids dynamiques des modèles spécifiques :
    * FLOOD, DROUGHT, LANDSLIDE, CYCLONE.
    */
+  @UseGuards(JwtAuthGuard)
   @Get('model-weights')
   findRiskModelWeights() {
     return this.risquesService.findRiskModelWeights();
   }
 
+  @UseGuards(JwtAuthGuard)
   @Get('model-weights/:riskType')
   findRiskModelWeightsByType(@Param('riskType') riskType: SpecificRiskType) {
     return this.risquesService.findRiskModelWeights(riskType);
   }
 
+  @UseGuards(JwtAuthGuard)
   @Get('model-weights/:riskType/object')
   getRiskModelWeightsObject(@Param('riskType') riskType: SpecificRiskType) {
     return this.risquesService.getRiskModelWeightsObject(riskType);
@@ -71,7 +84,7 @@ export class RisquesController {
   }
 
   /**
-   * Recalculs existants.
+   * Recalculs de modèles et rasters de risque.
    */
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN', 'ANALYSTE')

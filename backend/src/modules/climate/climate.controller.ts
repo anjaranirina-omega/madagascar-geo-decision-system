@@ -14,6 +14,7 @@ export class ClimateController {
     private readonly climateSyncService: ClimateSyncService,
   ) {}
 
+  @UseGuards(JwtAuthGuard)
   @Get('observations')
   findAll(
     @Query('source') source?: ClimateDataSource,
@@ -33,6 +34,7 @@ export class ClimateController {
     });
   }
 
+  @UseGuards(JwtAuthGuard)
   @Get('latest')
   latest(
     @Query('source') source: ClimateDataSource = ClimateDataSource.NASA_POWER,
@@ -41,6 +43,7 @@ export class ClimateController {
     return this.climateService.latest(source, zoneType);
   }
 
+  @UseGuards(JwtAuthGuard)
   @Get('summary')
   summary(
     @Query('source') source: ClimateDataSource = ClimateDataSource.NASA_POWER,
