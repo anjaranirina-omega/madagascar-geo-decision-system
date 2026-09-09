@@ -10,7 +10,32 @@ async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
   app.setGlobalPrefix('api');
-  app.enableCors();
+
+  // Configuration CORS restreinte et sécurisée
+  const rawAllowedOrigins =
+    process.env.CORS_ALLOWED_ORIGINS ??
+    process.env.FRONTEND_URL ??
+    'http://localhost:3000';
+
+  const allowedOrigins = rawAllowedOrigins
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+
+  app.enableCors({
+    origin: (origin, callback) => {
+      // Autoriser les requêtes sans header origin (requêtes internes du serveur, ETL, curl, SSR)
+      // ou les origines expressément déclarées dans la configuration
+      if (!origin || allowedOrigins.includes(origin) || allowedOrigins.includes('*')) {
+        callback(null, true);
+      } else {
+        callback(new Error(`Origine CORS non autorisée: ${origin}`));
+      }
+    },
+    methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'X-Requested-With'],
+    credentials: false,
+  });
 
   // Filet de sécurité : ajustement modéré de la limite body-parser à 1 Mo pour absorber les données SIG/cycloniques
   app.use(json({ limit: '1mb' }));
