@@ -36,7 +36,10 @@ import { RisquesModule } from './modules/risques/risques.module';
         process.env.DATABASE_URL ??
         'postgresql://geodecisionnel:geodecisionnel@localhost:5433/geodecisionnel',
       autoLoadEntities: true,
-      synchronize: true,
+      synchronize:
+        process.env.TYPEORM_SYNCHRONIZE !== undefined
+          ? process.env.TYPEORM_SYNCHRONIZE === 'true'
+          : process.env.NODE_ENV !== 'production',
     }),
     StorageModule,
     AuthModule,

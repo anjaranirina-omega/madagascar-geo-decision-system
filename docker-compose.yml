@@ -31,6 +31,8 @@ services:
         condition: service_healthy
       ahp-engine:
         condition: service_started
+      minio:
+        condition: service_healthy
 
   frontend:
     build: ./frontend

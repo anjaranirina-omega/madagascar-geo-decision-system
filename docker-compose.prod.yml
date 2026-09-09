@@ -2,6 +2,7 @@ services:
   backend:
     environment:
       NODE_ENV: production
+      TYPEORM_SYNCHRONIZE: "false"
   frontend:
     environment:
       NODE_ENV: production
