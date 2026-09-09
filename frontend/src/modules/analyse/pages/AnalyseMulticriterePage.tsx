@@ -32,7 +32,7 @@ import {
 
 type AnalyseTab = 'global' | 'specific' | 'ahp' | 'methodology';
 
-type AhpPresetKey = 'FLOOD' | 'DROUGHT' | 'CYCLONE';
+type AhpPresetKey = 'FLOOD' | 'DROUGHT' | 'CYCLONE' | 'LANDSLIDE';
 
 const ahpPresets: Record<
   AhpPresetKey,
@@ -73,6 +73,17 @@ const ahpPresets: Record<
       [1 / 2, 1, 2, 3],
       [1 / 3, 1 / 2, 1, 2],
       [1 / 4, 1 / 3, 1 / 2, 1],
+    ],
+  },
+  LANDSLIDE: {
+    name: 'Glissement de terrain (4 critères)',
+    criteria: ['pente', 'precipitations', 'occupation_sol', 'infrastructures_critiques'],
+    labels: ['Pente (DEM)', 'Précipitations CHIRPS', 'Occupation du sol', 'Infrastructures exposées'],
+    matrix: [
+      [1, 2, 3, 5],
+      [1 / 2, 1, 2, 4],
+      [1 / 3, 1 / 2, 1, 2],
+      [1 / 5, 1 / 4, 1 / 2, 1],
     ],
   },
 };
@@ -784,8 +795,8 @@ export default function AnalyseMulticriterePage() {
               <div className="mb-2 text-xs font-black uppercase tracking-wider text-slate-400">
                 Choisir un modèle de risque
               </div>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                {(['FLOOD', 'DROUGHT', 'CYCLONE'] as AhpPresetKey[]).map((key) => {
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                {(['FLOOD', 'DROUGHT', 'CYCLONE', 'LANDSLIDE'] as AhpPresetKey[]).map((key) => {
                   const preset = ahpPresets[key];
                   const active = ahpPreset === key;
                   return (
