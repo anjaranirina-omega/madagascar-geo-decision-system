@@ -1,17 +1,27 @@
 import {
+  Activity,
   AlertTriangle,
+  CheckCircle2,
+  Cpu,
   Droplets,
+  HelpCircle,
   RefreshCw,
   RotateCcw,
   Save,
+  Scale,
   Shield,
   SlidersHorizontal,
   Waves,
+  XCircle,
   Zap,
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Tabs from '../../../shared/components/ui/Tabs';
+import {
+  AhpCalculateResponse,
+  ahpService,
+} from '../services/ahp.service';
 import {
   CriteriaWeight,
   RiskModelPart,
@@ -20,7 +30,52 @@ import {
   risquesService,
 } from '../services/risques.service';
 
-type AnalyseTab = 'global' | 'specific' | 'methodology';
+type AnalyseTab = 'global' | 'specific' | 'ahp' | 'methodology';
+
+type AhpPresetKey = 'FLOOD' | 'DROUGHT' | 'CYCLONE';
+
+const ahpPresets: Record<
+  AhpPresetKey,
+  {
+    name: string;
+    criteria: string[];
+    labels: string[];
+    matrix: number[][];
+  }
+> = {
+  FLOOD: {
+    name: 'Aléa Inondation (4 critères)',
+    criteria: ['precipitations', 'pente', 'proximite_cours_eau', 'occupation_sol'],
+    labels: ['Précipitations (CHIRPS)', 'Pente inversée', 'Proximité rivière', 'Occupation du sol'],
+    matrix: [
+      [1, 3, 2, 4],
+      [1 / 3, 1, 1 / 2, 2],
+      [1 / 2, 2, 1, 3],
+      [1 / 4, 1 / 2, 1 / 3, 1],
+    ],
+  },
+  DROUGHT: {
+    name: 'Aléa Sécheresse (3 critères)',
+    criteria: ['precipitations', 'temperature', 'occupation_sol'],
+    labels: ['Déficit pluviométrique', 'Température', 'Sensibilité du sol'],
+    matrix: [
+      [1, 3, 4],
+      [1 / 3, 1, 2],
+      [1 / 4, 1 / 2, 1],
+    ],
+  },
+  CYCLONE: {
+    name: 'Risque Cyclonique (4 critères)',
+    criteria: ['vent', 'precipitations', 'densite_population', 'infrastructures_critiques'],
+    labels: ['Intensité du vent', 'Pluie cyclonique', 'Densité population', 'Infrastructures'],
+    matrix: [
+      [1, 2, 3, 4],
+      [1 / 2, 1, 2, 3],
+      [1 / 3, 1 / 2, 1, 2],
+      [1 / 4, 1 / 3, 1 / 2, 1],
+    ],
+  },
+};
 
 const specificRiskOptions: Array<{
   type: SpecificRiskType;
@@ -123,6 +178,69 @@ export default function AnalyseMulticriterePage() {
 
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+
+  // État AHP Saaty & Microservice
+  const [ahpPreset, setAhpPreset] = useState<AhpPresetKey>('FLOOD');
+  const [ahpCriteria, setAhpCriteria] = useState<string[]>(ahpPresets.FLOOD.criteria);
+  const [ahpLabels, setAhpLabels] = useState<string[]>(ahpPresets.FLOOD.labels);
+  const [ahpMatrix, setAhpMatrix] = useState<number[][]>(ahpPresets.FLOOD.matrix);
+  const [ahpNormalizedValues, setAhpNormalizedValues] = useState<Record<string, number>>({
+    precipitations: 0.75,
+    pente: 0.6,
+    proximite_cours_eau: 0.8,
+    occupation_sol: 0.5,
+  });
+  const [ahpResult, setAhpResult] = useState<AhpCalculateResponse | null>(null);
+  const [ahpLoading, setAhpLoading] = useState(false);
+  const [ahpEngineHealth, setAhpEngineHealth] = useState<{
+    engineStatus?: string;
+    engineUrl?: string;
+  } | null>(null);
+
+  const applyAhpPreset = (presetKey: AhpPresetKey) => {
+    setAhpPreset(presetKey);
+    const preset = ahpPresets[presetKey];
+    setAhpCriteria([...preset.criteria]);
+    setAhpLabels([...preset.labels]);
+    setAhpMatrix(preset.matrix.map((row) => [...row]));
+    setAhpResult(null);
+  };
+
+  const updateMatrixCell = (i: number, j: number, value: number) => {
+    if (i === j) return;
+    const newMatrix = ahpMatrix.map((row) => [...row]);
+    newMatrix[i][j] = value;
+    newMatrix[j][i] = 1 / value;
+    setAhpMatrix(newMatrix);
+  };
+
+  const runAhpCalculation = async () => {
+    setAhpLoading(true);
+    setError('');
+
+    try {
+      const result = await ahpService.calculate({
+        criteria: ahpCriteria,
+        matrix: ahpMatrix,
+        normalizedValues: ahpNormalizedValues,
+      });
+      setAhpResult(result);
+    } catch (calcError: any) {
+      console.error('[AnalyseMulticritere] Erreur calcul AHP:', calcError);
+      setError('Impossible d’exécuter le calcul AHP.');
+    } finally {
+      setAhpLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'ahp') {
+      ahpService.getHealth().then(setAhpEngineHealth).catch(() => {});
+      if (!ahpResult) {
+        runAhpCalculation();
+      }
+    }
+  }, [activeTab]);
 
   const total = useMemo(() => {
     return sumWeights(weights);
@@ -409,6 +527,7 @@ export default function AnalyseMulticriterePage() {
         tabs={[
           { id: 'global', label: 'Risque global' },
           { id: 'specific', label: 'Modèles spécifiques' },
+          { id: 'ahp', label: 'Matrice AHP (Saaty)' },
           { id: 'methodology', label: 'Méthodologie' },
         ]}
       />
@@ -632,6 +751,229 @@ export default function AnalyseMulticriterePage() {
                 : 'Enregistrer les poids spécifiques'}
             </button>
           </div>
+        </div>
+      )}
+
+      {activeTab === 'ahp' && (
+        <div className="space-y-6">
+          <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-soft dark:border-slate-800 dark:bg-slate-900">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-center gap-3">
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 text-white">
+                  <Scale size={26} />
+                </div>
+                <div>
+                  <h3 className="text-lg font-black text-slate-900 dark:text-white">
+                    Matrice de Saaty & Calculateur AHP
+                  </h3>
+                  <p className="text-sm text-slate-500 dark:text-slate-400">
+                    Processus d'analyse hiérarchique (AHP) avec vérification du ratio de cohérence (CR &lt; 0.10).
+                  </p>
+                </div>
+              </div>
+
+              {ahpEngineHealth && (
+                <div className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-bold text-slate-700 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-300">
+                  <Cpu size={14} className={ahpEngineHealth.engineStatus === 'connected' ? 'text-green-500' : 'text-amber-500'} />
+                  <span>Moteur : {ahpEngineHealth.engineStatus}</span>
+                </div>
+              )}
+            </div>
+
+            <div className="mt-6">
+              <div className="mb-2 text-xs font-black uppercase tracking-wider text-slate-400">
+                Choisir un modèle de risque
+              </div>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                {(['FLOOD', 'DROUGHT', 'CYCLONE'] as AhpPresetKey[]).map((key) => {
+                  const preset = ahpPresets[key];
+                  const active = ahpPreset === key;
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => applyAhpPreset(key)}
+                      className={[
+                        'rounded-2xl border p-3 text-left transition',
+                        active
+                          ? 'border-purple-300 bg-purple-50/80 shadow-xs dark:border-purple-800 dark:bg-purple-950/40'
+                          : 'border-slate-200 bg-white hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-950',
+                      ].join(' ')}
+                    >
+                      <div className="text-sm font-black text-slate-900 dark:text-white">
+                        {preset.name}
+                      </div>
+                      <div className="mt-1 text-xs text-slate-500 dark:text-slate-400 truncate">
+                        {preset.labels.join(' • ')}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="mt-6 overflow-x-auto">
+              <table className="w-full min-w-[500px] border-collapse text-sm">
+                <thead>
+                  <tr className="border-b border-slate-200 dark:border-slate-800">
+                    <th className="p-3 text-left font-black text-slate-500">Critère</th>
+                    {ahpLabels.map((label, idx) => (
+                      <th key={idx} className="p-3 text-center font-black text-slate-700 dark:text-slate-300">
+                        {label}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {ahpCriteria.map((cRow, i) => (
+                    <tr key={cRow} className="border-b border-slate-100 dark:border-slate-800/60">
+                      <td className="p-3 font-extrabold text-slate-900 dark:text-white">
+                        {ahpLabels[i]}
+                      </td>
+                      {ahpCriteria.map((cCol, j) => {
+                        const val = ahpMatrix[i]?.[j] ?? 1;
+                        if (i === j) {
+                          return (
+                            <td key={cCol} className="p-3 text-center font-bold text-slate-400 bg-slate-50 dark:bg-slate-950">
+                              1.00
+                            </td>
+                          );
+                        }
+                        if (i < j) {
+                          return (
+                            <td key={cCol} className="p-3 text-center">
+                              <select
+                                value={val >= 1 ? val : Number((val).toFixed(4))}
+                                onChange={(e) => updateMatrixCell(i, j, Number(e.target.value))}
+                                className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs font-bold text-purple-700 shadow-2xs dark:border-slate-700 dark:bg-slate-900 dark:text-purple-300"
+                              >
+                                <option value={9}>9 (Extrême)</option>
+                                <option value={7}>7 (Très fort)</option>
+                                <option value={5}>5 (Fort)</option>
+                                <option value={3}>3 (Modéré)</option>
+                                <option value={2}>2 (Faible+)</option>
+                                <option value={1}>1 (Égal)</option>
+                                <option value={1 / 2}>1/2</option>
+                                <option value={1 / 3}>1/3</option>
+                                <option value={1 / 5}>1/5</option>
+                                <option value={1 / 7}>1/7</option>
+                                <option value={1 / 9}>1/9</option>
+                              </select>
+                            </td>
+                          );
+                        }
+                        return (
+                          <td key={cCol} className="p-3 text-center text-xs font-semibold text-slate-500 bg-slate-50/50 dark:bg-slate-950/50">
+                            {val < 1 ? `1/${Math.round(1 / val)}` : val.toFixed(2)}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="mt-6 flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-slate-100 dark:border-slate-800">
+              <button
+                type="button"
+                onClick={() => applyAhpPreset(ahpPreset)}
+                className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-300 px-4 text-xs font-bold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200"
+              >
+                <RotateCcw size={15} />
+                Réinitialiser la matrice
+              </button>
+
+              <button
+                type="button"
+                onClick={runAhpCalculation}
+                disabled={ahpLoading}
+                className="inline-flex h-11 items-center gap-2 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 px-6 text-sm font-extrabold text-white shadow-md shadow-purple-950/20 transition hover:scale-[1.01] disabled:opacity-60"
+              >
+                {ahpLoading ? (
+                  <RefreshCw size={17} className="animate-spin" />
+                ) : (
+                  <Activity size={17} />
+                )}
+                <span>Calculer les poids AHP</span>
+              </button>
+            </div>
+          </div>
+
+          {ahpResult && (
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+              <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-soft dark:border-slate-800 dark:bg-slate-900">
+                <div className="mb-4 flex items-center justify-between">
+                  <h4 className="font-black text-slate-900 dark:text-white">
+                    Vecteur des poids calculés (w)
+                  </h4>
+                  <span className="text-xs font-bold text-purple-600 dark:text-purple-400">
+                    Source : {ahpResult.engine === 'fastapi' ? 'Microservice FastAPI' : 'Moteur interne Saaty'}
+                  </span>
+                </div>
+
+                <div className="space-y-4">
+                  {ahpCriteria.map((code, idx) => {
+                    const w = ahpResult.weights[code] ?? 0;
+                    const pct = (w * 100).toFixed(1);
+                    return (
+                      <div key={code} className="space-y-1">
+                        <div className="flex justify-between text-xs font-bold">
+                          <span className="text-slate-700 dark:text-slate-200">{ahpLabels[idx]}</span>
+                          <span className="text-purple-600 dark:text-purple-400 font-black">{pct}% ({w.toFixed(4)})</span>
+                        </div>
+                        <div className="h-2.5 w-full rounded-full bg-slate-100 overflow-hidden dark:bg-slate-800">
+                          <div
+                            className="h-full rounded-full bg-gradient-to-r from-purple-500 to-indigo-500 transition-all duration-500"
+                            style={{ width: `${pct}%` }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-soft dark:border-slate-800 dark:bg-slate-900 flex flex-col justify-between">
+                <div>
+                  <h4 className="font-black text-slate-900 dark:text-white mb-4">
+                    Vérification de la cohérence de Saaty
+                  </h4>
+
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 dark:bg-slate-950">
+                      <span className="text-xs font-bold text-slate-500">Ratio de cohérence (CR) :</span>
+                      <span className={[
+                        'inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black',
+                        ahpResult.isConsistent
+                          ? 'bg-green-100 text-green-800 dark:bg-green-950/50 dark:text-green-300'
+                          : 'bg-red-100 text-red-800 dark:bg-red-950/50 dark:text-red-300'
+                      ].join(' ')}>
+                        {ahpResult.isConsistent ? <CheckCircle2 size={14} /> : <XCircle size={14} />}
+                        {(ahpResult.consistencyRatio * 100).toFixed(2)}% {ahpResult.isConsistent ? '(Cohérent < 10%)' : '(Incohérent ≥ 10%)'}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 dark:bg-slate-950 text-xs">
+                      <span className="font-bold text-slate-500">Valeur propre maximale (λ max) :</span>
+                      <span className="font-black text-slate-900 dark:text-white">{ahpResult.lambdaMax}</span>
+                    </div>
+
+                    <div className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 dark:bg-slate-950 text-xs">
+                      <span className="font-bold text-slate-500">Indice de cohérence (CI) :</span>
+                      <span className="font-black text-slate-900 dark:text-white">{ahpResult.consistencyIndex}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-4 p-3 rounded-2xl bg-purple-50/70 border border-purple-200/80 text-xs leading-5 text-purple-900 dark:bg-purple-950/30 dark:border-purple-900/60 dark:text-purple-200">
+                  {ahpResult.isConsistent
+                    ? '✓ La matrice de comparaison respecte le seuil de cohérence de Saaty (CR < 0.10). Ces poids peuvent être utilisés pour la décision spatiale.'
+                    : '⚠ La matrice présente des jugements contradictoires (CR ≥ 0.10). Veuillez réajuster les comparaisons par paires.'}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
