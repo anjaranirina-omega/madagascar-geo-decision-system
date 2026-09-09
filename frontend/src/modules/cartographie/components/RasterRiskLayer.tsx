@@ -75,8 +75,11 @@ export default function RasterRiskLayer({
     async function loadRaster() {
       try {
         const rasterUrl = getRasterUrl(rasterType, rasterLayerId);
+        const token = localStorage.getItem('accessToken');
 
-        const response = await fetch(rasterUrl);
+        const response = await fetch(rasterUrl, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
 
         if (!response.ok) {
           throw new Error(

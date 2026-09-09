@@ -1,3 +1,4 @@
+import argparse
 import hashlib
 import os
 import shutil
@@ -17,6 +18,7 @@ load_dotenv(PROJECT_ROOT / ".env")
 load_dotenv(PROJECT_ROOT / "backend" / ".env", override=True)
 
 API_BASE_URL = os.getenv("BACKEND_API_URL", "http://localhost:3001/api")
+API_TOKEN = os.getenv("BACKEND_API_TOKEN") or os.getenv("JWT_TOKEN")
 
 RASTER_VERSION_HISTORY_ENABLED = (
     os.getenv("RASTER_VERSION_HISTORY_ENABLED", "true").strip().lower()
@@ -267,7 +269,7 @@ def build_registration_path(raster_path: Path, raster_type: str) -> Path:
     return raster_path
 
 
-def register_layer(relative_path: str, config: dict):
+def register_layer(relative_path: str, config: dict, token: str | None = None):
     raster_path = RASTER_ROOT / relative_path
 
     if not raster_path.exists():
@@ -287,7 +289,12 @@ def register_layer(relative_path: str, config: dict):
     }
 
     url = f"{API_BASE_URL}/rasters/register"
-    response = requests.post(url, json=payload, timeout=30)
+    headers = {}
+    auth_token = token or os.getenv("BACKEND_API_TOKEN") or os.getenv("JWT_TOKEN") or API_TOKEN
+    if auth_token:
+        headers["Authorization"] = f"Bearer {auth_token}"
+
+    response = requests.post(url, json=payload, headers=headers, timeout=30)
 
     if response.status_code >= 400:
         print("Erreur API:", response.status_code, response.text)
@@ -300,6 +307,12 @@ def register_layer(relative_path: str, config: dict):
 
 
 def main():
+    parser = argparse.ArgumentParser(description="Enregistre les métadonnées raster dans le backend.")
+    parser.add_argument("--token", type=str, default=None, help="Jeton JWT pour l'authentification backend.")
+    args = parser.parse_args()
+
+    token_to_use = args.token or API_TOKEN
+
     print(f"API backend : {API_BASE_URL}")
     print(f"Historique raster activé : {RASTER_VERSION_HISTORY_ENABLED}")
     print(f"Types historisés : {', '.join(sorted(RASTER_VERSION_HISTORY_TYPES))}")
@@ -307,7 +320,7 @@ def main():
     print(f"Déduplication par hash : {RASTER_VERSION_DEDUP_BY_HASH}")
 
     for relative_path, config in RASTER_CONFIG.items():
-        register_layer(relative_path, config)
+        register_layer(relative_path, config, token=token_to_use)
 
     print("Enregistrement des métadonnées raster terminé.")
 
