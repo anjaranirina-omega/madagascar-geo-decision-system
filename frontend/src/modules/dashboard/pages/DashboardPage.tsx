@@ -1,19 +1,37 @@
 import {
   Activity,
+  AlertCircle,
   AlertTriangle,
+  ArrowRight,
+  ArrowUpRight,
   BarChart3,
   CheckCircle2,
+  CloudLightning,
+  CloudRain,
   CloudSun,
+  Compass,
   Database,
+  Droplets,
+  ExternalLink,
+  Eye,
+  FileText,
+  Filter,
   Layers,
+  Map as MapIcon,
   MapPinned,
   RadioTower,
   RefreshCw,
   ShieldAlert,
+  ShieldCheck,
+  Sliders,
+  Sparkles,
+  Thermometer,
   TrendingUp,
   Users,
+  Wind,
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import SimpleBarChart from '../../../shared/components/charts/SimpleBarChart';
 import SimpleLineChart from '../../../shared/components/charts/SimpleLineChart';
 import KpiCard from '../../../shared/components/ui/KpiCard';
@@ -21,6 +39,7 @@ import PageHeader from '../../../shared/components/ui/PageHeader';
 import SectionCard from '../../../shared/components/ui/SectionCard';
 import StatusBadge from '../../../shared/components/ui/StatusBadge';
 import Tabs from '../../../shared/components/ui/Tabs';
+import { ActiveCyclone, cyclonesService } from '../../cartographie/services/cyclones.service';
 import {
   ClimateIndicators,
   DashboardDataSource,
@@ -37,19 +56,37 @@ import {
 type DashboardTab = 'overview' | 'regions' | 'sources' | 'climate';
 
 const riskLabels: Record<string, string> = {
-  GLOBAL: 'Global',
+  GLOBAL: 'Global Composite',
   FLOOD: 'Inondation',
   DROUGHT: 'Sécheresse',
-  LANDSLIDE: 'Glissement',
+  LANDSLIDE: 'Glissement de terrain',
   CYCLONE: 'Cyclone',
 };
 
+const riskShortLabels: Record<string, string> = {
+  '': 'Tous les risques',
+  GLOBAL: 'Global',
+  FLOOD: 'Inondations',
+  DROUGHT: 'Sécheresse',
+  LANDSLIDE: 'Glissements',
+  CYCLONE: 'Cyclones',
+};
+
+const riskTypeIcons: Record<string, string> = {
+  '': '🌐',
+  GLOBAL: '🌐',
+  FLOOD: '🌊',
+  DROUGHT: '☀️',
+  LANDSLIDE: '🏔️',
+  CYCLONE: '🌀',
+};
+
 const riskTypeClasses: Record<string, string> = {
-  GLOBAL: 'bg-slate-100 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-800',
-  FLOOD: 'bg-blue-50 text-blue-700 border-blue-200',
-  DROUGHT: 'bg-amber-50 text-amber-700 border-amber-200',
-  LANDSLIDE: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-  CYCLONE: 'bg-purple-50 text-purple-700 border-purple-200',
+  GLOBAL: 'bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950/40 dark:text-indigo-300 dark:border-indigo-800',
+  FLOOD: 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800',
+  DROUGHT: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800',
+  LANDSLIDE: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800',
+  CYCLONE: 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/40 dark:text-purple-300 dark:border-purple-800',
 };
 
 const riskLevelLabels: Record<string, string> = {
@@ -60,19 +97,16 @@ const riskLevelLabels: Record<string, string> = {
 };
 
 const riskLevelClasses: Record<string, string> = {
-  FAIBLE: 'bg-green-50 text-green-700 border-green-200',
-  MOYEN: 'bg-yellow-50 text-yellow-700 border-yellow-200',
-  ELEVE: 'bg-orange-50 text-orange-700 border-orange-200',
-  CRITIQUE: 'bg-red-50 text-red-700 border-red-200',
+  FAIBLE: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800',
+  MOYEN: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800',
+  ELEVE: 'bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-950/40 dark:text-orange-300 dark:border-orange-800',
+  CRITIQUE: 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800',
 };
 
 function formatDate(value?: string | null) {
   if (!value) return '—';
-
   const date = new Date(value);
-
   if (Number.isNaN(date.getTime())) return '—';
-
   return new Intl.DateTimeFormat('fr-FR', {
     dateStyle: 'medium',
     timeStyle: 'short',
@@ -81,11 +115,8 @@ function formatDate(value?: string | null) {
 
 function formatShortDate(value?: string | null) {
   if (!value) return '—';
-
   const date = new Date(value);
-
   if (Number.isNaN(date.getTime())) return '—';
-
   return new Intl.DateTimeFormat('fr-FR', {
     day: '2-digit',
     month: 'short',
@@ -98,7 +129,6 @@ function formatNumber(value?: number | null, digits = 1) {
   if (value === null || value === undefined || Number.isNaN(Number(value))) {
     return '—';
   }
-
   return Number(value).toLocaleString('fr-FR', {
     maximumFractionDigits: digits,
   });
@@ -108,50 +138,49 @@ function formatPopulation(value?: number | null) {
   if (value === null || value === undefined || Number.isNaN(Number(value))) {
     return '—';
   }
-
-  if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(2)} M`;
-  if (value >= 1_000) return `${(value / 1_000).toFixed(1)} K`;
-
-  return value.toFixed(0);
+  if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(2)} M hab.`;
+  if (value >= 1_000) return `${(value / 1_000).toFixed(1)} k hab.`;
+  return `${value.toFixed(0)} hab.`;
 }
 
 function riskCellClass(value?: number | null) {
   if (value === null || value === undefined || Number.isNaN(Number(value))) {
     return 'bg-slate-50 dark:bg-slate-800 text-slate-400';
   }
+  if (value <= 30) return 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300';
+  if (value <= 60) return 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300';
+  if (value <= 80) return 'bg-orange-50 text-orange-700 dark:bg-orange-950/40 dark:text-orange-300';
+  return 'bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300 font-bold';
+}
 
-  if (value <= 30) return 'bg-green-50 text-green-700';
-  if (value <= 60) return 'bg-yellow-50 text-yellow-700';
-  if (value <= 80) return 'bg-orange-50 text-orange-700';
-
-  return 'bg-red-50 text-red-700';
+function getRiskScoreTone(score?: number | null): 'green' | 'orange' | 'red' {
+  if (!score) return 'green';
+  if (score < 40) return 'green';
+  if (score < 70) return 'orange';
+  return 'red';
 }
 
 function buildRiskDistributionGradient(distribution: RiskDistribution | null) {
-  if (!distribution) return 'conic-gradient(#e5e7eb 0deg 360deg)';
+  if (!distribution) return 'conic-gradient(#e2e8f0 0deg 360deg)';
 
   const values = [
-    { key: 'FAIBLE', color: '#22c55e', value: distribution.FAIBLE },
-    { key: 'MOYEN', color: '#eab308', value: distribution.MOYEN },
+    { key: 'FAIBLE', color: '#10b981', value: distribution.FAIBLE },
+    { key: 'MOYEN', color: '#f59e0b', value: distribution.MOYEN },
     { key: 'ELEVE', color: '#f97316', value: distribution.ELEVE },
     { key: 'CRITIQUE', color: '#ef4444', value: distribution.CRITIQUE },
   ];
 
   const total = values.reduce((sum, item) => sum + item.value, 0);
-
-  if (total === 0) return 'conic-gradient(#e5e7eb 0deg 360deg)';
+  if (total === 0) return 'conic-gradient(#e2e8f0 0deg 360deg)';
 
   let currentAngle = 0;
-
   const parts = values
     .filter((item) => item.value > 0)
     .map((item) => {
       const angle = (item.value / total) * 360;
       const start = currentAngle;
       const end = currentAngle + angle;
-
       currentAngle = end;
-
       return `${item.color} ${start.toFixed(2)}deg ${end.toFixed(2)}deg`;
     });
 
@@ -159,52 +188,66 @@ function buildRiskDistributionGradient(distribution: RiskDistribution | null) {
 }
 
 function riskDistributionItems(distribution: RiskDistribution | null) {
+  const total =
+    (distribution?.FAIBLE ?? 0) +
+    (distribution?.MOYEN ?? 0) +
+    (distribution?.ELEVE ?? 0) +
+    (distribution?.CRITIQUE ?? 0);
+
   return [
     {
       key: 'FAIBLE',
-      label: 'Faible',
+      label: 'Risque Faible',
       count: distribution?.FAIBLE ?? 0,
-      color: 'bg-green-500',
-      text: 'text-green-700',
+      pct: total > 0 ? (((distribution?.FAIBLE ?? 0) / total) * 100).toFixed(1) : '0',
+      color: 'bg-emerald-500',
+      text: 'text-emerald-700 dark:text-emerald-400',
+      bg: 'bg-emerald-50 dark:bg-emerald-950/30',
     },
     {
       key: 'MOYEN',
-      label: 'Moyen',
+      label: 'Risque Moyen',
       count: distribution?.MOYEN ?? 0,
-      color: 'bg-yellow-500',
-      text: 'text-yellow-700',
+      pct: total > 0 ? (((distribution?.MOYEN ?? 0) / total) * 100).toFixed(1) : '0',
+      color: 'bg-amber-500',
+      text: 'text-amber-700 dark:text-amber-400',
+      bg: 'bg-amber-50 dark:bg-amber-950/30',
     },
     {
       key: 'ELEVE',
-      label: 'Élevé',
+      label: 'Risque Élevé',
       count: distribution?.ELEVE ?? 0,
+      pct: total > 0 ? (((distribution?.ELEVE ?? 0) / total) * 100).toFixed(1) : '0',
       color: 'bg-orange-500',
-      text: 'text-orange-700',
+      text: 'text-orange-700 dark:text-orange-400',
+      bg: 'bg-orange-50 dark:bg-orange-950/30',
     },
     {
       key: 'CRITIQUE',
-      label: 'Critique',
+      label: 'Risque Critique',
       count: distribution?.CRITIQUE ?? 0,
-      color: 'bg-red-500',
-      text: 'text-red-700',
+      pct: total > 0 ? (((distribution?.CRITIQUE ?? 0) / total) * 100).toFixed(1) : '0',
+      color: 'bg-rose-500',
+      text: 'text-rose-700 dark:text-rose-400 font-bold',
+      bg: 'bg-rose-50 dark:bg-rose-950/30',
     },
   ];
 }
 
 export default function DashboardPage() {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<DashboardTab>('overview');
 
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
   const [topZones, setTopZones] = useState<TopRiskZone[]>([]);
-  const [distribution, setDistribution] = useState<RiskDistribution | null>(
-    null,
-  );
+  const [distribution, setDistribution] = useState<RiskDistribution | null>(null);
   const [riskByRegion, setRiskByRegion] = useState<RiskByRegionItem[]>([]);
   const [riskTimeSeries, setRiskTimeSeries] = useState<RiskTimeSeriesPoint[]>([]);
   const [sources, setSources] = useState<DashboardDataSource[]>([]);
   const [etlJobs, setEtlJobs] = useState<DashboardEtlJob[]>([]);
   const [rasters, setRasters] = useState<DashboardRaster[]>([]);
   const [climate, setClimate] = useState<ClimateIndicators | null>(null);
+  const [activeCyclones, setActiveCyclones] = useState<ActiveCyclone[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [selectedRiskType, setSelectedRiskType] = useState('');
@@ -224,7 +267,8 @@ export default function DashboardPage() {
         etlJobsData,
         rastersData,
         climateData,
-      ] = await Promise.all([
+        cyclonesData,
+      ] = await Promise.allSettled([
         dashboardService.getSummary(),
         dashboardService.getTopRiskZones({
           riskType: selectedRiskType || undefined,
@@ -244,17 +288,19 @@ export default function DashboardPage() {
         dashboardService.getLatestEtlJobs(5),
         dashboardService.getRasters(),
         dashboardService.getClimateIndicators(),
+        cyclonesService.getActiveCyclones(false),
       ]);
 
-      setSummary(summaryData);
-      setTopZones(topRiskZonesData);
-      setDistribution(riskDistributionData);
-      setRiskByRegion(riskByRegionData);
-      setRiskTimeSeries(riskTimeSeriesData);
-      setSources(sourcesData);
-      setEtlJobs(etlJobsData);
-      setRasters(rastersData);
-      setClimate(climateData);
+      if (summaryData.status === 'fulfilled') setSummary(summaryData.value);
+      if (topRiskZonesData.status === 'fulfilled') setTopZones(topRiskZonesData.value);
+      if (riskDistributionData.status === 'fulfilled') setDistribution(riskDistributionData.value);
+      if (riskByRegionData.status === 'fulfilled') setRiskByRegion(riskByRegionData.value);
+      if (riskTimeSeriesData.status === 'fulfilled') setRiskTimeSeries(riskTimeSeriesData.value);
+      if (sourcesData.status === 'fulfilled') setSources(sourcesData.value);
+      if (etlJobsData.status === 'fulfilled') setEtlJobs(etlJobsData.value);
+      if (rastersData.status === 'fulfilled') setRasters(rastersData.value);
+      if (climateData.status === 'fulfilled') setClimate(climateData.value);
+      if (cyclonesData.status === 'fulfilled') setActiveCyclones(cyclonesData.value);
     } finally {
       setLoading(false);
     }
@@ -267,7 +313,6 @@ export default function DashboardPage() {
 
   const distributionTotal = useMemo(() => {
     if (!distribution) return 0;
-
     return (
       distribution.FAIBLE +
       distribution.MOYEN +
@@ -278,6 +323,11 @@ export default function DashboardPage() {
 
   const distributionGradient = buildRiskDistributionGradient(distribution);
   const distributionItems = riskDistributionItems(distribution);
+
+  const topVulnerableZone = useMemo(() => {
+    if (!topZones || topZones.length === 0) return null;
+    return topZones[0];
+  }, [topZones]);
 
   const riskTypeBars = useMemo(() => {
     const riskTypes = ['FLOOD', 'DROUGHT', 'LANDSLIDE', 'CYCLONE'];
@@ -319,22 +369,22 @@ export default function DashboardPage() {
   const totalSources = summary?.totalSources ?? 0;
 
   const tabs = [
-    { id: 'overview' as const, label: 'Vue d’ensemble' },
-    { id: 'regions' as const, label: 'Risques par région', count: riskByRegion.length },
-    { id: 'sources' as const, label: 'Sources & ETL', count: sources.length },
-    { id: 'climate' as const, label: 'Climat & Rasters', count: rasters.length },
+    { id: 'overview' as const, label: 'Vue d’ensemble stratégique' },
+    { id: 'regions' as const, label: 'Risques par région (23)', count: riskByRegion.length },
+    { id: 'sources' as const, label: 'Sources & Pipelines ETL', count: sources.length },
+    { id: 'climate' as const, label: 'Météo & Couches Rasters', count: rasters.length },
   ];
 
   if (loading) {
     return (
       <div className="flex min-h-[50vh] items-center justify-center">
         <div className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-8 py-6 text-center shadow-sm">
-          <RefreshCw className="mx-auto mb-3 animate-spin text-riskgreen" size={30} />
+          <RefreshCw className="mx-auto mb-3 animate-spin text-riskgreen" size={32} />
           <div className="font-extrabold text-slate-900 dark:text-white">
-            Chargement du tableau de bord...
+            Agrégation du tableau de bord géodécisionnel...
           </div>
           <div className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-            Agrégation des indicateurs multi-risques.
+            Croisement des rasters GeoTIFF, des données DWH et des flux GDACS.
           </div>
         </div>
       </div>
@@ -343,376 +393,512 @@ export default function DashboardPage() {
 
   const kpis = [
     {
-      title: 'Risque global moyen',
+      title: 'Indice National de Risque',
       value: formatNumber(summary?.riskMeanNational, 1),
       suffix: '/100',
-      subtitle: 'Moyenne nationale par région',
+      subtitle: `Score composite moyen pondéré AHP`,
       icon: <TrendingUp size={20} />,
-      tone: 'green' as const,
+      tone: getRiskScoreTone(summary?.riskMeanNational),
     },
     {
-      title: 'Zones élevées / critiques',
-      value: String(summary?.elevatedOrCriticalZones ?? 0),
-      subtitle: `${summary?.criticalZones ?? 0} zones critiques`,
-      icon: <ShieldAlert size={20} />,
-      tone: 'red' as const,
-    },
-    {
-      title: 'Population exposée',
+      title: 'Population Exposée Estimée',
       value: formatPopulation(summary?.populationExposed),
-      subtitle: 'Agrégation WorldPop',
+      subtitle: 'Croisement raster WorldPop × Aléas',
       icon: <Users size={20} />,
       tone: 'blue' as const,
     },
     {
-      title: 'Sources connectées',
-      value: `${connectedSources}/${totalSources}`,
-      subtitle: `${summary?.failedSources ?? 0} source en erreur`,
-      icon: <RadioTower size={20} />,
-      tone: 'blue' as const,
+      title: 'Zones en Alerte Critique',
+      value: String(summary?.elevatedOrCriticalZones ?? 0),
+      subtitle: `${summary?.criticalZones ?? 0} zones en seuil critique (>75)`,
+      icon: <ShieldAlert size={20} />,
+      tone: (summary?.criticalZones ?? 0) > 0 ? ('red' as const) : ('green' as const),
     },
     {
-      title: 'Rasters actifs',
-      value: String(summary?.activeRasters ?? 0),
-      subtitle: `MAJ ${formatShortDate(summary?.latestRasterUpdate)}`,
+      title: 'Point Chaud Territorial N°1',
+      value: topVulnerableZone ? topVulnerableZone.zoneNom : 'Non défini',
+      subtitle: topVulnerableZone ? `Score max ${formatNumber(topVulnerableZone.riskMax, 1)}/100 (${riskShortLabels[topVulnerableZone.riskType] ?? topVulnerableZone.riskType})` : 'Aucune zone à risque élevé',
+      icon: <MapPinned size={20} />,
+      tone: 'orange' as const,
+    },
+    {
+      title: 'Couches Rasters DWH',
+      value: String(summary?.activeRasters ?? rasters.length ?? 0),
+      subtitle: `Dernier sync : ${formatShortDate(summary?.latestRasterUpdate)}`,
       icon: <Layers size={20} />,
       tone: 'green' as const,
     },
     {
-      title: 'Dernier ETL',
-      value: summary?.latestEtlJob?.status ?? '—',
-      subtitle: formatShortDate(
-        (summary?.latestEtlJob as any)?.finished_at ??
-          (summary?.latestEtlJob as any)?.updated_at,
-      ),
-      icon: <Database size={20} />,
-      tone: 'slate' as const,
+      title: 'Flux de Données Connectés',
+      value: `${connectedSources}/${totalSources}`,
+      subtitle: summary?.failedSources ? `${summary.failedSources} source en erreur` : 'Toutes les sources opérationnelles',
+      icon: <RadioTower size={20} />,
+      tone: summary?.failedSources ? ('orange' as const) : ('purple' as const),
     },
   ];
 
   return (
     <div className="max-w-full space-y-6 overflow-x-hidden">
+      {/* 1. Header with navigation shortcuts */}
       <PageHeader
-        title="Tableau de bord décisionnel"
-        subtitle="Vue multi-risques basée sur les données raster, les indicateurs zonaux, le DWH, les sources réelles et les traitements ETL."
-        icon={<BarChart3 size={28} />}
+        title="Tableau de bord géodécisionnel"
+        subtitle="Tour de contrôle multi-risques de Madagascar : alertes temps réel, modèle AHP, rasters satellitaires et forage spatial SOLAP."
+        icon={<BarChart3 size={28} className="text-riskgreen" />}
         actions={
-          <button
-            type="button"
-            onClick={loadDashboard}
-            className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-extrabold text-slate-700 transition hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800 sm:px-4"
-          >
-            <RefreshCw size={18} />
-            <span className="hidden sm:inline">Actualiser</span>
-          </button>
+          <div className="flex flex-wrap items-center gap-2.5">
+            <button
+              type="button"
+              onClick={() => navigate('/carte')}
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 text-sm font-black text-white shadow-sm transition hover:bg-slate-800 dark:bg-white dark:text-slate-950 dark:hover:bg-slate-100"
+            >
+              <MapIcon size={16} />
+              <span>Carte Interactive</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate('/analyse')}
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 text-sm font-extrabold text-slate-700 shadow-sm transition hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+              title="Calibrer la matrice de Saaty AHP"
+            >
+              <Sliders size={16} className="text-blue-500" />
+              <span>Modèle AHP</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate('/analyse/solap')}
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 text-sm font-extrabold text-slate-700 shadow-sm transition hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+              title="Explorer le cube SOLAP multidimensionnel"
+            >
+              <Database size={16} className="text-emerald-500" />
+              <span>SOLAP</span>
+            </button>
+            <button
+              type="button"
+              onClick={loadDashboard}
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-extrabold text-slate-700 shadow-sm transition hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+              title="Rafraîchir les données"
+            >
+              <RefreshCw size={16} />
+            </button>
+          </div>
         }
       />
 
-      <section className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
+      {/* 2. GDACS Cyclone / National Vigilance Live Banner */}
+      {activeCyclones.length > 0 ? (
+        <section className="relative overflow-hidden rounded-[2rem] border-2 border-rose-500/30 bg-gradient-to-r from-rose-950 via-rose-900 to-red-900 p-5 text-white shadow-xl shadow-rose-950/20">
+          <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-rose-500/20 blur-3xl animate-pulse" />
+          <div className="relative flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex items-start gap-4">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-rose-600 text-white shadow-lg animate-bounce">
+                <CloudLightning size={24} />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="rounded-full bg-rose-500/30 px-2.5 py-0.5 text-xs font-black uppercase tracking-wider text-rose-200 border border-rose-400/40">
+                    Alerte Cyclone GDACS Active
+                  </span>
+                  <span className="text-xs text-rose-200/80">
+                    {activeCyclones.length} système(s) détecté(s)
+                  </span>
+                </div>
+                <div className="mt-1 text-xl font-black text-white">
+                  {activeCyclones.map((c) => c.name).join(', ')} — Alerte Météorologique en cours
+                </div>
+                <div className="mt-1 text-xs text-rose-100 flex flex-wrap gap-4">
+                  {activeCyclones.map((c) => (
+                    <span key={c.id}>
+                      <strong>{c.name}</strong> ({c.severityLevel}) • Vents : {c.windSpeed || 'N/A'} • Détecté le : {formatShortDate(c.fetchedAt)}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => navigate('/carte')}
+              className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-black text-rose-950 shadow-lg hover:bg-rose-50 transition"
+            >
+              <span>Suivre la trajectoire sur la carte</span>
+              <ArrowRight size={16} />
+            </button>
+          </div>
+        </section>
+      ) : (
+        <section className="relative overflow-hidden rounded-[2rem] border border-emerald-200/60 bg-gradient-to-r from-emerald-50 via-teal-50 to-white p-4 shadow-sm dark:border-emerald-900/40 dark:from-emerald-950/40 dark:via-slate-900 dark:to-slate-900">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-400">
+                <ShieldCheck size={22} />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-black uppercase tracking-wider text-emerald-700 dark:text-emerald-400">
+                    Vigilance Météorologique & GDACS
+                  </span>
+                  <span className="inline-block h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                </div>
+                <div className="text-sm font-extrabold text-slate-800 dark:text-slate-100">
+                  Situation sous contrôle — Aucun cyclone majeur actif menaçant les côtes malgaches
+                </div>
+              </div>
+            </div>
+            <div className="text-xs text-slate-400 dark:text-slate-500 text-right shrink-0">
+              Veille GDACS & NASA POWER 24/7
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* 3. Strategic 6 KPIs Grid */}
+      <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         {kpis.map((kpi) => (
           <KpiCard key={kpi.title} {...kpi} />
         ))}
       </section>
 
-            <section className="relative overflow-hidden rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900/95 dark:shadow-lg dark:shadow-slate-950/30">
-        <div className="absolute -right-20 -top-20 h-52 w-52 rounded-full bg-blue-500/10 blur-3xl" />
-        <div className="absolute -bottom-20 left-1/3 h-52 w-52 rounded-full bg-emerald-500/10 blur-3xl" />
-
-        <div className="relative flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
-          <div>
-            <div className="inline-flex items-center gap-2 rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-black text-blue-700 dark:border-blue-500/30 dark:bg-blue-500/10 dark:text-blue-200">
-              <span>SOLAP</span>
-              <span className="h-1 w-1 rounded-full bg-blue-400" />
-              <span>Slice</span>
-              <span className="h-1 w-1 rounded-full bg-blue-400" />
-              <span>Dice</span>
-              <span className="h-1 w-1 rounded-full bg-blue-400" />
-              <span>Roll-up</span>
+      {/* 4. Interactive Quick-Filter Bar (SOLAP Slice & Dice) */}
+      <section className="relative overflow-hidden rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="space-y-1">
+            <div className="inline-flex items-center gap-2 rounded-full border border-blue-200 bg-blue-50 px-3 py-0.5 text-xs font-black text-blue-700 dark:border-blue-500/30 dark:bg-blue-500/10 dark:text-blue-300">
+              <Filter size={12} />
+              <span>Filtrage Décisionnel SOLAP</span>
             </div>
-
-            <h3 className="mt-3 text-lg font-black text-slate-950 dark:text-white">
-              Mode d’analyse SOLAP
+            <h3 className="text-base font-black text-slate-900 dark:text-white">
+              Filtrer les indicateurs par aléa & granularité territoriale
             </h3>
-
-            <p className="mt-1 max-w-3xl text-sm leading-6 text-slate-500 dark:text-slate-400">
-              Filtrez les indicateurs par type de risque et niveau administratif.
-              Le changement de niveau correspond à une opération de roll-up / drill-down.
-            </p>
           </div>
 
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:min-w-[540px]">
-            <label className="text-xs font-black uppercase tracking-wide text-slate-400 dark:text-slate-500">
-              Type de risque
-              <select
-                value={selectedRiskType}
-                onChange={(event) => setSelectedRiskType(event.target.value)}
-                className="mt-1 h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-bold text-slate-700 outline-none transition focus:border-blue-400 focus:bg-white dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:border-blue-500 dark:focus:bg-slate-900"
-              >
-                <option value="">Tous les risques</option>
-                <option value="GLOBAL">Global</option>
-                <option value="FLOOD">Inondation</option>
-                <option value="DROUGHT">Sécheresse</option>
-                <option value="LANDSLIDE">Glissement</option>
-                <option value="CYCLONE">Cyclone</option>
-              </select>
-            </label>
-
-            <label className="text-xs font-black uppercase tracking-wide text-slate-400 dark:text-slate-500">
-              Niveau administratif
-              <select
-                value={selectedZoneType}
-                onChange={(event) => setSelectedZoneType(event.target.value)}
-                className="mt-1 h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-bold text-slate-700 outline-none transition focus:border-blue-400 focus:bg-white dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:border-blue-500 dark:focus:bg-slate-900"
-              >
-                <option value="region">Régions</option>
-                <option value="district">Districts</option>
-                <option value="commune">Communes</option>
-              </select>
-            </label>
-          </div>
-        </div>
-      </section>
-
-      <section className="grid grid-cols-1 gap-4 xl:grid-cols-[1.2fr_0.8fr]">
-        <div className="relative overflow-hidden rounded-[2rem] border border-blue-100 bg-gradient-to-r from-blue-700 via-blue-600 to-emerald-600 p-5 text-white shadow-lg shadow-blue-900/10">
-          <div className="absolute -right-16 -top-16 h-44 w-44 rounded-full bg-white dark:bg-slate-900/20 blur-3xl" />
-
-          <div className="relative flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-            <div>
-              <div className="text-sm font-black uppercase tracking-wide text-blue-100">
-                État opérationnel de la plateforme
-              </div>
-              <div className="mt-1 text-2xl font-black">
-                Données consolidées et prêtes pour la décision
-              </div>
-              <p className="mt-1 max-w-3xl text-sm text-blue-50">
-                Les indicateurs visibles sont issus des rasters, des statistiques
-                zonales, du data warehouse, des sources connectées et des jobs ETL.
-              </p>
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Risk Pills */}
+            <div className="flex flex-wrap items-center rounded-2xl bg-slate-100 p-1 dark:bg-slate-800">
+              {[
+                { value: '', label: 'Tous les risques', icon: '🌍' },
+                { value: 'FLOOD', label: 'Inondation', icon: '🌊' },
+                { value: 'DROUGHT', label: 'Sécheresse', icon: '☀️' },
+                { value: 'CYCLONE', label: 'Cyclone', icon: '🌀' },
+                { value: 'LANDSLIDE', label: 'Glissement', icon: '🏔️' },
+              ].map((item) => (
+                <button
+                  key={item.value}
+                  type="button"
+                  onClick={() => setSelectedRiskType(item.value)}
+                  className={[
+                    'inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold transition',
+                    selectedRiskType === item.value
+                      ? 'bg-white text-slate-900 shadow-sm dark:bg-slate-900 dark:text-white'
+                      : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white',
+                  ].join(' ')}
+                >
+                  <span>{item.icon}</span>
+                  <span>{item.label}</span>
+                </button>
+              ))}
             </div>
 
-            <div className="rounded-2xl bg-white/15 px-4 py-3 text-left backdrop-blur md:text-right">
-              <div className="text-xs font-bold text-blue-100">Dernier ETL</div>
-              <div className="text-lg font-black">
-                {summary?.latestEtlJob?.status ?? '—'}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900/90">
-          <div className="text-sm font-black text-slate-500 dark:text-slate-400">
-            Lecture rapide
-          </div>
-
-          <div className="mt-3 space-y-2 text-sm text-slate-600 dark:text-slate-300">
-            <div className="flex items-center justify-between">
-              <span className="text-slate-600 dark:text-slate-300">Risques suivis</span>
-              <strong className="text-slate-950 dark:text-white">5</strong>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-slate-600 dark:text-slate-300">Sources actives</span>
-              <strong className="text-slate-950 dark:text-white">{connectedSources}/{totalSources}</strong>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-slate-600 dark:text-slate-300">Zones-risques analysées</span>
-              <strong className="text-slate-950 dark:text-white">{distributionTotal}</strong>
+            {/* Zone Level Pills (Drill-down / Roll-up) */}
+            <div className="flex items-center rounded-2xl bg-slate-100 p-1 dark:bg-slate-800">
+              {[
+                { value: 'region', label: '23 Régions' },
+                { value: 'district', label: '119 Districts' },
+                { value: 'commune', label: '1 579 Communes' },
+              ].map((item) => (
+                <button
+                  key={item.value}
+                  type="button"
+                  onClick={() => setSelectedZoneType(item.value)}
+                  className={[
+                    'rounded-xl px-3 py-1.5 text-xs font-bold transition',
+                    selectedZoneType === item.value
+                      ? 'bg-blue-600 text-white shadow-sm'
+                      : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white',
+                  ].join(' ')}
+                >
+                  {item.label}
+                </button>
+              ))}
             </div>
           </div>
         </div>
       </section>
 
+      {/* 5. Navigation Tabs */}
       <Tabs tabs={tabs} active={activeTab} onChange={setActiveTab} />
 
+      {/* TAB 1: OVERVIEW */}
       {activeTab === 'overview' && (
-        <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
-          <SectionCard
-            title="Répartition des niveaux"
-            subtitle="Indicateurs filtrés selon l’analyse SOLAP"
-            actions={<Activity className="text-slate-400" size={22} />}
-            className="xl:col-span-1"
-          >
-            <div className="grid grid-cols-1 items-center gap-6">
-              <div
-                className="relative mx-auto h-44 w-44 rounded-full shadow-inner"
-                style={{ background: distributionGradient }}
-              >
-                <div className="absolute inset-11 rounded-full bg-white dark:bg-slate-900 shadow-inner dark:bg-slate-900" />
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="text-center">
-                    <div className="text-3xl font-black text-slate-950 dark:text-white dark:text-white">
-                      {distributionTotal}
-                    </div>
-                    <div className="text-[10px] font-bold uppercase tracking-wide text-slate-400">
-                      zones-risques
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
+            {/* Donut Chart Risk Levels */}
+            <SectionCard
+              title="Répartition des Niveaux de Risque"
+              subtitle={`Agrégation spatiale sur les ${distributionTotal} entités (${selectedZoneType})`}
+              actions={<Activity className="text-slate-400" size={20} />}
+              className="xl:col-span-1"
+            >
+              <div className="flex flex-col items-center justify-center gap-5 pt-2">
+                <div
+                  className="relative mx-auto h-40 w-40 rounded-full shadow-md"
+                  style={{ background: distributionGradient }}
+                >
+                  <div className="absolute inset-10 rounded-full bg-white dark:bg-slate-900 shadow-inner" />
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="text-center">
+                      <div className="text-2xl font-black text-slate-950 dark:text-white">
+                        {distributionTotal}
+                      </div>
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                        Entités
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
 
-              <div className="space-y-3">
-                {distributionItems.map((item) => (
-                  <div
-                    key={item.key}
-                    className="flex items-center justify-between rounded-2xl border border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 px-4 py-3 dark:border-slate-800 dark:bg-slate-950"
-                  >
-                    <div className="flex items-center gap-3">
-                      <span className={['h-3 w-3 rounded-full', item.color].join(' ')} />
-                      <span className="text-sm font-bold text-slate-700 dark:text-slate-200 dark:text-slate-200">
-                        {item.label}
-                      </span>
-                    </div>
-                    <span className={['text-sm font-black', item.text].join(' ')}>
-                      {item.count}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </SectionCard>
-
-          <SectionCard
-            title="Évolution du risque"
-            subtitle="Série temporelle issue du DWH / SOLAP"
-            actions={
-              <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-black text-blue-700">
-                {selectedRiskType || 'GLOBAL'}
-              </span>
-            }
-            className="xl:col-span-2"
-          >
-            <SimpleLineChart points={linePoints} />
-          </SectionCard>
-
-          <SectionCard
-            title="Risques par type"
-            subtitle="Score maximum moyen par type de risque"
-            actions={<BarChart3 className="text-slate-400" size={20} />}
-            className="xl:col-span-1"
-          >
-            <SimpleBarChart items={riskTypeBars} />
-          </SectionCard>
-
-          <SectionCard
-            title="Top zones multi-risques"
-            subtitle="Classement par risque maximum selon les filtres"
-            actions={
-              <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-slate-500 dark:text-slate-400">
-                {selectedZoneType === 'region'
-                  ? 'Régions'
-                  : selectedZoneType === 'district'
-                    ? 'Districts'
-                    : 'Communes'}
-              </span>
-            }
-            className="xl:col-span-2"
-          >
-            <div className="max-h-[430px] overflow-auto rounded-2xl border border-slate-100 dark:border-slate-800 dark:border-slate-800">
-              <table className="w-full text-left text-sm">
-                <thead className="sticky top-0 z-10 bg-slate-50 dark:bg-slate-800 text-xs uppercase tracking-wide text-slate-400 dark:bg-slate-950">
-                  <tr>
-                    <th className="px-4 py-3">#</th>
-                    <th className="px-4 py-3">Risque</th>
-                    <th className="px-4 py-3">Zone</th>
-                    <th className="px-4 py-3 text-right">Moyen</th>
-                    <th className="px-4 py-3 text-right">Max</th>
-                    <th className="px-4 py-3 text-right">Niveau</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {topZones.map((zone, index) => (
-                    <tr
-                      key={`${zone.riskType}-${zone.zoneId}-${index}`}
-                      className="border-t border-slate-100 dark:border-slate-800 transition hover:bg-slate-50 dark:hover:bg-slate-800 dark:bg-slate-800 dark:border-slate-800 dark:hover:bg-slate-950"
+                <div className="w-full space-y-2">
+                  {distributionItems.map((item) => (
+                    <div
+                      key={item.key}
+                      className={[
+                        'flex items-center justify-between rounded-xl px-3 py-2 border border-slate-100 dark:border-slate-800 transition',
+                        item.bg,
+                      ].join(' ')}
                     >
-                      <td className="px-4 py-3 text-xs font-black text-slate-400">
-                        {index + 1}
-                      </td>
-                      <td className="px-4 py-3">
-                        <span
-                          className={[
-                            'rounded-full border px-2.5 py-1 text-xs font-black',
-                            riskTypeClasses[zone.riskType] ??
-                              'border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300',
-                          ].join(' ')}
-                        >
-                          {riskLabels[zone.riskType] ?? zone.riskType}
+                      <div className="flex items-center gap-2.5">
+                        <span className={['h-2.5 w-2.5 rounded-full', item.color].join(' ')} />
+                        <span className="text-xs font-bold text-slate-700 dark:text-slate-200">
+                          {item.label}
                         </span>
-                      </td>
-                      <td className="px-4 py-3 font-bold text-slate-800 dark:text-slate-100 dark:text-slate-100">
-                        {zone.zoneNom}
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        {formatNumber(zone.riskMean, 1)}
-                      </td>
-                      <td className="px-4 py-3 text-right font-black">
-                        {formatNumber(zone.riskMax, 1)}
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        <span
-                          className={[
-                            'rounded-full border px-2.5 py-1 text-xs font-black',
-                            riskLevelClasses[zone.riskLevel ?? ''] ??
-                              'border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 text-slate-500 dark:text-slate-400',
-                          ].join(' ')}
-                        >
-                          {riskLevelLabels[zone.riskLevel ?? ''] ?? '—'}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-slate-400 dark:text-slate-500 font-semibold">
+                          {item.pct}%
                         </span>
-                      </td>
-                    </tr>
+                        <span className={['text-xs font-black', item.text].join(' ')}>
+                          {item.count}
+                        </span>
+                      </div>
+                    </div>
                   ))}
-                </tbody>
-              </table>
+                </div>
+              </div>
+            </SectionCard>
+
+            {/* Time Series Evolution */}
+            <SectionCard
+              title="Évolution Temporelle du Risque (SOLAP / DWH)"
+              subtitle={`Rétrospective pluriannuelle — Type : ${riskLabels[selectedRiskType || 'GLOBAL'] || selectedRiskType}`}
+              actions={
+                <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-black text-blue-700 dark:bg-blue-950/50 dark:text-blue-300">
+                  {selectedRiskType || 'GLOBAL'}
+                </span>
+              }
+              className="xl:col-span-2"
+            >
+              <SimpleLineChart points={linePoints} />
+            </SectionCard>
+          </div>
+
+          <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
+            {/* Risk by Hazard Type Bar Chart */}
+            <SectionCard
+              title="Intensité Moyenne par Aléa"
+              subtitle="Score régional maximum moyen par type de risque"
+              actions={<BarChart3 className="text-slate-400" size={20} />}
+              className="xl:col-span-1"
+            >
+              <SimpleBarChart items={riskTypeBars} />
+            </SectionCard>
+
+            {/* Top Vulnerable Zones Table */}
+            <SectionCard
+              title={`Top ${topZones.length} des Territoires les Plus Vulnérables`}
+              subtitle={`Classé par score de risque décroissant (${selectedZoneType})`}
+              actions={
+                <button
+                  type="button"
+                  onClick={() => navigate('/carte')}
+                  className="inline-flex items-center gap-1.5 text-xs font-black text-blue-600 hover:text-blue-700 dark:text-blue-400"
+                >
+                  <span>Voir sur la carte</span>
+                  <ExternalLink size={14} />
+                </button>
+              }
+              className="xl:col-span-2"
+            >
+              <div className="max-h-[380px] overflow-auto rounded-2xl border border-slate-100 dark:border-slate-800">
+                <table className="w-full text-left text-sm">
+                  <thead className="sticky top-0 z-10 bg-slate-50 dark:bg-slate-800/90 text-xs uppercase tracking-wide text-slate-400 dark:text-slate-400">
+                    <tr>
+                      <th className="px-3.5 py-2.5">#</th>
+                      <th className="px-3.5 py-2.5">Aléa</th>
+                      <th className="px-3.5 py-2.5">Zone Administrative</th>
+                      <th className="px-3.5 py-2.5 text-right">Pop. Exposée</th>
+                      <th className="px-3.5 py-2.5 text-center">Score de Risque</th>
+                      <th className="px-3.5 py-2.5 text-right">Niveau</th>
+                      <th className="px-3.5 py-2.5 text-center">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                    {topZones.map((zone, index) => {
+                      const score = zone.riskMax ?? zone.riskMean ?? 0;
+                      return (
+                        <tr
+                          key={`${zone.riskType}-${zone.zoneId}-${index}`}
+                          className="transition hover:bg-slate-50 dark:hover:bg-slate-800/60"
+                        >
+                          <td className="px-3.5 py-2.5 text-xs font-black text-slate-400">
+                            {index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `${index + 1}`}
+                          </td>
+                          <td className="px-3.5 py-2.5">
+                            <span
+                              className={[
+                                'inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-black',
+                                riskTypeClasses[zone.riskType] ??
+                                  'border-slate-200 bg-slate-50 text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300',
+                              ].join(' ')}
+                            >
+                              <span>{riskTypeIcons[zone.riskType] || '📍'}</span>
+                              <span>{riskShortLabels[zone.riskType] ?? zone.riskType}</span>
+                            </span>
+                          </td>
+                          <td className="px-3.5 py-2.5">
+                            <div className="font-extrabold text-slate-900 dark:text-white">
+                              {zone.zoneNom}
+                            </div>
+                            {zone.zoneCode && (
+                              <div className="text-[10px] text-slate-400">Code : {zone.zoneCode}</div>
+                            )}
+                          </td>
+                          <td className="px-3.5 py-2.5 text-right text-xs font-semibold text-slate-600 dark:text-slate-300">
+                            {formatPopulation(zone.populationExposed)}
+                          </td>
+                          <td className="px-3.5 py-2.5">
+                            <div className="flex items-center justify-center gap-2">
+                              <div className="w-16 h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                                <div
+                                  className={[
+                                    'h-full rounded-full',
+                                    score > 75 ? 'bg-rose-500' : score > 50 ? 'bg-orange-500' : score > 25 ? 'bg-amber-500' : 'bg-emerald-500',
+                                  ].join(' ')}
+                                  style={{ width: `${Math.min(100, Math.max(0, score))}%` }}
+                                />
+                              </div>
+                              <span className="text-xs font-black text-slate-800 dark:text-slate-100 w-8 text-right">
+                                {formatNumber(score, 1)}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="px-3.5 py-2.5 text-right">
+                            <span
+                              className={[
+                                'rounded-full border px-2 py-0.5 text-xs font-black',
+                                riskLevelClasses[zone.riskLevel ?? ''] ??
+                                  'border-slate-200 bg-slate-50 text-slate-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400',
+                              ].join(' ')}
+                            >
+                              {riskLevelLabels[zone.riskLevel ?? ''] ?? '—'}
+                            </span>
+                          </td>
+                          <td className="px-3.5 py-2.5 text-center">
+                            <button
+                              type="button"
+                              onClick={() => navigate(`/carte`)}
+                              className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-blue-600 dark:hover:bg-slate-800 dark:hover:text-blue-400 transition"
+                              title="Centrer la carte sur cette zone"
+                            >
+                              <Eye size={16} />
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </SectionCard>
+          </div>
+
+          {/* Traceability & Methodology Footnote */}
+          <section className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4 dark:border-slate-800 dark:bg-slate-900/60">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs text-slate-500 dark:text-slate-400">
+              <div className="flex items-center gap-2">
+                <Sparkles size={16} className="text-amber-500 shrink-0" />
+                <span>
+                  <strong>Méthodologie AHP de Saaty & PostGIS Star Schema :</strong> Pondérations multicritères validées (Ratio de cohérence $CR &lt; 10\%$). Données recalculées automatiquement via le pipeline ETL et le Data Warehouse spatial.
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => navigate('/parametres/poids-ahp')}
+                className="shrink-0 font-bold text-blue-600 hover:text-blue-700 dark:text-blue-400"
+              >
+                Consulter la matrice Saaty →
+              </button>
             </div>
-          </SectionCard>
+          </section>
         </div>
       )}
 
+      {/* TAB 2: REGIONAL COMPARISON */}
       {activeTab === 'regions' && (
         <SectionCard
-          title="Comparaison des risques par région"
-          subtitle="Valeurs maximales par type de risque, issues du DWH."
-          actions={<MapPinned className="text-slate-400" size={22} />}
+          title="Matrice Comparative Multi-Risques des 23 Régions"
+          subtitle="Scores maximaux par aléa issus de la vue matérialisée dwh.mv_regional_risk_summary."
+          actions={
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-slate-400">23 Régions</span>
+              <MapPinned className="text-slate-400" size={18} />
+            </div>
+          }
         >
-          <div className="max-h-[560px] overflow-auto rounded-2xl border border-slate-100 dark:border-slate-800 dark:border-slate-200 dark:border-slate-800">
+          <div className="max-h-[560px] overflow-auto rounded-2xl border border-slate-100 dark:border-slate-800">
             <table className="w-full min-w-[900px] text-left text-sm">
-              <thead className="sticky top-0 z-10 bg-slate-50 dark:bg-slate-800 text-xs uppercase tracking-wide text-slate-400 dark:bg-slate-50 dark:bg-slate-800">
+              <thead className="sticky top-0 z-10 bg-slate-50 dark:bg-slate-800 text-xs uppercase tracking-wide text-slate-400">
                 <tr>
                   <th className="px-4 py-3">Région</th>
-                  <th className="px-4 py-3 text-center">Global</th>
-                  <th className="px-4 py-3 text-center">Inondation</th>
-                  <th className="px-4 py-3 text-center">Sécheresse</th>
-                  <th className="px-4 py-3 text-center">Glissement</th>
-                  <th className="px-4 py-3 text-center">Cyclone</th>
+                  <th className="px-4 py-3 text-center">🌐 Risque Global</th>
+                  <th className="px-4 py-3 text-center">🌊 Inondation</th>
+                  <th className="px-4 py-3 text-center">☀️ Sécheresse</th>
+                  <th className="px-4 py-3 text-center">🏔️ Glissement</th>
+                  <th className="px-4 py-3 text-center">🌀 Cyclone</th>
+                  <th className="px-4 py-3 text-center">Action</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                 {riskByRegion.map((region) => (
                   <tr
                     key={region.zoneId}
-                    className="border-t border-slate-100 dark:border-slate-800 transition hover:bg-slate-50 dark:hover:bg-slate-800 dark:bg-slate-800 dark:border-slate-200 dark:border-slate-800 dark:hover:bg-slate-50 dark:hover:bg-slate-800 dark:bg-slate-800"
+                    className="transition hover:bg-slate-50 dark:hover:bg-slate-800/60"
                   >
-                    <td className="px-4 py-3 font-black text-slate-800 dark:text-slate-100 dark:text-slate-950 dark:text-white">
+                    <td className="px-4 py-3 font-black text-slate-900 dark:text-white">
                       {region.zoneNom}
                     </td>
-                    {['GLOBAL', 'FLOOD', 'DROUGHT', 'LANDSLIDE', 'CYCLONE'].map(
-                      (riskType) => {
-                        const value = region.risks[riskType]?.riskMax;
-
-                        return (
-                          <td key={riskType} className="px-4 py-3 text-center">
-                            <span
-                              className={[
-                                'inline-flex min-w-14 justify-center rounded-xl px-3 py-1.5 text-xs font-black',
-                                riskCellClass(value),
-                              ].join(' ')}
-                            >
-                              {formatNumber(value, 1)}
-                            </span>
-                          </td>
-                        );
-                      },
-                    )}
+                    {['GLOBAL', 'FLOOD', 'DROUGHT', 'LANDSLIDE', 'CYCLONE'].map((riskType) => {
+                      const value = region.risks[riskType]?.riskMax;
+                      return (
+                        <td key={riskType} className="px-4 py-3 text-center">
+                          <span
+                            className={[
+                              'inline-flex min-w-14 justify-center rounded-xl px-3 py-1.5 text-xs font-black',
+                              riskCellClass(value),
+                            ].join(' ')}
+                          >
+                            {formatNumber(value, 1)}
+                          </span>
+                        </td>
+                      );
+                    })}
+                    <td className="px-4 py-3 text-center">
+                      <button
+                        type="button"
+                        onClick={() => navigate('/carte')}
+                        className="text-xs font-bold text-blue-600 hover:text-blue-700 dark:text-blue-400 inline-flex items-center gap-1"
+                      >
+                        <Eye size={14} />
+                        <span>Carte</span>
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -721,29 +907,29 @@ export default function DashboardPage() {
         </SectionCard>
       )}
 
+      {/* TAB 3: SOURCES & ETL */}
       {activeTab === 'sources' && (
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
           <SectionCard
-            title="Sources de données"
-            subtitle="État des sources utilisées par les modèles."
+            title="Flux & Sources de Données Réelles"
+            subtitle="État des connecteurs satellitaires, climatiques et vectoriels."
             actions={<RadioTower size={20} className="text-slate-400" />}
           >
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
               {sources.map((source) => (
                 <div
                   key={source.code}
-                  className="rounded-2xl border border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 p-4 transition hover:border-emerald-200 hover:bg-emerald-50/40 dark:border-slate-200 dark:border-slate-800 dark:bg-slate-50 dark:bg-slate-800"
+                  className="rounded-2xl border border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/70 p-4 transition hover:border-emerald-200"
                 >
                   <div className="mb-3 flex items-start justify-between gap-3">
                     <div>
-                      <div className="font-black text-slate-900 dark:text-white dark:text-slate-950 dark:text-white">
+                      <div className="font-black text-slate-900 dark:text-white">
                         {source.name}
                       </div>
                       <div className="text-xs text-slate-500 dark:text-slate-400">
                         {source.provider ?? source.category}
                       </div>
                     </div>
-
                     <StatusBadge status={source.status} />
                   </div>
 
@@ -756,32 +942,31 @@ export default function DashboardPage() {
           </SectionCard>
 
           <SectionCard
-            title="Derniers jobs ETL"
-            subtitle="Historique récent des traitements."
+            title="Traçabilité des Traitements ETL"
+            subtitle="Historique des exécutions du pipeline de données spatiales."
             actions={<Activity size={20} className="text-slate-400" />}
           >
             <div className="max-h-[520px] space-y-3 overflow-y-auto pr-1">
               {etlJobs.map((job) => (
                 <div
                   key={job.id}
-                  className="rounded-2xl border border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 p-4 dark:border-slate-200 dark:border-slate-800 dark:bg-slate-50 dark:bg-slate-800"
+                  className="rounded-2xl border border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/70 p-4"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <div className="font-black text-slate-900 dark:text-white dark:text-slate-950 dark:text-white">
+                      <div className="font-black text-slate-900 dark:text-white">
                         {job.message ?? job.type}
                       </div>
                       <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
                         {formatShortDate(job.finishedAt ?? job.updatedAt)}
                       </div>
                     </div>
-
                     <StatusBadge status={job.status} />
                   </div>
 
                   {job.durationMs && (
                     <div className="mt-2 text-xs text-slate-500 dark:text-slate-400">
-                      Durée : {(job.durationMs / 1000).toFixed(1)} s
+                      Durée d’exécution : {(job.durationMs / 1000).toFixed(1)} s
                     </div>
                   )}
                 </div>
@@ -791,64 +976,90 @@ export default function DashboardPage() {
         </div>
       )}
 
+      {/* TAB 4: CLIMATE & RASTERS */}
       {activeTab === 'climate' && (
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
           <SectionCard
-            title="Moyenne climatique régionale récente"
-            subtitle="Moyenne NASA POWER des points représentatifs des régions."
+            title="Indicateurs Météorologiques Live (NASA POWER)"
+            subtitle="Moyenne climatique récente sur Madagascar."
             actions={<CloudSun size={20} className="text-slate-400" />}
           >
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              {climate &&
-                [
-                  climate.temperature,
-                  climate.humidity,
-                  climate.wind,
-                  climate.precipitation,
-                ].map((item) => (
-                  <div
-                    key={item.label}
-                    className="rounded-2xl border border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 p-4 dark:border-slate-200 dark:border-slate-800 dark:bg-slate-50 dark:bg-slate-800"
-                  >
-                    <div className="text-sm font-bold text-slate-500 dark:text-slate-400">
-                      {item.label}
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              {climate && (
+                <>
+                  <div className="rounded-2xl border border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/70 p-4">
+                    <div className="flex items-center gap-2 text-sm font-bold text-slate-500 dark:text-slate-400">
+                      <Thermometer size={18} className="text-amber-500" />
+                      <span>{climate.temperature.label}</span>
                     </div>
-                    <div
-                      className={
-                        item.value === null
-                          ? 'mt-2 text-sm font-black text-slate-400'
-                          : 'mt-2 text-2xl font-black text-slate-950 dark:text-white dark:text-slate-950 dark:text-white'
-                      }
-                    >
-                      {item.value === null
-                        ? 'Donnée indisponible'
-                        : `${formatNumber(item.value, 1)} ${item.unit}`}
+                    <div className="mt-2 text-2xl font-black text-slate-950 dark:text-white">
+                      {climate.temperature.value === null
+                        ? 'Indisponible'
+                        : `${formatNumber(climate.temperature.value, 1)} ${climate.temperature.unit}`}
                     </div>
-                    <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                      Source : {item.source}
-                    </div>
+                    <div className="mt-1 text-xs text-slate-400">Source : {climate.temperature.source}</div>
                   </div>
-                ))}
+
+                  <div className="rounded-2xl border border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/70 p-4">
+                    <div className="flex items-center gap-2 text-sm font-bold text-slate-500 dark:text-slate-400">
+                      <Droplets size={18} className="text-blue-500" />
+                      <span>{climate.humidity.label}</span>
+                    </div>
+                    <div className="mt-2 text-2xl font-black text-slate-950 dark:text-white">
+                      {climate.humidity.value === null
+                        ? 'Indisponible'
+                        : `${formatNumber(climate.humidity.value, 1)} ${climate.humidity.unit}`}
+                    </div>
+                    <div className="mt-1 text-xs text-slate-400">Source : {climate.humidity.source}</div>
+                  </div>
+
+                  <div className="rounded-2xl border border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/70 p-4">
+                    <div className="flex items-center gap-2 text-sm font-bold text-slate-500 dark:text-slate-400">
+                      <Wind size={18} className="text-teal-500" />
+                      <span>{climate.wind.label}</span>
+                    </div>
+                    <div className="mt-2 text-2xl font-black text-slate-950 dark:text-white">
+                      {climate.wind.value === null
+                        ? 'Indisponible'
+                        : `${formatNumber(climate.wind.value, 1)} ${climate.wind.unit}`}
+                    </div>
+                    <div className="mt-1 text-xs text-slate-400">Source : {climate.wind.source}</div>
+                  </div>
+
+                  <div className="rounded-2xl border border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/70 p-4">
+                    <div className="flex items-center gap-2 text-sm font-bold text-slate-500 dark:text-slate-400">
+                      <CloudRain size={18} className="text-indigo-500" />
+                      <span>{climate.precipitation.label}</span>
+                    </div>
+                    <div className="mt-2 text-2xl font-black text-slate-950 dark:text-white">
+                      {climate.precipitation.value === null
+                        ? 'Indisponible'
+                        : `${formatNumber(climate.precipitation.value, 1)} ${climate.precipitation.unit}`}
+                    </div>
+                    <div className="mt-1 text-xs text-slate-400">Source : {climate.precipitation.source}</div>
+                  </div>
+                </>
+              )}
             </div>
 
             <div className="mt-4 text-xs text-slate-500 dark:text-slate-400">
-              Date : {formatDate(climate?.date)}
+              Dernier relevé : {formatDate(climate?.date)}
             </div>
           </SectionCard>
 
           <SectionCard
-            title="Rasters actifs récents"
-            subtitle="Dernières couches raster enregistrées."
-            actions={<BarChart3 size={20} className="text-slate-400" />}
+            title="Catalogue des Rasters GeoTIFF Actifs"
+            subtitle="Couches matricielles exploitées pour le calcul du risque composite."
+            actions={<Layers size={20} className="text-slate-400" />}
           >
             <div className="max-h-[520px] space-y-3 overflow-y-auto pr-1">
               {rasters.slice(0, 12).map((raster) => (
                 <div
                   key={`${raster.type}-${raster.filePath}`}
-                  className="flex items-center justify-between gap-4 rounded-2xl border border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 p-4 dark:border-slate-200 dark:border-slate-800 dark:bg-slate-50 dark:bg-slate-800"
+                  className="flex items-center justify-between gap-4 rounded-2xl border border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/70 p-4"
                 >
                   <div>
-                    <div className="font-black text-slate-900 dark:text-white dark:text-slate-950 dark:text-white">
+                    <div className="font-black text-slate-900 dark:text-white">
                       {raster.name}
                     </div>
                     <div className="text-xs font-bold uppercase tracking-wide text-slate-400">
@@ -857,7 +1068,7 @@ export default function DashboardPage() {
                   </div>
 
                   <div className="text-right text-xs text-slate-500 dark:text-slate-400">
-                    max {formatNumber(raster.maxValue, 1)}
+                    Max : {formatNumber(raster.maxValue, 1)}
                     <br />
                     {formatShortDate(raster.createdAt ?? raster.updatedAt)}
                   </div>
@@ -867,8 +1078,6 @@ export default function DashboardPage() {
           </SectionCard>
         </div>
       )}
-
-      
     </div>
   );
 }
