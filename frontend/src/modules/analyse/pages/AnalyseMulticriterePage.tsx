@@ -20,6 +20,7 @@ import {
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Tabs from '../../../shared/components/ui/Tabs';
+import AnalyseNavTabs from '../components/AnalyseNavTabs';
 import {
   AhpCalculateResponse,
   ahpService,
@@ -674,6 +675,8 @@ export default function AnalyseMulticriterePage() {
 
   return (
     <div className="space-y-6">
+      <AnalyseNavTabs />
+
       <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-soft dark:border-slate-800 dark:bg-slate-900">
         <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
           <div>
