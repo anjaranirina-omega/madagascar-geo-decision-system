@@ -2,8 +2,7 @@ import { api } from '../../services/api';
 
 export type RequestedRole =
   | 'DECIDEUR'
-  | 'ANALYSTE'
-  | 'AGENT_TERRAIN';
+  | 'ANALYSTE';
 
 export type AccountRequestStatus =
   | 'PENDING'

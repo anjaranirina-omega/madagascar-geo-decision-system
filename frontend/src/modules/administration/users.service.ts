@@ -2,7 +2,7 @@ import { api } from '../../services/api';
 
 export type Role = {
   id: string;
-  name: 'ADMIN' | 'DECIDEUR' | 'ANALYSTE' | 'AGENT_TERRAIN';
+  name: 'ADMIN' | 'DECIDEUR' | 'ANALYSTE';
   description?: string;
   createdAt?: string;
   updatedAt?: string;

@@ -1,9 +1,9 @@
 import React from 'react';
-import { Shield, Check, X, Users, Lock, Key } from 'lucide-react';
+import { Shield, Check, X, Key } from 'lucide-react';
 import PageHeader from '../../../shared/components/ui/PageHeader';
 import { AppRole, PAGE_ACCESS, ROLE_LABELS } from '../../../shared/auth/roles';
 
-const ROLES: AppRole[] = ['ADMIN', 'ANALYSTE', 'DECIDEUR', 'AGENT_TERRAIN'];
+const ROLES: AppRole[] = ['ADMIN', 'ANALYSTE', 'DECIDEUR'];
 
 const MODULE_DEFINITIONS = [
   { key: 'dashboard', label: 'Tableau de bord', desc: 'KPIs, météo, alertes globales, séries temporelles' },
@@ -23,10 +23,10 @@ export default function RolesPage() {
       <PageHeader
         title="Gestion des Rôles & Permissions (RBAC)"
         subtitle="Matrice des privilèges et habilitations d'accès aux modules de la plateforme décisionnelle."
-        icon={<Shield size={32} />}
+        icon={<Shield size={32} className="text-emerald-400" />}
       />
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         {ROLES.map((role) => (
           <div
             key={role}
@@ -49,7 +49,6 @@ export default function RolesPage() {
               {role === 'ADMIN' && 'Contrôle total du système, gestion des utilisateurs, API et DWH.'}
               {role === 'ANALYSTE' && 'Calibration des modèles AHP, imports de rasters et analyses SOLAP.'}
               {role === 'DECIDEUR' && 'Consultation stratégique, tableaux de bord de synthèse et exports PDF.'}
-              {role === 'AGENT_TERRAIN' && 'Remontées opérationnelles, missions terrain et géolocalisation.'}
             </p>
           </div>
         ))}
