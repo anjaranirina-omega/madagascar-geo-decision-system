@@ -1,38 +1,61 @@
 import {
+  Activity,
+  AlertTriangle,
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
   BarChart3,
+  Calendar,
+  CheckCircle2,
+  ChevronLeft,
   ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
+  Clock,
   Database,
   Download,
+  ExternalLink,
   FileSpreadsheet,
   FileText,
+  Filter,
+  HardDrive,
   Layers,
+  MapPin,
   RadioTower,
+  RefreshCw,
+  Search,
   Sparkles,
+  Trash2,
+  TrendingDown,
+  TrendingUp,
+  Users,
 } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import PageHeader from '../../../shared/components/ui/PageHeader';
+import Tabs from '../../../shared/components/ui/Tabs';
 import {
   GeneratedReport,
   RiskComparisonRow,
   reportsService,
 } from '../services/reports.service';
-import Tabs from '../../../shared/components/ui/Tabs';
 
 type ReportAction = {
   title: string;
   description: string;
-  format: string;
+  format: 'PDF' | 'XLSX' | 'CSV';
+  category: 'national' | 'zones' | 'sources' | 'etl';
   icon: typeof FileText;
   action: () => Promise<void>;
 };
 
 type WizardStep = 1 | 2 | 3 | 4 | 5;
-type ReportsTab = 'overview' | 'exports' | 'history' | 'comparison';
+type ReportsTab = 'catalog' | 'history' | 'comparison';
 
 const riskOptions = [
-  { id: 'FLOOD', label: 'Inondation' },
-  { id: 'DROUGHT', label: 'Sécheresse' },
-  { id: 'LANDSLIDE', label: 'Glissement de terrain' },
-  { id: 'CYCLONE', label: 'Cyclone' },
+  { id: 'FLOOD', label: 'Inondation', icon: '🌊' },
+  { id: 'DROUGHT', label: 'Sécheresse', icon: '☀️' },
+  { id: 'LANDSLIDE', label: 'Glissement de terrain', icon: '🏔️' },
+  { id: 'CYCLONE', label: 'Cyclone', icon: '🌀' },
 ];
 
 const reportTypeLabels: Record<string, string> = {
@@ -52,121 +75,32 @@ const periodLabels: Record<string, string> = {
 
 const zoneLevelLabels: Record<string, string> = {
   madagascar: 'Madagascar',
-  region: 'Région',
-  district: 'District',
-  commune: 'Commune',
+  region: 'Région (23)',
+  district: 'District (119)',
+  commune: 'Commune (1579+)',
 };
 
 const elementOptions = [
-  'Carte raster',
+  'Carte raster & GeoTIFF',
   'Carte administrative',
-  'Histogrammes',
-  'Courbes temporelles',
-  'Tableau statistique',
-  'Alertes',
-  'Indicateurs climatiques',
-  'Population exposée',
-  'Méthodologie',
-  'Sources des données',
+  'Histogrammes par aléa',
+  'Courbes temporelles SOLAP',
+  'Tableau statistique DWH',
+  'Historique des alertes',
+  'Indicateurs météo NASA POWER',
+  'Population exposée WorldPop',
+  'Méthodologie AHP Saaty',
+  'Traçabilité des sources',
 ];
-
-function SectionCard({
-  title,
-  subtitle,
-  children,
-}: {
-  title: string;
-  subtitle?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <section className="rounded-[2rem] border border-slate-200 dark:border-slate-800 bg-white p-6 shadow-sm dark:bg-slate-900 dark:border-slate-800 dark:border-slate-800 dark:bg-slate-900">
-      <div className="mb-5">
-        <h3 className="text-lg font-black text-slate-950 dark:text-white dark:text-white">
-          {title}
-        </h3>
-        {subtitle && <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{subtitle}</p>}
-      </div>
-      {children}
-    </section>
-  );
-}
-
-function ReportCard({
-  report,
-  onDownloaded,
-}: {
-  report: ReportAction;
-  onDownloaded?: () => Promise<void> | void;
-}) {
-  const [loading, setLoading] = useState(false);
-  const Icon = report.icon;
-
-  const handleDownload = async () => {
-    setLoading(true);
-
-    try {
-      await report.action();
-      await onDownloaded?.();
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <div className="group rounded-3xl border border-slate-200 dark:border-slate-800 bg-white p-6 shadow-sm dark:bg-slate-900 dark:border-slate-800 transition hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-xl dark:border-slate-800 dark:bg-slate-900">
-      <div className="mb-4 flex items-start justify-between gap-3">
-        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-500 to-green-500 text-white shadow-lg">
-          <Icon size={24} />
-        </div>
-
-        <span className="rounded-full border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 px-3 py-1 text-xs font-black text-slate-500 dark:text-slate-400">
-          {report.format}
-        </span>
-      </div>
-
-      <h3 className="text-lg font-black text-slate-950 dark:text-white dark:text-white">
-        {report.title}
-      </h3>
-
-      <p className="mt-2 min-h-12 text-sm leading-6 text-slate-500 dark:text-slate-400">
-        {report.description}
-      </p>
-
-      <button
-        type="button"
-        onClick={handleDownload}
-        disabled={loading}
-        className="mt-5 inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-green-500 to-blue-600 px-4 text-sm font-black text-white shadow-lg shadow-blue-900/10 transition hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-60"
-      >
-        <Download size={18} />
-        {loading ? 'Génération...' : 'Télécharger'}
-      </button>
-    </div>
-  );
-}
 
 function formatReportDate(value?: string | null) {
   if (!value) return '—';
-
-  /*
-   * Les dates PostgreSQL / TypeORM peuvent arriver :
-   * - avec Z : 2026-08-05T07:21:00.000Z
-   * - sans Z : 2026-08-05T07:21:00.000
-   * - avec espace : 2026-08-05 07:21:00.000
-   *
-   * On normalise en UTC si aucune timezone n'est indiquée,
-   * puis on affiche explicitement en heure Madagascar.
-   */
   const cleanedValue = String(value).trim().replace(' ', 'T');
   const hasTimezone = /Z$|[+-]\d{2}:?\d{2}$/.test(cleanedValue);
   const normalizedValue = hasTimezone ? cleanedValue : `${cleanedValue}Z`;
 
   const date = new Date(normalizedValue);
-
-  if (Number.isNaN(date.getTime())) {
-    return '—';
-  }
+  if (Number.isNaN(date.getTime())) return '—';
 
   return new Intl.DateTimeFormat('fr-FR', {
     dateStyle: 'medium',
@@ -179,10 +113,8 @@ function formatDelta(value?: number | null) {
   if (value === null || value === undefined || Number.isNaN(Number(value))) {
     return '—';
   }
-
   const numeric = Number(value);
   const sign = numeric > 0 ? '+' : '';
-
   return `${sign}${numeric.toFixed(1)}`;
 }
 
@@ -190,60 +122,44 @@ function formatComparisonValue(value?: number | null) {
   if (value === null || value === undefined || Number.isNaN(Number(value))) {
     return 'N/A';
   }
-
   return Number(value).toFixed(1);
 }
 
-function formatComparisonDelta(row: RiskComparisonRow) {
-  const hasA = row.riskMaxA !== null && row.riskMaxA !== undefined;
-  const hasB = row.riskMaxB !== null && row.riskMaxB !== undefined;
-
-  if (!hasA && hasB) {
-    return 'Nouveau';
-  }
-
-  if (hasA && !hasB) {
-    return 'Absent';
-  }
-
-  return formatDelta(row.riskMaxDelta);
-}
-
-function comparisonDeltaClass(row: RiskComparisonRow) {
-  const hasA = row.riskMaxA !== null && row.riskMaxA !== undefined;
-  const hasB = row.riskMaxB !== null && row.riskMaxB !== undefined;
-
-  if (!hasA && hasB) {
-    return 'text-blue-700';
-  }
-
-  if (hasA && !hasB) {
-    return 'text-slate-500 dark:text-slate-400';
-  }
-
-  if (Number(row.riskMaxDelta ?? 0) > 0) {
-    return 'text-red-600';
-  }
-
-  if (Number(row.riskMaxDelta ?? 0) < 0) {
-    return 'text-green-600';
-  }
-
-  return 'text-slate-500 dark:text-slate-400';
-}
-
 function formatFileSize(value?: number | null) {
-  if (!value) return '—';
-
-  if (value > 1024 * 1024) {
-    return `${(value / 1024 / 1024).toFixed(1)} MB`;
+  if (!value || value <= 0) return '—';
+  if (value >= 1024 * 1024) {
+    return `${(value / (1024 * 1024)).toFixed(2)} Mo`;
   }
-
-  if (value > 1024) {
-    return `${(value / 1024).toFixed(1)} KB`;
+  if (value >= 1024) {
+    return `${(value / 1024).toFixed(1)} Ko`;
   }
+  return `${value} o`;
+}
 
-  return `${value} B`;
+function getFormatBadge(format: string) {
+  const f = format.toUpperCase();
+  if (f === 'PDF') {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1 text-xs font-black text-rose-700 dark:border-rose-900/40 dark:bg-rose-950/40 dark:text-rose-300">
+        <FileText size={12} />
+        <span>PDF</span>
+      </span>
+    );
+  }
+  if (f === 'XLSX' || f === 'EXCEL') {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-black text-emerald-700 dark:border-emerald-900/40 dark:bg-emerald-950/40 dark:text-emerald-300">
+        <FileSpreadsheet size={12} />
+        <span>XLSX</span>
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-1 rounded-lg border border-blue-200 bg-blue-50 px-2.5 py-1 text-xs font-black text-blue-700 dark:border-blue-900/40 dark:bg-blue-950/40 dark:text-blue-300">
+      <BarChart3 size={12} />
+      <span>CSV</span>
+    </span>
+  );
 }
 
 function ChoiceButton({
@@ -260,10 +176,10 @@ function ChoiceButton({
       type="button"
       onClick={onClick}
       className={[
-        'rounded-2xl border px-4 py-3 text-left text-sm font-bold transition',
+        'rounded-2xl border px-4 py-3 text-left text-xs font-bold transition',
         active
-          ? 'border-blue-300 bg-blue-50 text-blue-800 shadow-sm'
-          : 'border-slate-200 dark:border-slate-800 bg-white text-slate-600 dark:text-slate-300 hover:border-blue-200 hover:bg-slate-50 dark:bg-slate-800',
+          ? 'border-purple-400 bg-purple-50 text-purple-900 dark:border-purple-600 dark:bg-purple-950/50 dark:text-purple-200 shadow-xs'
+          : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:border-purple-300',
       ].join(' ')}
     >
       {label}
@@ -272,13 +188,23 @@ function ChoiceButton({
 }
 
 export default function RapportsPage() {
-  const [activeTab, setActiveTab] = useState<ReportsTab>('overview');
+  const [activeTab, setActiveTab] = useState<ReportsTab>('catalog');
   const [wizardOpen, setWizardOpen] = useState(false);
   const [step, setStep] = useState<WizardStep>(1);
   const [loadingWizard, setLoadingWizard] = useState(false);
+
+  // History & Filters
   const [history, setHistory] = useState<GeneratedReport[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [historySearch, setHistorySearch] = useState('');
+  const [historyFormatFilter, setHistoryFormatFilter] = useState('');
+  const [historyTypeFilter, setHistoryTypeFilter] = useState('');
+  const [historyPage, setHistoryPage] = useState(1);
+  const [historyPageSize, setHistoryPageSize] = useState(10);
 
+  // Comparison
   const [comparisonRows, setComparisonRows] = useState<RiskComparisonRow[]>([]);
   const [comparisonLoading, setComparisonLoading] = useState(false);
   const [periodAStart, setPeriodAStart] = useState('2026-07-01');
@@ -288,6 +214,7 @@ export default function RapportsPage() {
   const [comparisonRiskType, setComparisonRiskType] = useState('');
   const [comparisonZoneType, setComparisonZoneType] = useState('region');
 
+  // Wizard State
   const [reportType, setReportType] = useState('national');
   const [period, setPeriod] = useState('30d');
   const [selectedRisks, setSelectedRisks] = useState<string[]>([
@@ -297,15 +224,15 @@ export default function RapportsPage() {
     'CYCLONE',
   ]);
   const [zoneLevel, setZoneLevel] = useState('madagascar');
-  const [selectedElements, setSelectedElements] =
-    useState<string[]>(elementOptions);
+  const [selectedElements, setSelectedElements] = useState<string[]>(elementOptions);
 
   const loadHistory = async () => {
     setHistoryLoading(true);
-
     try {
-      const response = await reportsService.getHistory(50);
-      setHistory(response);
+      const response = await reportsService.getHistory(100);
+      setHistory(response || []);
+    } catch (err) {
+      console.error('Erreur chargement historique:', err);
     } finally {
       setHistoryLoading(false);
     }
@@ -316,21 +243,29 @@ export default function RapportsPage() {
   }, []);
 
   const downloadHistoryReport = async (report: GeneratedReport) => {
-    await reportsService.downloadHistory(report);
+    setDownloadingId(report.id);
+    try {
+      await reportsService.downloadHistory(report);
+    } finally {
+      setDownloadingId(null);
+    }
   };
 
   const deleteHistoryReport = async (id: string) => {
-    if (!window.confirm('Supprimer ce rapport de l’historique ?')) {
+    if (!window.confirm('Voulez-vous supprimer définitivement ce rapport de l’historique ?')) {
       return;
     }
-
-    await reportsService.deleteHistory(id);
-    await loadHistory();
+    setDeletingId(id);
+    try {
+      await reportsService.deleteHistory(id);
+      await loadHistory();
+    } finally {
+      setDeletingId(null);
+    }
   };
 
   const loadComparison = async () => {
     setComparisonLoading(true);
-
     try {
       const rows = await reportsService.getRiskComparison({
         periodAStart,
@@ -340,8 +275,7 @@ export default function RapportsPage() {
         riskType: comparisonRiskType || undefined,
         zoneType: comparisonZoneType,
       });
-
-      setComparisonRows(rows);
+      setComparisonRows(rows || []);
     } finally {
       setComparisonLoading(false);
     }
@@ -356,52 +290,35 @@ export default function RapportsPage() {
       riskType: comparisonRiskType || undefined,
       zoneType: comparisonZoneType,
     });
-
     await loadHistory();
   };
 
+  // Catalogue Actions
   const reports: ReportAction[] = [
     {
-      title: 'Rapport national multi-risques',
+      title: 'Rapport National Multi-Risques',
       description:
-        'Rapport PDF structuré avec résumé exécutif, top zones, sources, ETL, méthodologie et recommandations.',
+        'Synthèse décisionnelle officielle en PDF avec indicateurs zonaux, top zones, traçabilité ETL et cartographie.',
       format: 'PDF',
+      category: 'national',
       icon: FileText,
       action: () => reportsService.downloadNationalPdf(),
     },
     {
-      title: 'Classeur national multi-risques',
+      title: 'Classeur Multi-Risques National',
       description:
-        'Export Excel avec synthèse, top zones, sources, jobs ETL et rasters actifs.',
+        'Classeur Excel complet multi-feuilles avec statistiques zonales, découpages administratifs et métriques DWH.',
       format: 'XLSX',
+      category: 'national',
       icon: FileSpreadsheet,
       action: () => reportsService.downloadNationalExcel(),
     },
     {
-      title: 'Synthèse des risques',
+      title: 'Top Zones Exposées (PDF)',
       description:
-        'Export CSV des indicateurs agrégés par type de risque et niveau administratif.',
-      format: 'CSV',
-      icon: BarChart3,
-      action: () => reportsService.downloadRiskSummaryCsv(),
-    },
-    {
-      title: 'Top zones exposées',
-      description:
-        'Export Excel des zones les plus exposées tous risques confondus.',
-      format: 'XLSX',
-      icon: Layers,
-      action: () =>
-        reportsService.downloadTopRiskZonesExcel({
-          zoneType: 'region',
-          limit: 100,
-        }),
-    },
-    {
-      title: 'Top zones exposées PDF',
-      description:
-        'Rapport PDF court listant les principales zones régionales à risque.',
+        'Fiche décisionnelle PDF résumant les territoires à risque maximal élevé et critique pour les interventions BNGRC.',
       format: 'PDF',
+      category: 'zones',
       icon: FileText,
       action: () =>
         reportsService.downloadTopRiskZonesPdf({
@@ -410,97 +327,122 @@ export default function RapportsPage() {
         }),
     },
     {
-      title: 'Sources de données',
+      title: 'Top Zones Exposées (Excel)',
       description:
-        'Export Excel de l’état des sources utilisées par la plateforme.',
+        'Tableau tabulaire Excel des 100 territoires les plus vulnérables avec scores moyens, maximaux et population exposée.',
       format: 'XLSX',
+      category: 'zones',
+      icon: Layers,
+      action: () =>
+        reportsService.downloadTopRiskZonesExcel({
+          zoneType: 'region',
+          limit: 100,
+        }),
+    },
+    {
+      title: 'Synthèse des Indicateurs DWH',
+      description:
+        'Export CSV brut de la table de faits fact_risk_indicator pour intégration dans un SIG ou outil de BI externe.',
+      format: 'CSV',
+      category: 'national',
+      icon: BarChart3,
+      action: () => reportsService.downloadRiskSummaryCsv(),
+    },
+    {
+      title: 'Audit des Sources de Données',
+      description:
+        'Rapport Excel de l’état des flux satellitaires et météorologiques (NASA, CHIRPS, GDACS, WorldPop, OSM).',
+      format: 'XLSX',
+      category: 'sources',
       icon: RadioTower,
       action: () => reportsService.downloadDataSourcesExcel(),
     },
     {
-      title: 'Jobs ETL récents',
+      title: 'Journal des Traitements ETL',
       description:
-        'Export CSV des derniers traitements ETL exécutés par la plateforme.',
+        'Fichier CSV traçant l’historique des calculs d’indicateurs, durées d’exécution et statuts des pipelines.',
       format: 'CSV',
+      category: 'etl',
       icon: Database,
       action: () => reportsService.downloadEtlJobsCsv(),
     },
   ];
 
-  const selectedRisksLabel = useMemo(
-    () =>
-      riskOptions
-        .filter((item) => selectedRisks.includes(item.id))
-        .map((item) => item.label)
-        .join(', '),
-    [selectedRisks],
-  );
+  // History Computations
+  const totalStorageBytes = useMemo(() => {
+    return history.reduce((sum, item) => sum + (Number(item.fileSizeBytes) || 0), 0);
+  }, [history]);
 
+  const latestReport = useMemo(() => {
+    if (!history.length) return null;
+    return history[0];
+  }, [history]);
+
+  const filteredHistory = useMemo(() => {
+    let list = history;
+
+    if (historySearch.trim()) {
+      const q = historySearch.toLowerCase();
+      list = list.filter(
+        (r) =>
+          r.title?.toLowerCase().includes(q) ||
+          r.fileName?.toLowerCase().includes(q) ||
+          r.reportType?.toLowerCase().includes(q),
+      );
+    }
+
+    if (historyFormatFilter) {
+      list = list.filter((r) => r.format?.toUpperCase() === historyFormatFilter.toUpperCase());
+    }
+
+    if (historyTypeFilter) {
+      list = list.filter((r) => r.reportType === historyTypeFilter);
+    }
+
+    return list;
+  }, [history, historySearch, historyFormatFilter, historyTypeFilter]);
+
+  const totalHistoryPages = Math.max(1, Math.ceil(filteredHistory.length / historyPageSize));
+  const paginatedHistory = useMemo(() => {
+    const start = (historyPage - 1) * historyPageSize;
+    return filteredHistory.slice(start, start + historyPageSize);
+  }, [filteredHistory, historyPage, historyPageSize]);
+
+  // Wizard Generation
   const toggleRisk = (risk: string) => {
-    setSelectedRisks((current) =>
-      current.includes(risk)
-        ? current.filter((item) => item !== risk)
-        : [...current, risk],
+    setSelectedRisks((cur) =>
+      cur.includes(risk) ? cur.filter((r) => r !== risk) : [...cur, risk],
     );
   };
 
-  const toggleElement = (element: string) => {
-    setSelectedElements((current) =>
-      current.includes(element)
-        ? current.filter((item) => item !== element)
-        : [...current, element],
+  const toggleElement = (el: string) => {
+    setSelectedElements((cur) =>
+      cur.includes(el) ? cur.filter((e) => e !== el) : [...cur, el],
     );
-  };
-
-  const getZoneTypeForReport = () => {
-    if (reportType === 'commune' || zoneLevel === 'commune') {
-      return 'commune';
-    }
-
-    if (reportType === 'district' || zoneLevel === 'district') {
-      return 'district';
-    }
-
-    return 'region';
-  };
-
-  const getRiskTypeForReport = () => {
-    if (selectedRisks.length === 1) {
-      return selectedRisks[0];
-    }
-
-    return undefined;
   };
 
   const generateWizardReport = async () => {
     setLoadingWizard(true);
-
     try {
-      const zoneType = getZoneTypeForReport();
-      const riskType = getRiskTypeForReport();
+      const targetZone =
+        reportType === 'commune' || zoneLevel === 'commune'
+          ? 'commune'
+          : reportType === 'district' || zoneLevel === 'district'
+            ? 'district'
+            : 'region';
+      const targetRisk = selectedRisks.length === 1 ? selectedRisks[0] : undefined;
 
-      /*
-       * V1 professionnelle :
-       * - le rapport national génère le PDF national complet ;
-       * - les autres types génèrent un rapport PDF des zones exposées avec
-       *   filtrage par niveau administratif et par risque si un seul risque est choisi.
-       *
-       * Les filtres période, zone précise et éléments à intégrer sont conservés
-       * côté interface et seront exploités dans les prochaines features :
-       * reports-history, reports-comparison, report-raster-map-snapshots.
-       */
       if (reportType === 'national' && zoneLevel === 'madagascar') {
         await reportsService.downloadNationalPdf();
       } else {
         await reportsService.downloadTopRiskZonesPdf({
-          zoneType,
-          riskType,
+          zoneType: targetZone,
+          riskType: targetRisk,
           limit: 100,
         });
       }
 
       await loadHistory();
-
       setWizardOpen(false);
       setStep(1);
     } finally {
@@ -508,396 +450,644 @@ export default function RapportsPage() {
     }
   };
 
+  const tabs = [
+    { id: 'catalog' as const, label: 'Catalogue des exports', count: reports.length },
+    { id: 'history' as const, label: 'Historique des rapports', count: history.length },
+    { id: 'comparison' as const, label: 'Comparaison de périodes' },
+  ];
+
   return (
-    <div className="space-y-7">
-      <section className="relative overflow-hidden rounded-[2rem] border border-white/70 bg-gradient-to-br from-slate-950 via-slate-900 to-blue-950 p-7 text-white shadow-xl">
-        <div className="absolute -right-20 -top-24 h-72 w-72 rounded-full bg-blue-400/20 blur-3xl" />
-        <div className="absolute -bottom-24 left-1/3 h-72 w-72 rounded-full bg-green-500/20 blur-3xl" />
-
-        <div className="relative flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs font-bold text-blue-100">
-              <FileText size={15} />
-              Exports décisionnels • PDF • Excel • CSV
-            </div>
-
-            <h2 className="text-3xl font-black tracking-tight">
-              Tableau de bord des rapports
-            </h2>
-
-            <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-300">
-              Génération à la demande de rapports professionnels à partir des
-              données réelles du DWH, des indicateurs zonaux, des sources et des
-              jobs ETL.
-            </p>
-          </div>
-
-          <div className="flex flex-col gap-3 sm:flex-row">
+    <div className="space-y-6">
+      {/* 1. Page Header with CTA */}
+      <PageHeader
+        title="Génération & Archives des Rapports"
+        subtitle="Exports officiels multi-risques pour les décideurs (BNGRC, Ministères) au format PDF, Excel et CSV."
+        icon={<FileText size={30} className="text-purple-600" />}
+        actions={
+          <div className="flex items-center gap-2.5">
             <button
               type="button"
               onClick={() => setWizardOpen(true)}
-              className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-white px-5 text-sm font-black text-slate-900 dark:text-white shadow-lg transition hover:scale-[1.02]"
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-purple-600 px-4 text-xs font-black text-white shadow-sm transition hover:bg-purple-700"
             >
-              <Sparkles size={18} />
-              Nouveau rapport
+              <Sparkles size={16} />
+              <span>Générateur Sur-Mesure</span>
             </button>
-          </div>
-        </div>
-      </section>
-
-      <section className="grid grid-cols-1 gap-5 md:grid-cols-2">
-        <div className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white p-6 shadow-sm dark:bg-slate-900 dark:border-slate-800 dark:border-slate-800 dark:bg-slate-900">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="text-sm font-bold text-slate-500 dark:text-slate-400 dark:text-slate-400">
-                Exports disponibles
-              </div>
-              <div className="mt-2 text-3xl font-black text-slate-950 dark:text-white dark:text-white">
-                {reports.length}
-              </div>
-            </div>
-            <div className="rounded-2xl bg-blue-50 p-3 text-blue-600">
-              <Download size={24} />
-            </div>
-          </div>
-          <p className="mt-2 text-xs text-slate-500 dark:text-slate-400 dark:text-slate-400">
-            Rapports générés à la demande, sans données simulées.
-          </p>
-        </div>
-
-        <div className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white p-6 shadow-sm dark:bg-slate-900 dark:border-slate-800 dark:border-slate-800 dark:bg-slate-900">
-          <div className="text-sm font-bold text-slate-500 dark:text-slate-400 dark:text-slate-400">Dernier rapport</div>
-          <div className="mt-2 text-lg font-black text-slate-950 dark:text-white dark:text-white">
-            Rapport national des risques
-          </div>
-          <div className="mt-3 flex gap-2">
-            <span className="rounded-full bg-red-50 px-3 py-1 text-xs font-black text-red-700">
-              PDF
-            </span>
-            <span className="rounded-full bg-green-50 px-3 py-1 text-xs font-black text-green-700">
-              Excel
-            </span>
-          </div>
-        </div>
-      </section>
-
-      <Tabs
-        active={activeTab}
-        onChange={setActiveTab}
-        tabs={[
-          { id: 'overview', label: 'Vue d’ensemble' },
-          { id: 'exports', label: 'Exports', count: reports.length },
-          { id: 'history', label: 'Historique', count: history.length },
-          { id: 'comparison', label: 'Comparaison' },
-        ]}
-      />
-
-      {(activeTab === 'overview' || activeTab === 'exports') && (
-      <SectionCard
-        title="Rapports disponibles"
-        subtitle="Exports générés à partir des données consolidées du système."
-      >
-        <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
-          {reports.map((report) => (
-            <ReportCard
-              key={`${report.title}-${report.format}`}
-              report={report}
-              onDownloaded={loadHistory}
-            />
-          ))}
-        </div>
-      </SectionCard>
-      )}
-
-      <section className="grid grid-cols-1 gap-6 xl:grid-cols-2">
-        {activeTab === 'history' && (
-        <SectionCard
-          title="Historique des rapports"
-          subtitle="Rapports réellement générés et stockés par la plateforme."
-        >
-          <div className="mb-4 flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-500 dark:text-slate-400">
-              {history.length} rapport(s)
-            </span>
-
             <button
               type="button"
               onClick={loadHistory}
               disabled={historyLoading}
-              className="rounded-xl border border-slate-200 dark:border-slate-800 px-3 py-2 text-xs font-bold text-slate-600 dark:text-slate-300 disabled:opacity-50"
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold text-slate-700 shadow-sm transition hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200"
+              title="Actualiser les archives"
             >
-              {historyLoading ? 'Chargement...' : 'Actualiser'}
+              <RefreshCw size={15} className={historyLoading ? 'animate-spin' : ''} />
             </button>
           </div>
+        }
+      />
 
-          <div className="max-h-[360px] overflow-y-auto rounded-2xl border border-slate-100 dark:border-slate-800">
-            {history.length > 0 ? (
-              <table className="w-full text-left text-sm">
-                <thead className="sticky top-0 bg-slate-50 dark:bg-slate-800 text-xs uppercase text-slate-400">
-                  <tr>
-                    <th className="px-3 py-3">Titre</th>
-                    <th className="px-3 py-3">Type</th>
-                    <th className="px-3 py-3">Format</th>
-                    <th className="px-3 py-3">Date</th>
-                    <th className="px-3 py-3">Taille</th>
-                    <th className="px-3 py-3 text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {history.map((report) => (
-                    <tr
-                      key={report.id}
-                      className="border-t border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:bg-slate-800"
+      {/* 2. Top Dynamic Metric Cards */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-xs dark:border-slate-800 dark:bg-slate-900">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-black uppercase tracking-wider text-slate-400">
+              Modèles Disponibles
+            </span>
+            <div className="rounded-xl bg-purple-50 p-2 text-purple-600 dark:bg-purple-950/50 dark:text-purple-300">
+              <Layers size={18} />
+            </div>
+          </div>
+          <div className="mt-2 text-2xl font-black text-slate-900 dark:text-white">
+            {reports.length} formats
+          </div>
+          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+            PDF Officiel • XLSX Multi-feuilles • CSV
+          </p>
+        </div>
+
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-xs dark:border-slate-800 dark:bg-slate-900">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-black uppercase tracking-wider text-slate-400">
+              Rapports Archivés
+            </span>
+            <div className="rounded-xl bg-blue-50 p-2 text-blue-600 dark:bg-blue-950/50 dark:text-blue-300">
+              <FileText size={18} />
+            </div>
+          </div>
+          <div className="mt-2 text-2xl font-black text-blue-600 dark:text-blue-400">
+            {history.length} générés
+          </div>
+          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+            Enregistrés en base & stockage objet
+          </p>
+        </div>
+
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-xs dark:border-slate-800 dark:bg-slate-900">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-black uppercase tracking-wider text-slate-400">
+              Espace Stockage Dédié
+            </span>
+            <div className="rounded-xl bg-emerald-50 p-2 text-emerald-600 dark:bg-emerald-950/50 dark:text-emerald-300">
+              <HardDrive size={18} />
+            </div>
+          </div>
+          <div className="mt-2 text-2xl font-black text-emerald-600 dark:text-emerald-400">
+            {formatFileSize(totalStorageBytes)}
+          </div>
+          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+            Fichiers persistés dans MinIO / Local
+          </p>
+        </div>
+
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-xs dark:border-slate-800 dark:bg-slate-900">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-black uppercase tracking-wider text-slate-400">
+              Dernier Export Réalisé
+            </span>
+            <div className="rounded-xl bg-amber-50 p-2 text-amber-600 dark:bg-amber-950/50 dark:text-amber-300">
+              <Clock size={18} />
+            </div>
+          </div>
+          <div className="mt-2 truncate text-base font-black text-slate-900 dark:text-white" title={latestReport?.title || 'Aucun export'}>
+            {latestReport ? latestReport.title : 'Aucun export'}
+          </div>
+          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+            {latestReport ? formatReportDate(latestReport.createdAt) : 'En attente de génération'}
+          </p>
+        </div>
+      </div>
+
+      {/* 3. Navigation Tabs */}
+      <Tabs active={activeTab} onChange={setActiveTab} tabs={tabs} />
+
+      {/* ======================================================================= */}
+      {/* TAB 1: CATALOGUE DES RAPPORTS                                           */}
+      {/* ======================================================================= */}
+      {activeTab === 'catalog' && (
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
+            {reports.map((report) => {
+              const Icon = report.icon;
+              return (
+                <div
+                  key={`${report.title}-${report.format}`}
+                  className="flex flex-col justify-between rounded-2xl border border-slate-200 bg-white p-5 shadow-xs transition hover:border-purple-300 hover:shadow-md dark:border-slate-800 dark:bg-slate-900"
+                >
+                  <div>
+                    <div className="mb-4 flex items-start justify-between gap-3">
+                      <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-purple-50 text-purple-600 dark:bg-purple-950/50 dark:text-purple-300">
+                        <Icon size={22} />
+                      </div>
+                      {getFormatBadge(report.format)}
+                    </div>
+
+                    <h3 className="text-base font-black text-slate-900 dark:text-white">
+                      {report.title}
+                    </h3>
+                    <p className="mt-2 text-xs leading-5 text-slate-500 dark:text-slate-400">
+                      {report.description}
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      await report.action();
+                      await loadHistory();
+                    }}
+                    className="mt-5 inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 text-xs font-black text-white transition hover:bg-slate-800 dark:bg-white dark:text-slate-950 dark:hover:bg-slate-100"
+                  >
+                    <Download size={15} />
+                    <span>Télécharger l’export</span>
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* ======================================================================= */}
+      {/* TAB 2: HISTORIQUE ET ARCHIVES (FULL WIDTH)                              */}
+      {/* ======================================================================= */}
+      {activeTab === 'history' && (
+        <div className="space-y-4">
+          {/* Barre d'outils, recherche et filtres */}
+          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-xs dark:border-slate-800 dark:bg-slate-900">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+              <div className="flex flex-wrap items-center gap-3">
+                {/* Recherche */}
+                <div className="relative min-w-[240px]">
+                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="text"
+                    placeholder="Rechercher par titre, fichier..."
+                    value={historySearch}
+                    onChange={(e) => {
+                      setHistorySearch(e.target.value);
+                      setHistoryPage(1);
+                    }}
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50 py-1.5 pl-8 pr-3 text-xs font-medium text-slate-800 outline-none focus:border-purple-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200"
+                  />
+                </div>
+
+                {/* Filtre Format */}
+                <div className="flex items-center rounded-xl bg-slate-100 p-0.5 dark:bg-slate-800">
+                  {[
+                    { value: '', label: 'Tous formats' },
+                    { value: 'PDF', label: 'PDF' },
+                    { value: 'XLSX', label: 'Excel' },
+                    { value: 'CSV', label: 'CSV' },
+                  ].map((f) => (
+                    <button
+                      key={f.value}
+                      type="button"
+                      onClick={() => {
+                        setHistoryFormatFilter(f.value);
+                        setHistoryPage(1);
+                      }}
+                      className={`rounded-lg px-2.5 py-1 text-xs font-bold transition ${
+                        historyFormatFilter === f.value
+                          ? 'bg-white text-purple-700 shadow-xs dark:bg-slate-900 dark:text-purple-300'
+                          : 'text-slate-500 hover:text-slate-800 dark:text-slate-400'
+                      }`}
                     >
-                      <td className="px-3 py-3 font-bold text-slate-800 dark:text-slate-100">
-                        {report.title}
-                      </td>
-                      <td className="px-3 py-3 text-slate-500 dark:text-slate-400">
-                        {report.reportType}
-                      </td>
-                      <td className="px-3 py-3">
-                        <span className="rounded-full bg-blue-50 px-2 py-1 text-xs font-black text-blue-700">
-                          {report.format}
-                        </span>
-                      </td>
-                      <td className="px-3 py-3 text-slate-500 dark:text-slate-400">
-                        {report.generatedAtLocal ?? formatReportDate(report.createdAt)}
-                      </td>
-                      <td className="px-3 py-3 text-slate-500 dark:text-slate-400">
-                        {formatFileSize(report.fileSizeBytes)}
-                      </td>
-                      <td className="px-3 py-3 text-right">
-                        <div className="flex justify-end gap-2">
-                          <button
-                            type="button"
-                            onClick={() => downloadHistoryReport(report)}
-                            className="rounded-lg bg-green-50 px-2 py-1 text-xs font-black text-green-700"
-                          >
-                            Télécharger
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => deleteHistoryReport(report.id)}
-                            className="rounded-lg bg-red-50 px-2 py-1 text-xs font-black text-red-700"
-                          >
-                            Supprimer
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
+                      {f.label}
+                    </button>
                   ))}
-                </tbody>
-              </table>
+                </div>
+
+                {/* Filtre Type */}
+                <select
+                  value={historyTypeFilter}
+                  onChange={(e) => {
+                    setHistoryTypeFilter(e.target.value);
+                    setHistoryPage(1);
+                  }}
+                  className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-bold text-slate-700 outline-none focus:border-purple-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200"
+                >
+                  <option value="">Tous les types</option>
+                  <option value="NATIONAL">National</option>
+                  <option value="TOP_RISK_ZONES">Top Zones</option>
+                  <option value="RISK_SUMMARY">Synthèse DWH</option>
+                  <option value="DATA_SOURCES">Sources</option>
+                  <option value="ETL_JOBS">ETL Jobs</option>
+                  <option value="RISK_COMPARISON">Comparaisons</option>
+                </select>
+              </div>
+
+              <div className="flex items-center gap-3 text-xs text-slate-500">
+                <span>
+                  <strong>{filteredHistory.length}</strong> rapport(s) archivé(s)
+                </span>
+                <button
+                  type="button"
+                  onClick={loadHistory}
+                  disabled={historyLoading}
+                  className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-bold text-slate-700 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200"
+                >
+                  {historyLoading ? 'Actualisation...' : 'Actualiser'}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Tableau Historique Pleine Largeur */}
+          <div className="rounded-2xl border border-slate-200 bg-white shadow-xs dark:border-slate-800 dark:bg-slate-900 overflow-hidden">
+            {filteredHistory.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-50 font-black text-slate-600 dark:bg-slate-950 dark:text-slate-400">
+                    <tr>
+                      <th className="p-3.5">Document / Titre</th>
+                      <th className="p-3.5">Type & Périmètre</th>
+                      <th className="p-3.5 text-center">Format</th>
+                      <th className="p-3.5">Date de Génération</th>
+                      <th className="p-3.5 text-right">Taille</th>
+                      <th className="p-3.5 text-center">Statut</th>
+                      <th className="p-3.5 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-medium">
+                    {paginatedHistory.map((report) => {
+                      const isDownloading = downloadingId === report.id;
+                      const isDeleting = deletingId === report.id;
+
+                      return (
+                        <tr
+                          key={report.id}
+                          className="transition-colors hover:bg-slate-50/80 dark:hover:bg-slate-950/60"
+                        >
+                          <td className="p-3.5">
+                            <div className="font-black text-slate-900 dark:text-white">
+                              {report.title}
+                            </div>
+                            <div className="text-[11px] text-slate-400 font-mono mt-0.5">
+                              {report.fileName}
+                            </div>
+                          </td>
+
+                          <td className="p-3.5">
+                            <span className="rounded-md bg-slate-100 dark:bg-slate-800 px-2 py-0.5 text-[10px] font-bold uppercase text-slate-600 dark:text-slate-300">
+                              {report.reportType}
+                            </span>
+                          </td>
+
+                          <td className="p-3.5 text-center">
+                            {getFormatBadge(report.format)}
+                          </td>
+
+                          <td className="p-3.5 text-slate-600 dark:text-slate-300">
+                            {report.generatedAtLocal ?? formatReportDate(report.createdAt)}
+                          </td>
+
+                          <td className="p-3.5 text-right font-mono text-slate-600 dark:text-slate-400">
+                            {formatFileSize(report.fileSizeBytes)}
+                          </td>
+
+                          <td className="p-3.5 text-center">
+                            <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600 dark:text-emerald-400">
+                              <CheckCircle2 size={13} />
+                              <span>Disponible</span>
+                            </span>
+                          </td>
+
+                          <td className="p-3.5 text-right">
+                            <div className="flex items-center justify-end gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => downloadHistoryReport(report)}
+                                disabled={isDownloading}
+                                className="inline-flex items-center gap-1 rounded-lg bg-emerald-50 px-2.5 py-1 text-xs font-black text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-950/50 dark:text-emerald-300 transition"
+                                title="Télécharger le fichier"
+                              >
+                                <Download size={13} className={isDownloading ? 'animate-bounce' : ''} />
+                                <span>{isDownloading ? '...' : 'Télécharger'}</span>
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => deleteHistoryReport(report.id)}
+                                disabled={isDeleting}
+                                className="rounded-lg p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/50 dark:hover:text-rose-400 transition"
+                                title="Supprimer de l’historique"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             ) : (
-              <div className="p-6 text-center text-sm text-slate-500 dark:text-slate-400">
-                Aucun rapport généré pour le moment.
+              <div className="p-12 text-center text-xs text-slate-500">
+                Aucun rapport ne correspond à vos filtres.
+              </div>
+            )}
+
+            {/* Pagination */}
+            {totalHistoryPages > 1 && (
+              <div className="p-3.5 border-t border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-xs text-slate-500">
+                <div>
+                  Affichage de{' '}
+                  <strong className="text-slate-900 dark:text-white">
+                    {(historyPage - 1) * historyPageSize + 1}
+                  </strong>{' '}
+                  à{' '}
+                  <strong className="text-slate-900 dark:text-white">
+                    {Math.min(historyPage * historyPageSize, filteredHistory.length)}
+                  </strong>{' '}
+                  sur <strong className="text-slate-900 dark:text-white">{filteredHistory.length}</strong>
+                </div>
+
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setHistoryPage(1)}
+                    disabled={historyPage === 1}
+                    className="rounded-lg border border-slate-200 bg-white p-1 text-slate-600 disabled:opacity-40 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300"
+                  >
+                    <ChevronsLeft size={14} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setHistoryPage((p) => Math.max(1, p - 1))}
+                    disabled={historyPage === 1}
+                    className="rounded-lg border border-slate-200 bg-white p-1 text-slate-600 disabled:opacity-40 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300"
+                  >
+                    <ChevronLeft size={14} />
+                  </button>
+                  <span className="px-2 font-bold text-slate-800 dark:text-slate-200">
+                    Page {historyPage} / {totalHistoryPages}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setHistoryPage((p) => Math.min(totalHistoryPages, p + 1))}
+                    disabled={historyPage === totalHistoryPages}
+                    className="rounded-lg border border-slate-200 bg-white p-1 text-slate-600 disabled:opacity-40 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300"
+                  >
+                    <ChevronRight size={14} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setHistoryPage(totalHistoryPages)}
+                    disabled={historyPage === totalHistoryPages}
+                    className="rounded-lg border border-slate-200 bg-white p-1 text-slate-600 disabled:opacity-40 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300"
+                  >
+                    <ChevronsRight size={14} />
+                  </button>
+                </div>
               </div>
             )}
           </div>
-        </SectionCard>
-        )}
+        </div>
+      )}
 
-        {activeTab === 'comparison' && (
-        <SectionCard
-          title="Comparaison de périodes"
-          subtitle="Comparer l’évolution des risques entre deux périodes du DWH."
-        >
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-3">
-              <label className="text-xs font-bold text-slate-500 dark:text-slate-400">
-                Période A début
+      {/* ======================================================================= */}
+      {/* TAB 3: COMPARAISON DE PÉRIODES (FULL WIDTH)                             */}
+      {/* ======================================================================= */}
+      {activeTab === 'comparison' && (
+        <div className="space-y-4">
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs dark:border-slate-800 dark:bg-slate-900">
+            <h3 className="text-sm font-black text-slate-900 dark:text-white mb-1">
+              Paramètres de Comparaison Temporelle
+            </h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">
+              Comparez l'évolution des scores de risque et de la population exposée entre deux périodes du Data Warehouse.
+            </p>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <label className="text-xs font-bold text-slate-600 dark:text-slate-300">
+                Période A — Début
                 <input
                   type="date"
                   value={periodAStart}
-                  onChange={(event) => setPeriodAStart(event.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-white px-3 py-2 text-sm text-slate-700 dark:text-slate-200 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+                  onChange={(e) => setPeriodAStart(e.target.value)}
+                  className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-800 outline-none focus:border-purple-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200"
                 />
               </label>
 
-              <label className="text-xs font-bold text-slate-500 dark:text-slate-400">
-                Période A fin
+              <label className="text-xs font-bold text-slate-600 dark:text-slate-300">
+                Période A — Fin
                 <input
                   type="date"
                   value={periodAEnd}
-                  onChange={(event) => setPeriodAEnd(event.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-white px-3 py-2 text-sm text-slate-700 dark:text-slate-200 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+                  onChange={(e) => setPeriodAEnd(e.target.value)}
+                  className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-800 outline-none focus:border-purple-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200"
                 />
               </label>
 
-              <label className="text-xs font-bold text-slate-500 dark:text-slate-400">
-                Période B début
+              <label className="text-xs font-bold text-slate-600 dark:text-slate-300">
+                Période B — Début
                 <input
                   type="date"
                   value={periodBStart}
-                  onChange={(event) => setPeriodBStart(event.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-white px-3 py-2 text-sm text-slate-700 dark:text-slate-200 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+                  onChange={(e) => setPeriodBStart(e.target.value)}
+                  className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-800 outline-none focus:border-purple-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200"
                 />
               </label>
 
-              <label className="text-xs font-bold text-slate-500 dark:text-slate-400">
-                Période B fin
+              <label className="text-xs font-bold text-slate-600 dark:text-slate-300">
+                Période B — Fin
                 <input
                   type="date"
                   value={periodBEnd}
-                  onChange={(event) => setPeriodBEnd(event.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-white px-3 py-2 text-sm text-slate-700 dark:text-slate-200 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+                  onChange={(e) => setPeriodBEnd(e.target.value)}
+                  className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-800 outline-none focus:border-purple-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200"
                 />
               </label>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <label className="text-xs font-bold text-slate-500 dark:text-slate-400">
-                Risque
+            <div className="mt-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+              <div className="flex flex-wrap items-center gap-3">
                 <select
                   value={comparisonRiskType}
-                  onChange={(event) => setComparisonRiskType(event.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-white px-3 py-2 text-sm text-slate-700 dark:text-slate-200 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+                  onChange={(e) => setComparisonRiskType(e.target.value)}
+                  className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-700 outline-none focus:border-purple-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200"
                 >
-                  <option value="">Tous risques</option>
-                  <option value="GLOBAL">Global</option>
+                  <option value="">Tous les aléas</option>
                   <option value="FLOOD">Inondation</option>
                   <option value="DROUGHT">Sécheresse</option>
                   <option value="LANDSLIDE">Glissement</option>
                   <option value="CYCLONE">Cyclone</option>
                 </select>
-              </label>
 
-              <label className="text-xs font-bold text-slate-500 dark:text-slate-400">
-                Zone
                 <select
                   value={comparisonZoneType}
-                  onChange={(event) => setComparisonZoneType(event.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-white px-3 py-2 text-sm text-slate-700 dark:text-slate-200 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+                  onChange={(e) => setComparisonZoneType(e.target.value)}
+                  className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-700 outline-none focus:border-purple-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200"
                 >
-                  <option value="region">Région</option>
-                  <option value="district">District</option>
-                  <option value="commune">Commune</option>
+                  <option value="region">Régions (23)</option>
+                  <option value="district">Districts (119)</option>
+                  <option value="commune">Communes (1579+)</option>
                 </select>
-              </label>
-            </div>
+              </div>
 
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={loadComparison}
-                disabled={comparisonLoading}
-                className="flex-1 rounded-xl bg-blue-600 px-4 py-2 text-sm font-black text-white disabled:opacity-60"
-              >
-                {comparisonLoading ? 'Comparaison...' : 'Comparer'}
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={loadComparison}
+                  disabled={comparisonLoading}
+                  className="inline-flex items-center gap-2 rounded-xl bg-purple-600 px-4 py-2 text-xs font-black text-white hover:bg-purple-700 transition"
+                >
+                  <RefreshCw size={14} className={comparisonLoading ? 'animate-spin' : ''} />
+                  <span>Calculer la comparaison</span>
+                </button>
 
-              <button
-                type="button"
-                onClick={downloadComparisonExcel}
-                className="rounded-xl border border-slate-200 dark:border-slate-800 px-4 py-2 text-sm font-black text-slate-700 dark:text-slate-200"
-              >
-                Excel
-              </button>
-            </div>
-
-            <div className="max-h-[260px] overflow-y-auto rounded-2xl border border-slate-100 dark:border-slate-800">
-              {comparisonRows.length > 0 ? (
-                <table className="w-full text-left text-xs">
-                  <thead className="sticky top-0 bg-slate-50 dark:bg-slate-800 uppercase text-slate-400">
-                    <tr>
-                      <th className="px-3 py-2">Risque</th>
-                      <th className="px-3 py-2">Zone</th>
-                      <th className="px-3 py-2">Période A</th>
-                      <th className="px-3 py-2">Période B</th>
-                      <th className="px-3 py-2">Δ</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {comparisonRows.slice(0, 30).map((row) => (
-                      <tr
-                        key={`${row.riskType}-${row.zoneId}`}
-                        className="border-t border-slate-100 dark:border-slate-800"
-                      >
-                        <td className="px-3 py-2 font-bold">{row.riskLabel}</td>
-                        <td className="px-3 py-2">{row.zoneNom}</td>
-                        <td className="px-3 py-2">{formatComparisonValue(row.riskMaxA)}</td>
-                        <td className="px-3 py-2">{formatComparisonValue(row.riskMaxB)}</td>
-                        <td
-                          className={[
-                            'px-3 py-2 font-black',
-                            comparisonDeltaClass(row),
-                          ].join(' ')}
-                        >
-                          {formatComparisonDelta(row)}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              ) : (
-                <div className="p-5 text-sm text-slate-500 dark:text-slate-400">
-                  Aucune comparaison chargée. Choisissez deux périodes puis cliquez sur Comparer.
-                </div>
-              )}
-            </div>
-
-            <div className="rounded-xl bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-700">
-              La comparaison dépend des snapshots conservés dans le DWH. Les périodes futures seront plus riches après plusieurs exécutions du pipeline ETL.
+                {comparisonRows.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={downloadComparisonExcel}
+                    className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-black text-white hover:bg-emerald-700 transition"
+                  >
+                    <Download size={14} />
+                    <span>Exporter XLSX</span>
+                  </button>
+                )}
+              </div>
             </div>
           </div>
-        </SectionCard>
-        )}
-      </section>
 
-      
+          {/* Tableau Comparatif */}
+          <div className="rounded-2xl border border-slate-200 bg-white shadow-xs dark:border-slate-800 dark:bg-slate-900 overflow-hidden">
+            {comparisonRows.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-50 font-black text-slate-600 dark:bg-slate-950 dark:text-slate-400">
+                    <tr>
+                      <th className="p-3.5">Zone Administrative</th>
+                      <th className="p-3.5">Aléa</th>
+                      <th className="p-3.5 text-center">Score Période A</th>
+                      <th className="p-3.5 text-center">Score Période B</th>
+                      <th className="p-3.5 text-center">Évolution (Δ Max)</th>
+                      <th className="p-3.5 text-right">Pop. Exposée A</th>
+                      <th className="p-3.5 text-right">Pop. Exposée B</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-medium">
+                    {comparisonRows.map((row, idx) => {
+                      const delta = Number(row.riskMaxDelta ?? 0);
+                      return (
+                        <tr
+                          key={`${row.zoneId}-${row.riskType}-${idx}`}
+                          className="transition-colors hover:bg-slate-50/80 dark:hover:bg-slate-950/60"
+                        >
+                          <td className="p-3.5 font-black text-slate-900 dark:text-white">
+                            {row.zoneNom}
+                          </td>
+                          <td className="p-3.5">
+                            <span className="rounded-md bg-purple-50 dark:bg-purple-950/50 px-2 py-0.5 text-[11px] font-bold text-purple-700 dark:text-purple-300">
+                              {row.riskLabel || row.riskType}
+                            </span>
+                          </td>
+                          <td className="p-3.5 text-center font-bold text-slate-700 dark:text-slate-300">
+                            {formatComparisonValue(row.riskMaxA)}
+                          </td>
+                          <td className="p-3.5 text-center font-bold text-slate-700 dark:text-slate-300">
+                            {formatComparisonValue(row.riskMaxB)}
+                          </td>
+                          <td className="p-3.5 text-center font-black">
+                            <span
+                              className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-black ${
+                                delta > 0
+                                  ? 'bg-rose-100 text-rose-800 dark:bg-rose-950/50 dark:text-rose-300'
+                                  : delta < 0
+                                    ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300'
+                                    : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
+                              }`}
+                            >
+                              {delta > 0 ? <TrendingUp size={13} /> : delta < 0 ? <TrendingDown size={13} /> : null}
+                              <span>{formatDelta(delta)}</span>
+                            </span>
+                          </td>
+                          <td className="p-3.5 text-right text-slate-600 dark:text-slate-400">
+                            {row.populationExposedA ? Number(row.populationExposedA).toLocaleString('fr-FR') : '—'}
+                          </td>
+                          <td className="p-3.5 text-right font-bold text-slate-800 dark:text-slate-200">
+                            {row.populationExposedB ? Number(row.populationExposedB).toLocaleString('fr-FR') : '—'}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="p-12 text-center text-xs text-slate-500">
+                {comparisonLoading
+                  ? 'Calcul de la comparaison temporelle en cours...'
+                  : 'Sélectionnez deux périodes temporelles et cliquez sur "Calculer la comparaison".'}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
+      {/* ======================================================================= */}
+      {/* MODAL : ASSISTANT DE GÉNÉRATION SUR-MESURE                              */}
+      {/* ======================================================================= */}
       {wizardOpen && (
-        <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm">
-          <div className="max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-[2rem] bg-white p-6 shadow-2xl">
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-xs">
+          <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
             <div className="mb-6 flex items-start justify-between gap-4">
               <div>
-                <h3 className="text-2xl font-black text-slate-950 dark:text-white">
-                  Assistant de génération de rapport
+                <h3 className="text-xl font-black text-slate-950 dark:text-white">
+                  Assistant de Génération de Rapport Décisionnel
                 </h3>
-                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                  Configurez le rapport décisionnel à générer.
+                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                  Configurez le périmètre, les aléas et les indicateurs à compiler.
                 </p>
               </div>
 
               <button
                 type="button"
                 onClick={() => setWizardOpen(false)}
-                className="rounded-xl border border-slate-200 dark:border-slate-800 px-3 py-2 text-sm font-bold text-slate-600 dark:text-slate-300"
+                className="rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
               >
                 Fermer
               </button>
             </div>
 
+            {/* Stepper */}
             <div className="mb-6 grid grid-cols-5 gap-2">
-              {[1, 2, 3, 4, 5].map((item) => (
+              {[
+                { s: 1, label: 'Type' },
+                { s: 2, label: 'Période' },
+                { s: 3, label: 'Aléas' },
+                { s: 4, label: 'Zone' },
+                { s: 5, label: 'Éléments' },
+              ].map((item) => (
                 <button
-                  key={item}
+                  key={item.s}
                   type="button"
-                  onClick={() => setStep(item as WizardStep)}
+                  onClick={() => setStep(item.s as WizardStep)}
                   className={[
-                    'rounded-xl px-3 py-2 text-xs font-black',
-                    step === item
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-slate-100 text-slate-500 dark:text-slate-400',
+                    'rounded-xl py-2 text-xs font-black transition',
+                    step === item.s
+                      ? 'bg-purple-600 text-white shadow-xs'
+                      : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400',
                   ].join(' ')}
                 >
-                  Étape {item}
+                  {item.s}. {item.label}
                 </button>
               ))}
             </div>
 
             {step === 1 && (
               <div>
-                <h4 className="mb-4 font-black text-slate-900 dark:text-white">
-                  Étape 1 — Type de rapport
+                <h4 className="mb-3 text-xs font-black uppercase text-slate-400">
+                  Étape 1 — Choisissez le type de rapport
                 </h4>
-                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
                   {[
-                    ['national', 'Rapport national'],
-                    ['region', 'Rapport régional'],
-                    ['district', 'Rapport par district'],
-                    ['commune', 'Rapport communal'],
-                    ['custom', 'Rapport personnalisé'],
+                    ['national', 'Rapport national officiel multi-risques'],
+                    ['region', 'Rapport régional (23 Régions)'],
+                    ['district', 'Rapport par district (119 Districts)'],
+                    ['commune', 'Rapport communal de vulnérabilité'],
+                    ['custom', 'Rapport sur-mesure d’urgence'],
                   ].map(([id, label]) => (
                     <ChoiceButton
                       key={id}
@@ -912,15 +1102,15 @@ export default function RapportsPage() {
 
             {step === 2 && (
               <div>
-                <h4 className="mb-4 font-black text-slate-900 dark:text-white">
-                  Étape 2 — Période
+                <h4 className="mb-3 text-xs font-black uppercase text-slate-400">
+                  Étape 2 — Fenêtre temporelle
                 </h4>
-                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
                   {[
-                    ['today', "Aujourd'hui"],
-                    ['7d', '7 derniers jours'],
-                    ['30d', '30 derniers jours'],
-                    ['custom', 'Personnalisée'],
+                    ['today', "Aujourd'hui (Données temps réel)"],
+                    ['7d', '7 derniers jours (Hebdomadaire)'],
+                    ['30d', '30 derniers jours (Mensuel)'],
+                    ['custom', 'Période personnalisée multi-annuelle'],
                   ].map(([id, label]) => (
                     <ChoiceButton
                       key={id}
@@ -935,23 +1125,27 @@ export default function RapportsPage() {
 
             {step === 3 && (
               <div>
-                <h4 className="mb-4 font-black text-slate-900 dark:text-white">
-                  Étape 3 — Risques à intégrer
+                <h4 className="mb-3 text-xs font-black uppercase text-slate-400">
+                  Étape 3 — Modèles d'aléas à inclure
                 </h4>
-                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
                   {riskOptions.map((risk) => (
                     <button
                       key={risk.id}
                       type="button"
                       onClick={() => toggleRisk(risk.id)}
                       className={[
-                        'rounded-2xl border px-4 py-3 text-left text-sm font-bold transition',
+                        'flex items-center justify-between rounded-2xl border px-4 py-3 text-left text-xs font-bold transition',
                         selectedRisks.includes(risk.id)
-                          ? 'border-green-300 bg-green-50 text-green-800'
-                          : 'border-slate-200 dark:border-slate-800 bg-white text-slate-600 dark:text-slate-300',
+                          ? 'border-purple-400 bg-purple-50 text-purple-900 dark:border-purple-600 dark:bg-purple-950/50 dark:text-purple-200'
+                          : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300',
                       ].join(' ')}
                     >
-                      {selectedRisks.includes(risk.id) ? '☑' : '☐'} {risk.label}
+                      <span className="flex items-center gap-2">
+                        <span>{risk.icon}</span>
+                        <span>{risk.label}</span>
+                      </span>
+                      <span>{selectedRisks.includes(risk.id) ? '☑' : '☐'}</span>
                     </button>
                   ))}
                 </div>
@@ -960,15 +1154,15 @@ export default function RapportsPage() {
 
             {step === 4 && (
               <div>
-                <h4 className="mb-4 font-black text-slate-900 dark:text-white">
-                  Étape 4 — Zone
+                <h4 className="mb-3 text-xs font-black uppercase text-slate-400">
+                  Étape 4 — Granularité administrative
                 </h4>
-                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
                   {[
-                    ['madagascar', 'Madagascar'],
-                    ['region', 'Région'],
-                    ['district', 'District'],
-                    ['commune', 'Commune'],
+                    ['madagascar', 'National (Madagascar complet)'],
+                    ['region', 'Niveau Régional (23 entités)'],
+                    ['district', 'Niveau District (119 entités)'],
+                    ['commune', 'Niveau Communal (1 579 entités)'],
                   ].map(([id, label]) => (
                     <ChoiceButton
                       key={id}
@@ -983,52 +1177,37 @@ export default function RapportsPage() {
 
             {step === 5 && (
               <div>
-                <h4 className="mb-4 font-black text-slate-900 dark:text-white">
-                  Étape 5 — Éléments à intégrer
+                <h4 className="mb-3 text-xs font-black uppercase text-slate-400">
+                  Étape 5 — Sections et composants décisionnels
                 </h4>
-                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                   {elementOptions.map((element) => (
                     <button
                       key={element}
                       type="button"
                       onClick={() => toggleElement(element)}
                       className={[
-                        'rounded-2xl border px-4 py-3 text-left text-sm font-bold transition',
+                        'flex items-center justify-between rounded-xl border px-3.5 py-2.5 text-left text-xs font-bold transition',
                         selectedElements.includes(element)
-                          ? 'border-blue-300 bg-blue-50 text-blue-800'
-                          : 'border-slate-200 dark:border-slate-800 bg-white text-slate-600 dark:text-slate-300',
+                          ? 'border-purple-300 bg-purple-50 text-purple-900 dark:border-purple-600 dark:bg-purple-950/50 dark:text-purple-200'
+                          : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300',
                       ].join(' ')}
                     >
-                      {selectedElements.includes(element) ? '☑' : '☐'} {element}
+                      <span>{element}</span>
+                      <span>{selectedElements.includes(element) ? '☑' : '☐'}</span>
                     </button>
                   ))}
-                </div>
-
-                <div className="mt-5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 p-4 text-sm text-slate-600 dark:text-slate-300">
-                  <div className="font-black text-slate-800 dark:text-slate-100">
-                    Résumé de configuration
-                  </div>
-                  <div className="mt-2 space-y-1">
-                    <div>Type : {reportTypeLabels[reportType] ?? reportType}</div>
-                    <div>Période : {periodLabels[period] ?? period}</div>
-                    <div>Risques : {selectedRisksLabel || 'Tous risques'}</div>
-                    <div>Zone : {zoneLevelLabels[zoneLevel] ?? zoneLevel}</div>
-                    <div>Éléments : {selectedElements.length} sélectionnés</div>
-                  </div>
-
-                  <div className="mt-3 rounded-xl bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-700">
-                    Les filtres avancés seront exploités plus finement dans les prochaines versions du module rapports.
-                  </div>
                 </div>
               </div>
             )}
 
-            <div className="mt-8 flex items-center justify-between border-t border-slate-100 dark:border-slate-800 pt-5">
+            {/* Stepper Footer */}
+            <div className="mt-8 flex items-center justify-between border-t border-slate-100 dark:border-slate-800 pt-4">
               <button
                 type="button"
-                onClick={() => setStep((current) => Math.max(1, current - 1) as WizardStep)}
+                onClick={() => setStep((cur) => Math.max(1, cur - 1) as WizardStep)}
                 disabled={step === 1}
-                className="rounded-xl border border-slate-200 dark:border-slate-800 px-4 py-2 text-sm font-bold text-slate-600 dark:text-slate-300 disabled:opacity-40"
+                className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-bold text-slate-600 disabled:opacity-40 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
               >
                 Précédent
               </button>
@@ -1036,25 +1215,21 @@ export default function RapportsPage() {
               {step < 5 ? (
                 <button
                   type="button"
-                  onClick={() => setStep((current) => Math.min(5, current + 1) as WizardStep)}
-                  className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-2 text-sm font-black text-white"
+                  onClick={() => setStep((cur) => Math.min(5, cur + 1) as WizardStep)}
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-purple-600 px-5 py-2 text-xs font-black text-white hover:bg-purple-700 transition"
                 >
-                  Suivant
-                  <ChevronRight size={17} />
+                  <span>Suivant</span>
+                  <ChevronRight size={15} />
                 </button>
               ) : (
                 <button
                   type="button"
                   onClick={generateWizardReport}
                   disabled={loadingWizard}
-                  className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-green-500 to-blue-600 px-5 py-2 text-sm font-black text-white disabled:opacity-60"
+                  className="inline-flex items-center gap-2 rounded-xl bg-purple-600 px-5 py-2 text-xs font-black text-white shadow-md hover:bg-purple-700 disabled:opacity-60 transition"
                 >
-                  <Download size={17} />
-                  {loadingWizard
-                    ? 'Génération...'
-                    : reportType === 'national' && zoneLevel === 'madagascar'
-                      ? 'Générer le rapport national'
-                      : 'Générer le rapport des zones exposées'}
+                  <Download size={15} />
+                  <span>{loadingWizard ? 'Génération du rapport...' : 'Générer & Télécharger le rapport'}</span>
                 </button>
               )}
             </div>
