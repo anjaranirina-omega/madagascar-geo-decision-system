@@ -61,6 +61,15 @@ const riskOptions = [
   { id: 'CYCLONE', label: 'Cyclone', icon: '🌀' },
 ];
 
+const riskFullLabels: Record<string, string> = {
+  '': 'tous les aléas',
+  GLOBAL: 'le risque global composite',
+  FLOOD: 'le risque inondation',
+  DROUGHT: 'le risque sécheresse',
+  LANDSLIDE: 'le risque glissement de terrain',
+  CYCLONE: 'le risque cyclonique',
+};
+
 const reportTypeLabels: Record<string, string> = {
   national: 'Rapport national',
   region: 'Rapport régional',
@@ -110,6 +119,17 @@ function formatReportDate(value?: string | null) {
     timeStyle: 'short',
     timeZone: 'Indian/Antananarivo',
   }).format(date);
+}
+
+function formatSimpleDate(val: string) {
+  if (!val) return '—';
+  const parts = val.split('-');
+  if (parts.length === 3) {
+    return `${parts[2]}/${parts[1]}/${parts[0]}`;
+  }
+  const d = new Date(val);
+  if (Number.isNaN(d.getTime())) return val;
+  return new Intl.DateTimeFormat('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(d);
 }
 
 function formatDelta(value?: number | null) {
@@ -222,6 +242,16 @@ export default function RapportsPage() {
   const [comparisonPage, setComparisonPage] = useState(1);
   const [comparisonPageSize, setComparisonPageSize] = useState(10);
 
+  // Track the exact parameters for which the current result was computed
+  const [appliedComparison, setAppliedComparison] = useState({
+    periodAStart: '2026-01-01',
+    periodAEnd: '2026-03-31',
+    periodBStart: '2026-06-01',
+    periodBEnd: '2026-09-09',
+    riskType: 'DROUGHT',
+    zoneType: 'region',
+  });
+
   // Wizard State
   const [reportType, setReportType] = useState('national');
   const [period, setPeriod] = useState('30d');
@@ -246,19 +276,41 @@ export default function RapportsPage() {
     }
   };
 
-  const loadComparison = async () => {
+  const loadComparison = async (override?: {
+    pAStart?: string;
+    pAEnd?: string;
+    pBStart?: string;
+    pBEnd?: string;
+    risk?: string;
+    zone?: string;
+  }) => {
     setComparisonLoading(true);
+    const pAStart = override?.pAStart ?? periodAStart;
+    const pAEnd = override?.pAEnd ?? periodAEnd;
+    const pBStart = override?.pBStart ?? periodBStart;
+    const pBEnd = override?.pBEnd ?? periodBEnd;
+    const rType = override?.risk ?? comparisonRiskType;
+    const zType = override?.zone ?? comparisonZoneType;
+
     try {
       const rows = await reportsService.getRiskComparison({
-        periodAStart,
-        periodAEnd,
-        periodBStart,
-        periodBEnd,
-        riskType: comparisonRiskType || undefined,
-        zoneType: comparisonZoneType,
+        periodAStart: pAStart,
+        periodAEnd: pAEnd,
+        periodBStart: pBStart,
+        periodBEnd: pBEnd,
+        riskType: rType || undefined,
+        zoneType: zType,
       });
       setComparisonRows(rows || []);
       setComparisonPage(1);
+      setAppliedComparison({
+        periodAStart: pAStart,
+        periodAEnd: pAEnd,
+        periodBStart: pBStart,
+        periodBEnd: pBEnd,
+        riskType: rType,
+        zoneType: zType,
+      });
     } catch (err) {
       console.error('Erreur calcul comparaison:', err);
     } finally {
@@ -296,12 +348,12 @@ export default function RapportsPage() {
 
   const downloadComparisonExcel = async () => {
     await reportsService.downloadRiskComparisonExcel({
-      periodAStart,
-      periodAEnd,
-      periodBStart,
-      periodBEnd,
-      riskType: comparisonRiskType || undefined,
-      zoneType: comparisonZoneType,
+      periodAStart: appliedComparison.periodAStart,
+      periodAEnd: appliedComparison.periodAEnd,
+      periodBStart: appliedComparison.periodBStart,
+      periodBEnd: appliedComparison.periodBEnd,
+      riskType: appliedComparison.riskType || undefined,
+      zoneType: appliedComparison.zoneType,
     });
     await loadHistory();
   };
@@ -518,6 +570,10 @@ export default function RapportsPage() {
     { id: 'catalog' as const, label: 'Catalogue des exports', count: reports.length },
   ];
 
+  const formattedRiskName = riskFullLabels[appliedComparison.riskType] || 'tous les aléas';
+  const formattedDateA = `${formatSimpleDate(appliedComparison.periodAStart)} au ${formatSimpleDate(appliedComparison.periodAEnd)}`;
+  const formattedDateB = `${formatSimpleDate(appliedComparison.periodBStart)} au ${formatSimpleDate(appliedComparison.periodBEnd)}`;
+
   return (
     <div className="space-y-6">
       {/* 1. Page Header with CTA */}
@@ -563,10 +619,10 @@ export default function RapportsPage() {
             </div>
           </div>
           <div className="mt-2 text-2xl font-black text-slate-900 dark:text-white">
-            {comparisonStats.total} {comparisonZoneType === 'region' ? 'Régions' : 'Entités'}
+            {comparisonStats.total} {appliedComparison.zoneType === 'region' ? 'Régions' : appliedComparison.zoneType === 'district' ? 'Districts' : 'Communes'}
           </div>
           <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-            {comparisonRiskType ? `Aléa sélectionné : ${comparisonRiskType}` : 'Tous aléas confondus'}
+            {appliedComparison.riskType ? `Aléa actif : ${appliedComparison.riskType}` : 'Tous aléas confondus'}
           </p>
         </div>
 
@@ -686,7 +742,11 @@ export default function RapportsPage() {
               <div className="flex flex-wrap items-center gap-3">
                 <select
                   value={comparisonRiskType}
-                  onChange={(e) => setComparisonRiskType(e.target.value)}
+                  onChange={(e) => {
+                    const nextVal = e.target.value;
+                    setComparisonRiskType(nextVal);
+                    loadComparison({ risk: nextVal });
+                  }}
                   className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-700 outline-none focus:border-purple-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200"
                 >
                   <option value="">Tous les aléas</option>
@@ -699,7 +759,11 @@ export default function RapportsPage() {
 
                 <select
                   value={comparisonZoneType}
-                  onChange={(e) => setComparisonZoneType(e.target.value)}
+                  onChange={(e) => {
+                    const nextVal = e.target.value;
+                    setComparisonZoneType(nextVal);
+                    loadComparison({ zone: nextVal });
+                  }}
                   className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-700 outline-none focus:border-purple-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200"
                 >
                   <option value="region">Régions (22)</option>
@@ -711,7 +775,7 @@ export default function RapportsPage() {
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={loadComparison}
+                  onClick={() => loadComparison()}
                   disabled={comparisonLoading}
                   className="inline-flex items-center gap-2 rounded-xl bg-purple-600 px-4 py-2 text-xs font-black text-white hover:bg-purple-700 transition"
                 >
@@ -733,18 +797,38 @@ export default function RapportsPage() {
             </div>
           </div>
 
-          {/* Bandeau d'interprétation intelligente si Période A = N/A */}
-          {comparisonStats.newInB > 0 && comparisonStats.withBaselineA === 0 && (
-            <div className="rounded-2xl border border-blue-200/60 bg-blue-50/70 p-4 dark:border-blue-900/40 dark:bg-blue-950/30 text-xs text-blue-900 dark:text-blue-200 flex items-start gap-3">
-              <Info size={18} className="text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
+          {/* Bandeau d'interprétation 100% dynamique */}
+          {comparisonStats.total === 0 && !comparisonLoading ? (
+            <div className="rounded-2xl border border-amber-200/60 bg-amber-50/70 p-4 dark:border-amber-900/40 dark:bg-amber-950/30 text-xs text-amber-900 dark:text-amber-200 flex items-start gap-3">
+              <AlertTriangle size={18} className="text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
               <div>
-                <div className="font-bold">Interprétation de la Période A absente :</div>
-                <p className="mt-0.5 text-blue-800/80 dark:text-blue-300/80">
-                  La Période A sélectionnée (01/01/2026 – 31/03/2026) ne comporte pas encore d'historique archivé dans le Data Warehouse. Les scores de la Période B constituent ainsi la <strong>ligne de référence initiale (Baseline)</strong> pour la saison sèche observée.
+                <div className="font-bold">Aucune observation archivée :</div>
+                <p className="mt-0.5 text-amber-800/80 dark:text-amber-300/80">
+                  Aucun enregistrement n'a été trouvé pour <strong>{formattedRiskName}</strong> entre le <strong>{formattedDateA}</strong> et le <strong>{formattedDateB}</strong>.
                 </p>
               </div>
             </div>
-          )}
+          ) : comparisonStats.newInB > 0 && comparisonStats.withBaselineA === 0 ? (
+            <div className="rounded-2xl border border-blue-200/60 bg-blue-50/70 p-4 dark:border-blue-900/40 dark:bg-blue-950/30 text-xs text-blue-900 dark:text-blue-200 flex items-start gap-3">
+              <Info size={18} className="text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
+              <div>
+                <div className="font-bold">Ligne de référence initiale (Baseline) pour {formattedRiskName} :</div>
+                <p className="mt-0.5 text-blue-800/80 dark:text-blue-300/80">
+                  La Période A (du <strong>{formattedDateA}</strong>) ne comporte pas d'historique archivé pour <strong>{formattedRiskName}</strong>. Les {comparisonStats.total} scores observés en Période B (du <strong>{formattedDateB}</strong>) constituent ainsi la <strong>ligne de référence initiale du Data Warehouse</strong>.
+                </p>
+              </div>
+            </div>
+          ) : comparisonStats.withBaselineA > 0 ? (
+            <div className="rounded-2xl border border-purple-200/60 bg-purple-50/70 p-4 dark:border-purple-900/40 dark:bg-purple-950/30 text-xs text-purple-900 dark:text-purple-200 flex items-start gap-3">
+              <TrendingUp size={18} className="text-purple-600 dark:text-purple-400 shrink-0 mt-0.5" />
+              <div>
+                <div className="font-bold">Bilan comparatif ({formattedDateA} ➔ {formattedDateB}) :</div>
+                <p className="mt-0.5 text-purple-800/80 dark:text-purple-300/80">
+                  Analyse de <strong>{formattedRiskName}</strong> sur {comparisonStats.total} {appliedComparison.zoneType === 'region' ? 'régions' : 'zones'} : <strong>{comparisonStats.up} zone(s) en aggravation</strong> ($\Delta &gt; 0$), <strong>{comparisonStats.down} zone(s) en amélioration</strong> ($\Delta &lt; 0$).
+                </p>
+              </div>
+            </div>
+          ) : null}
 
           {/* Filtres & Barre de recherche de la table de comparaison */}
           <div className="rounded-2xl border border-slate-200 bg-white p-3.5 shadow-xs dark:border-slate-800 dark:bg-slate-900">
