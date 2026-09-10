@@ -29,21 +29,48 @@ import AlertToastNotification from '../../modules/alertes/components/AlertToastN
 import { disconnectAlertsSocket } from '../../modules/alertes/services/alertes-socket.service';
 import { AppRole, normalizeRole, PAGE_ACCESS } from '../auth/roles';
 
+type SubMenuItem = {
+  label: string;
+  path: string;
+};
+
 type MenuItem = {
   label: string;
   path: string;
   icon: typeof Home;
   allowedRoles: AppRole[];
+  subItems?: SubMenuItem[];
 };
 
 const menu: MenuItem[] = [
   { label: 'Tableau de bord', path: '/dashboard', icon: Home, allowedRoles: PAGE_ACCESS.dashboard },
   { label: 'Carte des risques', path: '/carte', icon: Map, allowedRoles: PAGE_ACCESS.carte },
-  { label: 'Analyse multicritère', path: '/analyse', icon: BarChart3, allowedRoles: PAGE_ACCESS.analyse },
+  {
+    label: 'Analyses & Décision',
+    path: '/analyse',
+    icon: BarChart3,
+    allowedRoles: PAGE_ACCESS.analyse,
+    subItems: [
+      { label: 'Modèle AHP (Saaty)', path: '/analyse' },
+      { label: 'Explorateur SOLAP', path: '/analyse/solap' },
+      { label: 'Analyse Historique', path: '/analyse/historique' },
+    ],
+  },
   { label: 'Alertes', path: '/alertes', icon: AlertTriangle, allowedRoles: PAGE_ACCESS.alertes },
   { label: 'Données', path: '/donnees', icon: Database, allowedRoles: PAGE_ACCESS.donnees },
   { label: 'Rapports', path: '/rapports', icon: FileText, allowedRoles: PAGE_ACCESS.rapports },
-  { label: 'Paramètres', path: '/parametres', icon: Settings, allowedRoles: PAGE_ACCESS.parametres },
+  {
+    label: 'Paramètres',
+    path: '/parametres',
+    icon: Settings,
+    allowedRoles: PAGE_ACCESS.parametres,
+    subItems: [
+      { label: 'Général', path: '/parametres' },
+      { label: 'Rôles & Permissions', path: '/parametres/roles' },
+      { label: 'Poids AHP', path: '/parametres/poids-ahp' },
+      { label: 'Clés & API', path: '/parametres/api' },
+    ],
+  },
   { label: 'Utilisateurs', path: '/utilisateurs', icon: Users, allowedRoles: PAGE_ACCESS.utilisateurs },
   { label: 'Demandes de compte', path: '/demandes-comptes', icon: UserCheck, allowedRoles: PAGE_ACCESS.demandesComptes },
   { label: 'Aide', path: '/aide', icon: HelpCircle, allowedRoles: PAGE_ACCESS.aide },
@@ -284,41 +311,73 @@ export default function MainLayout() {
             </button>
           </div>
 
-          <nav className="flex flex-1 flex-col gap-2 overflow-y-auto pr-1">
+          <nav className="flex flex-1 flex-col gap-1.5 overflow-y-auto pr-1">
             {visibleMenu.map((item) => {
               const Icon = item.icon;
+              const isSectionActive = location.pathname === item.path || (item.subItems && location.pathname.startsWith(item.path));
 
               return (
-                <NavLink
-                  key={item.path}
-                  to={item.path}
-                  end={item.path === '/'}
-                  onClick={() => setMobileSidebarOpen(false)}
-                  className={({ isActive }) =>
-                    [
-                      'group flex items-center justify-between rounded-2xl px-4 py-3 text-sm font-semibold transition-all',
-                      isActive
-                        ? 'bg-gradient-to-r from-blue-600 to-green-500 text-white shadow-lg shadow-green-950/20'
-                        : 'text-slate-200 hover:bg-white/10 hover:text-white',
-                    ].join(' ')
-                  }
-                >
-                  <span className="flex items-center gap-3">
-                    <Icon size={19} />
-                    {!sidebarCollapsed && <span>{item.label}</span>}
-                  </span>
-
-                  {highPriorityAlertsCount > 0 && item.path === '/alertes' && (
-                    <span
-                      className={[
-                        'flex h-6 min-w-6 items-center justify-center rounded-full px-2 text-xs font-black text-white shadow-sm',
-                        criticalAlertsCount > 0 ? 'bg-red-500' : 'bg-orange-500',
-                      ].join(' ')}
-                    >
-                      {highPriorityAlertsCount > 99 ? '99+' : highPriorityAlertsCount}
+                <div key={item.path} className="flex flex-col gap-1">
+                  <NavLink
+                    to={item.path}
+                    end={item.path === '/'}
+                    onClick={() => setMobileSidebarOpen(false)}
+                    className={({ isActive }) =>
+                      [
+                        'group flex items-center justify-between rounded-2xl px-4 py-2.5 text-sm font-semibold transition-all',
+                        isActive || (item.subItems && isSectionActive && location.pathname === item.path)
+                          ? 'bg-gradient-to-r from-blue-600 to-green-500 text-white shadow-lg shadow-green-950/20'
+                          : isSectionActive
+                            ? 'bg-white/10 text-white'
+                            : 'text-slate-200 hover:bg-white/10 hover:text-white',
+                      ].join(' ')
+                    }
+                  >
+                    <span className="flex items-center gap-3">
+                      <Icon size={19} />
+                      {!sidebarCollapsed && <span>{item.label}</span>}
                     </span>
+
+                    {highPriorityAlertsCount > 0 && item.path === '/alertes' && (
+                      <span
+                        className={[
+                          'flex h-6 min-w-6 items-center justify-center rounded-full px-2 text-xs font-black text-white shadow-sm',
+                          criticalAlertsCount > 0 ? 'bg-red-500' : 'bg-orange-500',
+                        ].join(' ')}
+                      >
+                        {highPriorityAlertsCount > 99 ? '99+' : highPriorityAlertsCount}
+                      </span>
+                    )}
+                  </NavLink>
+
+                  {/* Sub-items if section is active and sidebar is expanded */}
+                  {!sidebarCollapsed && item.subItems && isSectionActive && (
+                    <div className="ml-5 flex flex-col gap-1 border-l border-white/20 pl-3 my-0.5">
+                      {item.subItems.map((sub) => {
+                        const isSubActive =
+                          sub.path === '/analyse' || sub.path === '/parametres'
+                            ? location.pathname === sub.path
+                            : location.pathname.startsWith(sub.path);
+
+                        return (
+                          <NavLink
+                            key={sub.path}
+                            to={sub.path}
+                            onClick={() => setMobileSidebarOpen(false)}
+                            className={[
+                              'rounded-xl px-3 py-1.5 text-xs font-bold transition-all',
+                              isSubActive
+                                ? 'bg-white/20 text-white font-black'
+                                : 'text-slate-300 hover:bg-white/10 hover:text-white',
+                            ].join(' ')}
+                          >
+                            {sub.label}
+                          </NavLink>
+                        );
+                      })}
+                    </div>
                   )}
-                </NavLink>
+                </div>
               );
             })}
           </nav>

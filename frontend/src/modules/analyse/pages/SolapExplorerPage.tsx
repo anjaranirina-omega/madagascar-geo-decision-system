@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import PageHeader from '../../../shared/components/ui/PageHeader';
+import AnalyseNavTabs from '../components/AnalyseNavTabs';
 import { solapService, SolapCubeRecord, SolapSummaryRecord } from '../services/solap.service';
 
 const RISK_TYPES = [
@@ -424,6 +425,8 @@ export default function SolapExplorerPage() {
 
   return (
     <div className="space-y-6">
+      <AnalyseNavTabs />
+
       <PageHeader
         title="Explorateur SOLAP & Data Warehouse"
         subtitle="Analyses multidimensionnelles OLAP, forage spatial (Drill-Down / Roll-Up) et croisements territoriaux."
