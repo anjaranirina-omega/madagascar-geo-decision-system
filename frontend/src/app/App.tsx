@@ -27,8 +27,6 @@ const ParametresPage = React.lazy(() => import('../modules/parametres/pages/Para
 const UsersPage = React.lazy(() => import('../modules/administration/pages/UsersPage'));
 const AccountRequestsPage = React.lazy(() => import('../modules/administration/pages/AccountRequestsPage'));
 const RolesPage = React.lazy(() => import('../modules/administration/pages/RolesPage'));
-const AhpWeightsPage = React.lazy(() => import('../modules/administration/pages/AhpWeightsPage'));
-const ApiConfigPage = React.lazy(() => import('../modules/administration/pages/ApiConfigPage'));
 const AidePage = React.lazy(() => import('../modules/aide/pages/AidePage'));
 
 export default function App() {
@@ -81,8 +79,6 @@ export default function App() {
               <Route element={<RoleRoute allowedRoles={PAGE_ACCESS.parametres} />}>
                 <Route path="/parametres" element={<ParametresPage />} />
                 <Route path="/parametres/roles" element={<RolesPage />} />
-                <Route path="/parametres/poids-ahp" element={<AhpWeightsPage />} />
-                <Route path="/parametres/api" element={<ApiConfigPage />} />
               </Route>
 
               <Route element={<RoleRoute allowedRoles={PAGE_ACCESS.utilisateurs} />}>
