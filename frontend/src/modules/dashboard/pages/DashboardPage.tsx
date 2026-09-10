@@ -370,7 +370,7 @@ export default function DashboardPage() {
 
   const tabs = [
     { id: 'overview' as const, label: 'Vue d’ensemble stratégique' },
-    { id: 'regions' as const, label: 'Risques par région (23)', count: riskByRegion.length },
+    { id: 'regions' as const, label: 'Risques par région (22)', count: riskByRegion.length },
     { id: 'sources' as const, label: 'Sources & Pipelines ETL', count: sources.length },
     { id: 'climate' as const, label: 'Météo & Couches Rasters', count: rasters.length },
   ];
@@ -600,7 +600,7 @@ export default function DashboardPage() {
             {/* Zone Level Pills (Drill-down / Roll-up) */}
             <div className="flex items-center rounded-2xl bg-slate-100 p-1 dark:bg-slate-800">
               {[
-                { value: 'region', label: '23 Régions' },
+                { value: 'region', label: '22 Régions' },
                 { value: 'district', label: '119 Districts' },
                 { value: 'commune', label: '1 579 Communes' },
               ].map((item) => (
@@ -843,11 +843,11 @@ export default function DashboardPage() {
       {/* TAB 2: REGIONAL COMPARISON */}
       {activeTab === 'regions' && (
         <SectionCard
-          title="Matrice Comparative Multi-Risques des 23 Régions"
+          title="Matrice Comparative Multi-Risques des 22 Régions"
           subtitle="Scores maximaux par aléa issus de la vue matérialisée dwh.mv_regional_risk_summary."
           actions={
             <div className="flex items-center gap-2">
-              <span className="text-xs text-slate-400">23 Régions</span>
+              <span className="text-xs text-slate-400">22 Régions</span>
               <MapPinned className="text-slate-400" size={18} />
             </div>
           }
