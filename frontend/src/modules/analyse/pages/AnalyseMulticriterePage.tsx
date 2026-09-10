@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import PageHeader from '../../../shared/components/ui/PageHeader';
 import Tabs from '../../../shared/components/ui/Tabs';
 import AnalyseNavTabs from '../components/AnalyseNavTabs';
 import {
@@ -677,33 +678,24 @@ export default function AnalyseMulticriterePage() {
     <div className="space-y-6">
       <AnalyseNavTabs />
 
-      <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-soft dark:border-slate-800 dark:bg-slate-900">
-        <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-green-500 to-blue-600 text-white">
-              <SlidersHorizontal size={30} />
-            </div>
-            <h2 className="text-2xl font-black text-slate-900 dark:text-white">
-              Analyse multicritère — Pondérations
-            </h2>
-            <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-500 dark:text-slate-400">
-              Configurez les poids de l’indice global et des modèles spécifiques.
-              Les poids globaux peuvent recalculer directement le raster global.
-              Les poids spécifiques seront appliqués lors du prochain pipeline.
-            </p>
-          </div>
+      <PageHeader
+        title="Analyse Multicritère — Pondérations AHP"
+        subtitle="Configurez les poids de l’indice global et des modèles spécifiques. Les calculs AHP sont validés via le moteur d'aide à la décision Saaty."
+        icon={<SlidersHorizontal size={30} className="text-purple-600" />}
+        actions={
           <button
             onClick={() => {
               loadWeights();
               loadSpecificWeights();
             }}
-            className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 text-sm font-bold text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200"
+            disabled={loading || saving || savingModelWeights}
+            className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-purple-600 px-4 text-xs font-bold text-white shadow-xs transition hover:bg-purple-700 disabled:opacity-50"
           >
-            <RefreshCw size={18} />
-            Actualiser
+            <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
+            <span>Actualiser</span>
           </button>
-        </div>
-      </div>
+        }
+      />
 
       <Tabs
         active={activeTab}

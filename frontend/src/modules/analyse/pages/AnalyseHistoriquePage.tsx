@@ -43,26 +43,23 @@ export default function AnalyseHistoriquePage() {
   const [data, setData] = useState<SolapTimeSeriesRecord[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
 
-  useEffect(() => {
-    let active = true;
+  const fetchData = () => {
     setLoading(true);
     solapService
       .getRiskTimeSeries({ riskType })
       .then((res) => {
-        if (active) {
-          setData(res || []);
-        }
+        setData(res || []);
       })
       .catch((err) => {
         console.error('Erreur chargement série temporelle:', err);
       })
       .finally(() => {
-        if (active) setLoading(false);
+        setLoading(false);
       });
+  };
 
-    return () => {
-      active = false;
-    };
+  useEffect(() => {
+    fetchData();
   }, [riskType]);
 
   const stats = useMemo(() => {
@@ -90,15 +87,25 @@ export default function AnalyseHistoriquePage() {
 
   return (
     <div className="space-y-6">
-      {/* Top Header */}
+      {/* 1. Module Navigation Tabs */}
+      <AnalyseNavTabs />
+
+      {/* 2. Top Header */}
       <PageHeader
         title="Analyse Historique & Évolution Chronologique"
         subtitle="Rétrospective pluriannuelle des événements climatiques majeurs et tendances d’exposition à Madagascar (DWH / SOLAP)."
         icon={<History size={32} className="text-purple-600" />}
+        actions={
+          <button
+            onClick={fetchData}
+            disabled={loading}
+            className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-purple-600 px-4 text-xs font-bold text-white shadow-xs transition hover:bg-purple-700 disabled:opacity-50"
+          >
+            <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
+            <span>Actualiser</span>
+          </button>
+        }
       />
-
-      {/* Module Navigation Tabs */}
-      <AnalyseNavTabs />
 
       {/* 4 KPIs Historiques */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
