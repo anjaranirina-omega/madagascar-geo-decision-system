@@ -11,6 +11,7 @@ import {
   XCircle,
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
+import PageHeader from '../../../shared/components/ui/PageHeader';
 import Tabs from '../../../shared/components/ui/Tabs';
 import OperationalSignalsPanel from '../../operational-signals/components/OperationalSignalsPanel';
 import AlerteDetailDrawer from '../components/AlerteDetailDrawer';
@@ -279,30 +280,17 @@ export default function AlertesPage() {
 
   return (
     <div className="space-y-6">
-      {/* En-tête principal */}
-      <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-soft dark:border-slate-800 dark:bg-slate-900">
-        <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-red-500 to-orange-500 text-white shadow-md">
-              <ShieldAlert size={30} />
-            </div>
-
-            <h2 className="text-2xl font-black text-slate-900 dark:text-white">
-              Alertes climatiques
-            </h2>
-
-            <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-500 dark:text-slate-400">
-              Les alertes validées sont générées à partir des indicateurs zonaux
-              réels et des signaux opérationnels temps réel. Cliquez sur une ligne
-              pour ouvrir le tiroir d'analyse détaillée.
-            </p>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-3">
+      {/* En-tête principal PageHeader standardisé */}
+      <PageHeader
+        title="Gestion & Suivi des Alertes Climatiques"
+        subtitle="Alertes validées générées à partir des indicateurs zonaux réels et des signaux opérationnels en temps réel. Cliquez sur une ligne pour ouvrir le tiroir d'analyse détaillée."
+        icon={<ShieldAlert size={32} className="text-rose-400" />}
+        actions={
+          <div className="flex flex-wrap items-center gap-2.5">
             <select
               value={zoneType}
               onChange={(event) => setZoneType(event.target.value)}
-              className="h-11 rounded-xl border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 outline-none dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+              className="h-11 rounded-xl border border-slate-200 bg-white px-3.5 text-xs font-bold text-slate-700 outline-none shadow-xs dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200"
             >
               <option value="region">Régions</option>
               <option value="district">Districts</option>
@@ -312,32 +300,32 @@ export default function AlertesPage() {
             <button
               onClick={loadAlertes}
               disabled={loading}
-              className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 text-sm font-bold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-slate-800"
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 text-xs font-bold text-slate-700 shadow-xs transition hover:bg-slate-50 disabled:opacity-60 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
             >
-              <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
-              Actualiser
+              <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
+              <span>Actualiser</span>
             </button>
 
             <button
               onClick={handleGenerateValidatedRiskAlerts}
               disabled={actionLoading}
-              className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-red-500 to-orange-500 px-4 text-sm font-extrabold text-white shadow-lg shadow-red-900/10 transition hover:scale-[1.01] disabled:opacity-60"
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-red-500 to-orange-500 px-4 text-xs font-bold text-white shadow-xs transition hover:opacity-95 disabled:opacity-60"
             >
-              <Wand2 size={18} />
-              Vérifier maintenant
+              <Wand2 size={15} />
+              <span>Vérifier alertes</span>
             </button>
 
             <button
               onClick={handleGenerateOperationalAlerts}
               disabled={actionLoading}
-              className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-purple-500 to-blue-600 px-4 text-sm font-extrabold text-white shadow-lg shadow-purple-900/10 transition hover:scale-[1.01] disabled:opacity-60"
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-purple-500 to-blue-600 px-4 text-xs font-bold text-white shadow-xs transition hover:opacity-95 disabled:opacity-60"
             >
-              <Activity size={18} />
-              Alertes opérationnelles
+              <Activity size={15} />
+              <span>Alertes opérationnelles</span>
             </button>
           </div>
-        </div>
-      </div>
+        }
+      />
 
       {/* Cartes statistiques */}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-4">

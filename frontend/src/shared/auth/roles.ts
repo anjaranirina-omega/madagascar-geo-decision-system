@@ -1,31 +1,29 @@
-export type AppRole = 'ADMIN' | 'ANALYSTE' | 'DECIDEUR' | 'AGENT_TERRAIN';
+export type AppRole = 'ADMIN' | 'ANALYSTE' | 'DECIDEUR';
 
 export const ROLE_LABELS: Record<AppRole, string> = {
   ADMIN: 'Administrateur',
   ANALYSTE: 'Analyste',
   DECIDEUR: 'Décideur',
-  AGENT_TERRAIN: 'Agent de terrain',
 };
 
 export const PAGE_ACCESS = {
   dashboard: ['ADMIN', 'ANALYSTE', 'DECIDEUR'],
-  carte: ['ADMIN', 'ANALYSTE', 'DECIDEUR', 'AGENT_TERRAIN'],
+  carte: ['ADMIN', 'ANALYSTE', 'DECIDEUR'],
   analyse: ['ADMIN', 'ANALYSTE'],
-  alertes: ['ADMIN', 'ANALYSTE', 'DECIDEUR', 'AGENT_TERRAIN'],
+  alertes: ['ADMIN', 'ANALYSTE', 'DECIDEUR'],
   donnees: ['ADMIN', 'ANALYSTE'],
   rapports: ['ADMIN', 'ANALYSTE', 'DECIDEUR'],
   parametres: ['ADMIN'],
   utilisateurs: ['ADMIN'],
   demandesComptes: ['ADMIN'],
-  aide: ['ADMIN', 'ANALYSTE', 'DECIDEUR', 'AGENT_TERRAIN'],
+  aide: ['ADMIN', 'ANALYSTE', 'DECIDEUR'],
 } satisfies Record<string, AppRole[]>;
 
 export function normalizeRole(roleName?: string | null): AppRole | undefined {
   if (
     roleName === 'ADMIN' ||
     roleName === 'ANALYSTE' ||
-    roleName === 'DECIDEUR' ||
-    roleName === 'AGENT_TERRAIN'
+    roleName === 'DECIDEUR'
   ) {
     return roleName;
   }
@@ -51,8 +49,6 @@ export function getDefaultPathForRole(roleName?: string | null) {
     case 'ANALYSTE':
     case 'DECIDEUR':
       return '/dashboard';
-    case 'AGENT_TERRAIN':
-      return '/carte';
     default:
       return '/login';
   }

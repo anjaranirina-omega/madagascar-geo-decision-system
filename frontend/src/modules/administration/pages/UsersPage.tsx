@@ -9,10 +9,12 @@ import {
   Trash2,
   UserCog,
   UserPlus,
+  Users,
   XCircle,
 } from 'lucide-react';
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { useAppStore } from '../../../app/store';
+import PageHeader from '../../../shared/components/ui/PageHeader';
 import { authService } from '../../auth/auth.service';
 import {
   Role,
@@ -46,7 +48,6 @@ const roleLabels: Record<string, string> = {
   ADMIN: 'Administrateur',
   DECIDEUR: 'Décideur',
   ANALYSTE: 'Analyste',
-  AGENT_TERRAIN: 'Agent de terrain',
 };
 
 export default function UsersPage() {
@@ -79,8 +80,12 @@ export default function UsersPage() {
         usersService.findRoles(),
       ]);
 
+      const filteredRoles = rolesData.filter(
+        (r) => (r.name as string) !== 'AGENT_TERRAIN',
+      );
+
       setUsers(usersData);
-      setRoles(rolesData);
+      setRoles(filteredRoles);
     } catch {
       setError(
         'Impossible de charger les utilisateurs. Vérifiez que vous êtes connecté en administrateur.',
@@ -303,43 +308,32 @@ export default function UsersPage() {
 
   return (
     <div className="space-y-6">
-      <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-soft dark:border-slate-800 dark:bg-slate-900">
-        <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-green-500 to-blue-600 text-white">
-              <UserCog size={30} />
-            </div>
-
-            <h2 className="text-2xl font-black text-slate-900 dark:text-white">
-              Gestion des utilisateurs
-            </h2>
-
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500 dark:text-slate-400">
-              Gérez les comptes, rôles et statuts des utilisateurs autorisés à
-              accéder à la plateforme RISKCLIM-MG.
-            </p>
-          </div>
-
-          <div className="flex flex-wrap gap-3">
+      {/* En-tête standardisé PageHeader */}
+      <PageHeader
+        title="Gestion des Utilisateurs & Accès"
+        subtitle="Gérez les comptes, habilitations et statuts des utilisateurs autorisés à accéder à la plateforme RISKCLIM-MG."
+        icon={<Users size={32} className="text-emerald-400" />}
+        actions={
+          <div className="flex flex-wrap items-center gap-2.5">
             <button
               onClick={loadData}
               disabled={loading}
-              className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 text-sm font-bold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-slate-800"
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-white/20 bg-white/10 px-3.5 text-xs font-bold text-white backdrop-blur shadow-xs transition hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
-              Actualiser
+              <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
+              <span>Actualiser</span>
             </button>
 
             <button
               onClick={openCreateModal}
-              className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-green-500 to-blue-600 px-4 text-sm font-extrabold text-white shadow-lg shadow-blue-900/10 transition hover:scale-[1.01]"
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 px-4 text-xs font-black text-white shadow-lg shadow-emerald-950/20 transition hover:scale-[1.01]"
             >
-              <Plus size={18} />
-              Nouvel utilisateur
+              <Plus size={16} />
+              <span>Nouvel utilisateur</span>
             </button>
           </div>
-        </div>
-      </div>
+        }
+      />
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
         <StatCard label="Total" value={stats.total} tone="slate" />

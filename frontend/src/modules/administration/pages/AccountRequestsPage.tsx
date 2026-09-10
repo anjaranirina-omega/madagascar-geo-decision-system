@@ -10,6 +10,7 @@ import {
   XCircle,
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
+import PageHeader from '../../../shared/components/ui/PageHeader';
 import {
   AccountRequest,
   AccountRequestStatus,
@@ -37,7 +38,6 @@ const statusIcons: Record<AccountRequestStatus, typeof Clock> = {
 const roleLabels: Record<string, string> = {
   DECIDEUR: 'Décideur',
   ANALYSTE: 'Analyste',
-  AGENT_TERRAIN: 'Agent de terrain',
 };
 
 function formatDate(value: string) {
@@ -160,33 +160,22 @@ export default function AccountRequestsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-soft dark:border-slate-800 dark:bg-slate-900">
-        <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-green-500 to-blue-600 text-white">
-              <ShieldCheck size={30} />
-            </div>
-
-            <h2 className="text-2xl font-black text-slate-900 dark:text-white">
-              Demandes de compte
-            </h2>
-
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500 dark:text-slate-400">
-              Consultez les demandes envoyées depuis la page publique et validez
-              l’accès des utilisateurs autorisés à la plateforme RISKCLIM-MG.
-            </p>
-          </div>
-
+      {/* En-tête standardisé PageHeader */}
+      <PageHeader
+        title="Validation des Demandes de Compte"
+        subtitle="Consultez les demandes d'accès envoyées depuis le portail public et validez l’attribution des habilitations pour les décideurs et analystes."
+        icon={<UserCheck size={32} className="text-emerald-400" />}
+        actions={
           <button
             onClick={loadRequests}
             disabled={loading}
-            className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 text-sm font-bold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-slate-800"
+            className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-white/20 bg-white/10 px-4 text-xs font-bold text-white backdrop-blur shadow-xs transition hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
-            Actualiser
+            <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
+            <span>Actualiser</span>
           </button>
-        </div>
-      </div>
+        }
+      />
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
         <CounterCard label="Total" value={counters.total} color="slate" />

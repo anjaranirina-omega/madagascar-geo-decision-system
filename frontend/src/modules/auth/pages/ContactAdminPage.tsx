@@ -18,7 +18,7 @@ const schema = z.object({
   fullName: z.string().min(2, 'Le nom complet est obligatoire.'),
   organization: z.string().min(2, 'L’organisation est obligatoire.'),
   position: z.string().min(2, 'La fonction est obligatoire.'),
-  requestedRole: z.enum(['DECIDEUR', 'ANALYSTE', 'AGENT_TERRAIN']),
+  requestedRole: z.enum(['DECIDEUR', 'ANALYSTE']),
   email: z
     .string()
     .trim()
@@ -35,7 +35,6 @@ type FormValues = z.infer<typeof schema>;
 const roleLabels: Record<FormValues['requestedRole'], string> = {
   DECIDEUR: 'Décideur',
   ANALYSTE: 'Analyste',
-  AGENT_TERRAIN: 'Agent de terrain',
 };
 
 export default function ContactAdminPage() {
