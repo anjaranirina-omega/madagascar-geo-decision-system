@@ -41,9 +41,9 @@ const RISK_TYPES = [
 
 const ZONE_TYPES = [
   { value: '', label: 'Tous les niveaux' },
-  { value: 'region', label: 'Régions (23)' },
+  { value: 'region', label: 'Régions (22)' },
   { value: 'district', label: 'Districts (119)' },
-  { value: 'commune', label: 'Communes (1579+)' },
+  { value: 'commune', label: 'Communes (1 579)' },
 ];
 
 const RISK_CONFIG: Record<
@@ -465,7 +465,7 @@ export default function SolapExplorerPage() {
             {stats.uniqueZones.toLocaleString('fr-FR')}
           </div>
           <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-            Niveau actif : {zoneType === 'region' ? '23 Régions' : zoneType === 'district' ? '119 Districts' : zoneType === 'commune' ? '1 579 Communes' : 'Tous niveaux'}
+            Niveau actif : {zoneType === 'region' ? '22 Régions' : zoneType === 'district' ? '119 Districts' : zoneType === 'commune' ? '1 579 Communes' : 'Tous niveaux'}
           </p>
         </div>
 

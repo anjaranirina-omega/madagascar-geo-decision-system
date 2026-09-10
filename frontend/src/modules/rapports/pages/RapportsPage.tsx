@@ -78,9 +78,9 @@ const periodLabels: Record<string, string> = {
 
 const zoneLevelLabels: Record<string, string> = {
   madagascar: 'Madagascar',
-  region: 'Région (23)',
+  region: 'Région (22)',
   district: 'District (119)',
-  commune: 'Commune (1579+)',
+  commune: 'Commune (1 579)',
 };
 
 const elementOptions = [
@@ -702,9 +702,9 @@ export default function RapportsPage() {
                   onChange={(e) => setComparisonZoneType(e.target.value)}
                   className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-700 outline-none focus:border-purple-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200"
                 >
-                  <option value="region">Régions (23)</option>
+                  <option value="region">Régions (22)</option>
                   <option value="district">Districts (119)</option>
-                  <option value="commune">Communes (1579+)</option>
+                  <option value="commune">Communes (1 579)</option>
                 </select>
               </div>
 
@@ -1329,9 +1329,9 @@ export default function RapportsPage() {
                 <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
                   {[
                     ['national', 'Rapport national officiel multi-risques'],
-                    ['region', 'Rapport régional (23 Régions)'],
+                    ['region', 'Rapport régional (22 Régions)'],
                     ['district', 'Rapport par district (119 Districts)'],
-                    ['commune', 'Rapport communal de vulnérabilité'],
+                    ['commune', 'Rapport communal de vulnérabilité (1 579 Communes)'],
                     ['custom', 'Rapport sur-mesure d’urgence'],
                   ].map(([id, label]) => (
                     <ChoiceButton
@@ -1405,7 +1405,7 @@ export default function RapportsPage() {
                 <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
                   {[
                     ['madagascar', 'National (Madagascar complet)'],
-                    ['region', 'Niveau Régional (23 entités)'],
+                    ['region', 'Niveau Régional (22 entités)'],
                     ['district', 'Niveau District (119 entités)'],
                     ['commune', 'Niveau Communal (1 579 entités)'],
                   ].map(([id, label]) => (
