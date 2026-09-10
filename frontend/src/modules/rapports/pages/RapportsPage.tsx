@@ -15,10 +15,12 @@ import {
   Database,
   Download,
   ExternalLink,
+  Eye,
   FileSpreadsheet,
   FileText,
   Filter,
   HardDrive,
+  Info,
   Layers,
   MapPin,
   RadioTower,
@@ -31,6 +33,7 @@ import {
   Users,
 } from 'lucide-react';
 import React, { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import PageHeader from '../../../shared/components/ui/PageHeader';
 import Tabs from '../../../shared/components/ui/Tabs';
 import {
@@ -120,7 +123,7 @@ function formatDelta(value?: number | null) {
 
 function formatComparisonValue(value?: number | null) {
   if (value === null || value === undefined || Number.isNaN(Number(value))) {
-    return 'N/A';
+    return null;
   }
   return Number(value).toFixed(1);
 }
@@ -188,7 +191,8 @@ function ChoiceButton({
 }
 
 export default function RapportsPage() {
-  const [activeTab, setActiveTab] = useState<ReportsTab>('catalog');
+  const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState<ReportsTab>('comparison');
   const [wizardOpen, setWizardOpen] = useState(false);
   const [step, setStep] = useState<WizardStep>(1);
   const [loadingWizard, setLoadingWizard] = useState(false);
@@ -204,15 +208,19 @@ export default function RapportsPage() {
   const [historyPage, setHistoryPage] = useState(1);
   const [historyPageSize, setHistoryPageSize] = useState(10);
 
-  // Comparison
+  // Comparison State
   const [comparisonRows, setComparisonRows] = useState<RiskComparisonRow[]>([]);
   const [comparisonLoading, setComparisonLoading] = useState(false);
-  const [periodAStart, setPeriodAStart] = useState('2026-07-01');
-  const [periodAEnd, setPeriodAEnd] = useState('2026-07-15');
-  const [periodBStart, setPeriodBStart] = useState('2026-07-16');
-  const [periodBEnd, setPeriodBEnd] = useState('2026-07-31');
-  const [comparisonRiskType, setComparisonRiskType] = useState('');
+  const [periodAStart, setPeriodAStart] = useState('2026-01-01');
+  const [periodAEnd, setPeriodAEnd] = useState('2026-03-31');
+  const [periodBStart, setPeriodBStart] = useState('2026-06-01');
+  const [periodBEnd, setPeriodBEnd] = useState('2026-09-09');
+  const [comparisonRiskType, setComparisonRiskType] = useState('DROUGHT');
   const [comparisonZoneType, setComparisonZoneType] = useState('region');
+  const [comparisonSearch, setComparisonSearch] = useState('');
+  const [comparisonTrendFilter, setComparisonTrendFilter] = useState<'all' | 'up' | 'down' | 'new'>('all');
+  const [comparisonPage, setComparisonPage] = useState(1);
+  const [comparisonPageSize, setComparisonPageSize] = useState(10);
 
   // Wizard State
   const [reportType, setReportType] = useState('national');
@@ -238,8 +246,30 @@ export default function RapportsPage() {
     }
   };
 
+  const loadComparison = async () => {
+    setComparisonLoading(true);
+    try {
+      const rows = await reportsService.getRiskComparison({
+        periodAStart,
+        periodAEnd,
+        periodBStart,
+        periodBEnd,
+        riskType: comparisonRiskType || undefined,
+        zoneType: comparisonZoneType,
+      });
+      setComparisonRows(rows || []);
+      setComparisonPage(1);
+    } catch (err) {
+      console.error('Erreur calcul comparaison:', err);
+    } finally {
+      setComparisonLoading(false);
+    }
+  };
+
   useEffect(() => {
     loadHistory();
+    loadComparison();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const downloadHistoryReport = async (report: GeneratedReport) => {
@@ -261,23 +291,6 @@ export default function RapportsPage() {
       await loadHistory();
     } finally {
       setDeletingId(null);
-    }
-  };
-
-  const loadComparison = async () => {
-    setComparisonLoading(true);
-    try {
-      const rows = await reportsService.getRiskComparison({
-        periodAStart,
-        periodAEnd,
-        periodBStart,
-        periodBEnd,
-        riskType: comparisonRiskType || undefined,
-        zoneType: comparisonZoneType,
-      });
-      setComparisonRows(rows || []);
-    } finally {
-      setComparisonLoading(false);
     }
   };
 
@@ -408,6 +421,55 @@ export default function RapportsPage() {
     return filteredHistory.slice(start, start + historyPageSize);
   }, [filteredHistory, historyPage, historyPageSize]);
 
+  // Comparison Computations
+  const comparisonStats = useMemo(() => {
+    const total = comparisonRows.length;
+    const withBaselineA = comparisonRows.filter((r) => r.riskMaxA !== null && r.riskMaxA !== undefined).length;
+    const newInB = comparisonRows.filter((r) => (r.riskMaxA === null || r.riskMaxA === undefined) && r.riskMaxB !== null).length;
+    const up = comparisonRows.filter((r) => Number(r.riskMaxDelta) > 0).length;
+    const down = comparisonRows.filter((r) => Number(r.riskMaxDelta) < 0).length;
+    const maxBRow = [...comparisonRows].sort((a, b) => (Number(b.riskMaxB) || 0) - (Number(a.riskMaxB) || 0))[0];
+
+    return {
+      total,
+      withBaselineA,
+      newInB,
+      up,
+      down,
+      topZone: maxBRow ? `${maxBRow.zoneNom} (${Number(maxBRow.riskMaxB).toFixed(1)})` : '—',
+    };
+  }, [comparisonRows]);
+
+  const filteredComparisonRows = useMemo(() => {
+    let list = comparisonRows;
+
+    if (comparisonSearch.trim()) {
+      const q = comparisonSearch.toLowerCase();
+      list = list.filter(
+        (r) =>
+          r.zoneNom?.toLowerCase().includes(q) ||
+          r.zoneId?.toLowerCase().includes(q) ||
+          r.riskLabel?.toLowerCase().includes(q),
+      );
+    }
+
+    if (comparisonTrendFilter === 'up') {
+      list = list.filter((r) => Number(r.riskMaxDelta) > 0);
+    } else if (comparisonTrendFilter === 'down') {
+      list = list.filter((r) => Number(r.riskMaxDelta) < 0);
+    } else if (comparisonTrendFilter === 'new') {
+      list = list.filter((r) => (r.riskMaxA === null || r.riskMaxA === undefined) && r.riskMaxB !== null);
+    }
+
+    return list;
+  }, [comparisonRows, comparisonSearch, comparisonTrendFilter]);
+
+  const totalComparisonPages = Math.max(1, Math.ceil(filteredComparisonRows.length / comparisonPageSize));
+  const paginatedComparison = useMemo(() => {
+    const start = (comparisonPage - 1) * comparisonPageSize;
+    return filteredComparisonRows.slice(start, start + comparisonPageSize);
+  }, [filteredComparisonRows, comparisonPage, comparisonPageSize]);
+
   // Wizard Generation
   const toggleRisk = (risk: string) => {
     setSelectedRisks((cur) =>
@@ -451,16 +513,16 @@ export default function RapportsPage() {
   };
 
   const tabs = [
+    { id: 'comparison' as const, label: 'Comparateur de périodes multi-risques', count: comparisonRows.length },
+    { id: 'history' as const, label: 'Historique des rapports archivés', count: history.length },
     { id: 'catalog' as const, label: 'Catalogue des exports', count: reports.length },
-    { id: 'history' as const, label: 'Historique des rapports', count: history.length },
-    { id: 'comparison' as const, label: 'Comparaison de périodes' },
   ];
 
   return (
     <div className="space-y-6">
       {/* 1. Page Header with CTA */}
       <PageHeader
-        title="Génération & Archives des Rapports"
+        title="Génération & Comparaison des Rapports"
         subtitle="Exports officiels multi-risques pour les décideurs (BNGRC, Ministères) au format PDF, Excel et CSV."
         icon={<FileText size={30} className="text-purple-600" />}
         actions={
@@ -475,12 +537,15 @@ export default function RapportsPage() {
             </button>
             <button
               type="button"
-              onClick={loadHistory}
-              disabled={historyLoading}
+              onClick={() => {
+                loadHistory();
+                loadComparison();
+              }}
+              disabled={historyLoading || comparisonLoading}
               className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold text-slate-700 shadow-sm transition hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200"
-              title="Actualiser les archives"
+              title="Actualiser les données"
             >
-              <RefreshCw size={15} className={historyLoading ? 'animate-spin' : ''} />
+              <RefreshCw size={15} className={historyLoading || comparisonLoading ? 'animate-spin' : ''} />
             </button>
           </div>
         }
@@ -491,17 +556,34 @@ export default function RapportsPage() {
         <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-xs dark:border-slate-800 dark:bg-slate-900">
           <div className="flex items-center justify-between">
             <span className="text-xs font-black uppercase tracking-wider text-slate-400">
-              Modèles Disponibles
+              Zones Comparées
             </span>
             <div className="rounded-xl bg-purple-50 p-2 text-purple-600 dark:bg-purple-950/50 dark:text-purple-300">
-              <Layers size={18} />
+              <MapPin size={18} />
             </div>
           </div>
           <div className="mt-2 text-2xl font-black text-slate-900 dark:text-white">
-            {reports.length} formats
+            {comparisonStats.total} {comparisonZoneType === 'region' ? 'Régions' : 'Entités'}
           </div>
           <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-            PDF Officiel • XLSX Multi-feuilles • CSV
+            {comparisonRiskType ? `Aléa sélectionné : ${comparisonRiskType}` : 'Tous aléas confondus'}
+          </p>
+        </div>
+
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-xs dark:border-slate-800 dark:bg-slate-900">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-black uppercase tracking-wider text-slate-400">
+              Point Chaud Période B
+            </span>
+            <div className="rounded-xl bg-rose-50 p-2 text-rose-600 dark:bg-rose-950/50 dark:text-rose-300">
+              <TrendingUp size={18} />
+            </div>
+          </div>
+          <div className="mt-2 truncate text-lg font-black text-rose-600 dark:text-rose-400" title={comparisonStats.topZone}>
+            {comparisonStats.topZone}
+          </div>
+          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+            Score maximal observé en Période B
           </p>
         </div>
 
@@ -518,24 +600,7 @@ export default function RapportsPage() {
             {history.length} générés
           </div>
           <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-            Enregistrés en base & stockage objet
-          </p>
-        </div>
-
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-xs dark:border-slate-800 dark:bg-slate-900">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-black uppercase tracking-wider text-slate-400">
-              Espace Stockage Dédié
-            </span>
-            <div className="rounded-xl bg-emerald-50 p-2 text-emerald-600 dark:bg-emerald-950/50 dark:text-emerald-300">
-              <HardDrive size={18} />
-            </div>
-          </div>
-          <div className="mt-2 text-2xl font-black text-emerald-600 dark:text-emerald-400">
-            {formatFileSize(totalStorageBytes)}
-          </div>
-          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-            Fichiers persistés dans MinIO / Local
+            Stockage : {formatFileSize(totalStorageBytes)}
           </p>
         </div>
 
@@ -548,7 +613,7 @@ export default function RapportsPage() {
               <Clock size={18} />
             </div>
           </div>
-          <div className="mt-2 truncate text-base font-black text-slate-900 dark:text-white" title={latestReport?.title || 'Aucun export'}>
+          <div className="mt-2 truncate text-sm font-black text-slate-900 dark:text-white" title={latestReport?.title || 'Aucun export'}>
             {latestReport ? latestReport.title : 'Aucun export'}
           </div>
           <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
@@ -561,48 +626,366 @@ export default function RapportsPage() {
       <Tabs active={activeTab} onChange={setActiveTab} tabs={tabs} />
 
       {/* ======================================================================= */}
-      {/* TAB 1: CATALOGUE DES RAPPORTS                                           */}
+      {/* TAB 1: COMPARAISON DE PÉRIODES (FULL WIDTH)                             */}
       {/* ======================================================================= */}
-      {activeTab === 'catalog' && (
-        <div className="space-y-6">
-          <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
-            {reports.map((report) => {
-              const Icon = report.icon;
-              return (
-                <div
-                  key={`${report.title}-${report.format}`}
-                  className="flex flex-col justify-between rounded-2xl border border-slate-200 bg-white p-5 shadow-xs transition hover:border-purple-300 hover:shadow-md dark:border-slate-800 dark:bg-slate-900"
+      {activeTab === 'comparison' && (
+        <div className="space-y-4">
+          {/* Formulaire de paramètres de comparaison */}
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs dark:border-slate-800 dark:bg-slate-900">
+            <h3 className="text-sm font-black text-slate-900 dark:text-white mb-1 flex items-center gap-2">
+              <Activity size={16} className="text-purple-600" />
+              <span>Paramètres de Comparaison Temporelle DWH</span>
+            </h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">
+              Comparez l'évolution spatiotemporelle des scores d'aléas et de la population exposée entre deux fenêtres temporelles.
+            </p>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <label className="text-xs font-bold text-slate-600 dark:text-slate-300">
+                Période A — Début (Référence)
+                <input
+                  type="date"
+                  value={periodAStart}
+                  onChange={(e) => setPeriodAStart(e.target.value)}
+                  className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-800 outline-none focus:border-purple-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200"
+                />
+              </label>
+
+              <label className="text-xs font-bold text-slate-600 dark:text-slate-300">
+                Période A — Fin
+                <input
+                  type="date"
+                  value={periodAEnd}
+                  onChange={(e) => setPeriodAEnd(e.target.value)}
+                  className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-800 outline-none focus:border-purple-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200"
+                />
+              </label>
+
+              <label className="text-xs font-bold text-slate-600 dark:text-slate-300">
+                Période B — Début (Cible)
+                <input
+                  type="date"
+                  value={periodBStart}
+                  onChange={(e) => setPeriodBStart(e.target.value)}
+                  className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-800 outline-none focus:border-purple-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200"
+                />
+              </label>
+
+              <label className="text-xs font-bold text-slate-600 dark:text-slate-300">
+                Période B — Fin
+                <input
+                  type="date"
+                  value={periodBEnd}
+                  onChange={(e) => setPeriodBEnd(e.target.value)}
+                  className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-800 outline-none focus:border-purple-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200"
+                />
+              </label>
+            </div>
+
+            <div className="mt-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+              <div className="flex flex-wrap items-center gap-3">
+                <select
+                  value={comparisonRiskType}
+                  onChange={(e) => setComparisonRiskType(e.target.value)}
+                  className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-700 outline-none focus:border-purple-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200"
                 >
-                  <div>
-                    <div className="mb-4 flex items-start justify-between gap-3">
-                      <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-purple-50 text-purple-600 dark:bg-purple-950/50 dark:text-purple-300">
-                        <Icon size={22} />
-                      </div>
-                      {getFormatBadge(report.format)}
-                    </div>
+                  <option value="">Tous les aléas</option>
+                  <option value="DROUGHT">Sécheresse</option>
+                  <option value="FLOOD">Inondation</option>
+                  <option value="CYCLONE">Cyclone</option>
+                  <option value="LANDSLIDE">Glissement de terrain</option>
+                  <option value="GLOBAL">Global Composite</option>
+                </select>
 
-                    <h3 className="text-base font-black text-slate-900 dark:text-white">
-                      {report.title}
-                    </h3>
-                    <p className="mt-2 text-xs leading-5 text-slate-500 dark:text-slate-400">
-                      {report.description}
-                    </p>
-                  </div>
+                <select
+                  value={comparisonZoneType}
+                  onChange={(e) => setComparisonZoneType(e.target.value)}
+                  className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-700 outline-none focus:border-purple-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200"
+                >
+                  <option value="region">Régions (23)</option>
+                  <option value="district">Districts (119)</option>
+                  <option value="commune">Communes (1579+)</option>
+                </select>
+              </div>
 
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={loadComparison}
+                  disabled={comparisonLoading}
+                  className="inline-flex items-center gap-2 rounded-xl bg-purple-600 px-4 py-2 text-xs font-black text-white hover:bg-purple-700 transition"
+                >
+                  <RefreshCw size={14} className={comparisonLoading ? 'animate-spin' : ''} />
+                  <span>Calculer la comparaison</span>
+                </button>
+
+                {comparisonRows.length > 0 && (
                   <button
                     type="button"
-                    onClick={async () => {
-                      await report.action();
-                      await loadHistory();
-                    }}
-                    className="mt-5 inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 text-xs font-black text-white transition hover:bg-slate-800 dark:bg-white dark:text-slate-950 dark:hover:bg-slate-100"
+                    onClick={downloadComparisonExcel}
+                    className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-black text-white hover:bg-emerald-700 transition"
                   >
-                    <Download size={15} />
-                    <span>Télécharger l’export</span>
+                    <Download size={14} />
+                    <span>Exporter XLSX</span>
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Bandeau d'interprétation intelligente si Période A = N/A */}
+          {comparisonStats.newInB > 0 && comparisonStats.withBaselineA === 0 && (
+            <div className="rounded-2xl border border-blue-200/60 bg-blue-50/70 p-4 dark:border-blue-900/40 dark:bg-blue-950/30 text-xs text-blue-900 dark:text-blue-200 flex items-start gap-3">
+              <Info size={18} className="text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
+              <div>
+                <div className="font-bold">Interprétation de la Période A absente :</div>
+                <p className="mt-0.5 text-blue-800/80 dark:text-blue-300/80">
+                  La Période A sélectionnée (01/01/2026 – 31/03/2026) ne comporte pas encore d'historique archivé dans le Data Warehouse. Les scores de la Période B constituent ainsi la <strong>ligne de référence initiale (Baseline)</strong> pour la saison sèche observée.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Filtres & Barre de recherche de la table de comparaison */}
+          <div className="rounded-2xl border border-slate-200 bg-white p-3.5 shadow-xs dark:border-slate-800 dark:bg-slate-900">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex flex-wrap items-center gap-2">
+                {/* Recherche */}
+                <div className="relative min-w-[200px]">
+                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="text"
+                    placeholder="Filtrer par région, nom..."
+                    value={comparisonSearch}
+                    onChange={(e) => {
+                      setComparisonSearch(e.target.value);
+                      setComparisonPage(1);
+                    }}
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50 py-1.5 pl-8 pr-3 text-xs font-medium text-slate-800 outline-none focus:border-purple-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200"
+                  />
+                </div>
+
+                {/* Filtres de tendance */}
+                <div className="flex items-center rounded-xl bg-slate-100 p-0.5 dark:bg-slate-800">
+                  {[
+                    { key: 'all' as const, label: `Tous (${comparisonRows.length})` },
+                    { key: 'up' as const, label: `En hausse (${comparisonStats.up})` },
+                    { key: 'down' as const, label: `En baisse (${comparisonStats.down})` },
+                    { key: 'new' as const, label: `Mesures B (${comparisonStats.newInB})` },
+                  ].map((f) => (
+                    <button
+                      key={f.key}
+                      type="button"
+                      onClick={() => {
+                        setComparisonTrendFilter(f.key);
+                        setComparisonPage(1);
+                      }}
+                      className={`rounded-lg px-2.5 py-1 text-xs font-bold transition ${
+                        comparisonTrendFilter === f.key
+                          ? 'bg-white text-purple-700 shadow-xs dark:bg-slate-900 dark:text-purple-300'
+                          : 'text-slate-500 hover:text-slate-800 dark:text-slate-400'
+                      }`}
+                    >
+                      {f.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Sélecteur de taille de page */}
+              <div className="flex items-center gap-2 text-xs text-slate-500">
+                <span>Lignes :</span>
+                <select
+                  value={comparisonPageSize}
+                  onChange={(e) => {
+                    setComparisonPageSize(Number(e.target.value));
+                    setComparisonPage(1);
+                  }}
+                  className="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-xs font-bold text-slate-700 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200"
+                >
+                  <option value={10}>10</option>
+                  <option value={25}>25</option>
+                  <option value={50}>50</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          {/* Tableau Comparatif Pleine Largeur */}
+          <div className="rounded-2xl border border-slate-200 bg-white shadow-xs dark:border-slate-800 dark:bg-slate-900 overflow-hidden">
+            {filteredComparisonRows.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-50 font-black text-slate-600 dark:bg-slate-950 dark:text-slate-400">
+                    <tr>
+                      <th className="p-3.5">Zone Administrative</th>
+                      <th className="p-3.5">Aléa</th>
+                      <th className="p-3.5 text-center">Score Période A</th>
+                      <th className="p-3.5 text-center">Score Période B</th>
+                      <th className="p-3.5 text-center">Évolution (Δ Max)</th>
+                      <th className="p-3.5 text-right">Pop. Exposée A</th>
+                      <th className="p-3.5 text-right">Pop. Exposée B</th>
+                      <th className="p-3.5 text-center">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-medium">
+                    {paginatedComparison.map((row, idx) => {
+                      const hasA = row.riskMaxA !== null && row.riskMaxA !== undefined;
+                      const hasB = row.riskMaxB !== null && row.riskMaxB !== undefined;
+                      const delta = Number(row.riskMaxDelta ?? 0);
+
+                      return (
+                        <tr
+                          key={`${row.zoneId}-${row.riskType}-${idx}`}
+                          className="transition-colors hover:bg-slate-50/80 dark:hover:bg-slate-950/60"
+                        >
+                          <td className="p-3.5 font-black text-slate-900 dark:text-white">
+                            {row.zoneNom}
+                          </td>
+                          <td className="p-3.5">
+                            <span className="rounded-md bg-purple-50 dark:bg-purple-950/50 px-2 py-0.5 text-[11px] font-bold text-purple-700 dark:text-purple-300">
+                              {row.riskLabel || row.riskType}
+                            </span>
+                          </td>
+
+                          {/* Score A */}
+                          <td className="p-3.5 text-center">
+                            {hasA ? (
+                              <span className="font-bold text-slate-700 dark:text-slate-300">
+                                {formatComparisonValue(row.riskMaxA)}
+                              </span>
+                            ) : (
+                              <span className="rounded px-1.5 py-0.5 text-[10px] bg-slate-100 text-slate-400 dark:bg-slate-800">
+                                N/A (Non archivé)
+                              </span>
+                            )}
+                          </td>
+
+                          {/* Score B */}
+                          <td className="p-3.5 text-center">
+                            {hasB ? (
+                              <span className="inline-block rounded-lg px-2.5 py-1 text-xs font-black bg-purple-100 text-purple-900 dark:bg-purple-950/60 dark:text-purple-200">
+                                {formatComparisonValue(row.riskMaxB)}
+                              </span>
+                            ) : (
+                              <span className="text-slate-400">—</span>
+                            )}
+                          </td>
+
+                          {/* Évolution Delta */}
+                          <td className="p-3.5 text-center font-black">
+                            {hasA && hasB ? (
+                              <span
+                                className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-black ${
+                                  delta > 0
+                                    ? 'bg-rose-100 text-rose-800 dark:bg-rose-950/50 dark:text-rose-300'
+                                    : delta < 0
+                                      ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300'
+                                      : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
+                                }`}
+                              >
+                                {delta > 0 ? <TrendingUp size={13} /> : delta < 0 ? <TrendingDown size={13} /> : null}
+                                <span>{formatDelta(delta)}</span>
+                              </span>
+                            ) : !hasA && hasB ? (
+                              <span className="inline-flex items-center gap-1 rounded-lg bg-blue-50 px-2.5 py-1 text-xs font-bold text-blue-700 dark:bg-blue-950/50 dark:text-blue-300">
+                                <span>🆕 Référence ({formatComparisonValue(row.riskMaxB)})</span>
+                              </span>
+                            ) : (
+                              <span className="text-slate-400">—</span>
+                            )}
+                          </td>
+
+                          {/* Population A */}
+                          <td className="p-3.5 text-right text-slate-500">
+                            {row.populationExposedA ? Number(row.populationExposedA).toLocaleString('fr-FR') : '—'}
+                          </td>
+
+                          {/* Population B */}
+                          <td className="p-3.5 text-right font-bold text-slate-800 dark:text-slate-200">
+                            {row.populationExposedB ? `${Number(row.populationExposedB).toLocaleString('fr-FR')} hab.` : '—'}
+                          </td>
+
+                          {/* Action */}
+                          <td className="p-3.5 text-center">
+                            <button
+                              type="button"
+                              onClick={() => navigate('/carte')}
+                              className="text-purple-600 hover:text-purple-700 dark:text-purple-400 inline-flex items-center gap-1 font-bold"
+                              title="Voir la région sur la carte"
+                            >
+                              <Eye size={14} />
+                              <span>Carte</span>
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="p-12 text-center text-xs text-slate-500">
+                {comparisonLoading
+                  ? 'Calcul de la comparaison temporelle en cours...'
+                  : 'Aucune donnée trouvée pour les filtres sélectionnés.'}
+              </div>
+            )}
+
+            {/* Pagination du tableau comparatif */}
+            {totalComparisonPages > 1 && (
+              <div className="p-3.5 border-t border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-xs text-slate-500">
+                <div>
+                  Affichage de{' '}
+                  <strong className="text-slate-900 dark:text-white">
+                    {(comparisonPage - 1) * comparisonPageSize + 1}
+                  </strong>{' '}
+                  à{' '}
+                  <strong className="text-slate-900 dark:text-white">
+                    {Math.min(comparisonPage * comparisonPageSize, filteredComparisonRows.length)}
+                  </strong>{' '}
+                  sur <strong className="text-slate-900 dark:text-white">{filteredComparisonRows.length}</strong> entités
+                </div>
+
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setComparisonPage(1)}
+                    disabled={comparisonPage === 1}
+                    className="rounded-lg border border-slate-200 bg-white p-1 text-slate-600 disabled:opacity-40 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300"
+                  >
+                    <ChevronsLeft size={14} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setComparisonPage((p) => Math.max(1, p - 1))}
+                    disabled={comparisonPage === 1}
+                    className="rounded-lg border border-slate-200 bg-white p-1 text-slate-600 disabled:opacity-40 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300"
+                  >
+                    <ChevronLeft size={14} />
+                  </button>
+                  <span className="px-2 font-bold text-slate-800 dark:text-slate-200">
+                    Page {comparisonPage} / {totalComparisonPages}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setComparisonPage((p) => Math.min(totalComparisonPages, p + 1))}
+                    disabled={comparisonPage === totalComparisonPages}
+                    className="rounded-lg border border-slate-200 bg-white p-1 text-slate-600 disabled:opacity-40 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300"
+                  >
+                    <ChevronRight size={14} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setComparisonPage(totalComparisonPages)}
+                    disabled={comparisonPage === totalComparisonPages}
+                    className="rounded-lg border border-slate-200 bg-white p-1 text-slate-600 disabled:opacity-40 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300"
+                  >
+                    <ChevronsRight size={14} />
                   </button>
                 </div>
-              );
-            })}
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -612,11 +995,9 @@ export default function RapportsPage() {
       {/* ======================================================================= */}
       {activeTab === 'history' && (
         <div className="space-y-4">
-          {/* Barre d'outils, recherche et filtres */}
           <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-xs dark:border-slate-800 dark:bg-slate-900">
             <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
               <div className="flex flex-wrap items-center gap-3">
-                {/* Recherche */}
                 <div className="relative min-w-[240px]">
                   <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                   <input
@@ -631,7 +1012,6 @@ export default function RapportsPage() {
                   />
                 </div>
 
-                {/* Filtre Format */}
                 <div className="flex items-center rounded-xl bg-slate-100 p-0.5 dark:bg-slate-800">
                   {[
                     { value: '', label: 'Tous formats' },
@@ -657,7 +1037,6 @@ export default function RapportsPage() {
                   ))}
                 </div>
 
-                {/* Filtre Type */}
                 <select
                   value={historyTypeFilter}
                   onChange={(e) => {
@@ -692,7 +1071,6 @@ export default function RapportsPage() {
             </div>
           </div>
 
-          {/* Tableau Historique Pleine Largeur */}
           <div className="rounded-2xl border border-slate-200 bg-white shadow-xs dark:border-slate-800 dark:bg-slate-900 overflow-hidden">
             {filteredHistory.length > 0 ? (
               <div className="overflow-x-auto">
@@ -847,181 +1225,48 @@ export default function RapportsPage() {
       )}
 
       {/* ======================================================================= */}
-      {/* TAB 3: COMPARAISON DE PÉRIODES (FULL WIDTH)                             */}
+      {/* TAB 3: CATALOGUE DES RAPPORTS                                           */}
       {/* ======================================================================= */}
-      {activeTab === 'comparison' && (
-        <div className="space-y-4">
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs dark:border-slate-800 dark:bg-slate-900">
-            <h3 className="text-sm font-black text-slate-900 dark:text-white mb-1">
-              Paramètres de Comparaison Temporelle
-            </h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">
-              Comparez l'évolution des scores de risque et de la population exposée entre deux périodes du Data Warehouse.
-            </p>
-
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              <label className="text-xs font-bold text-slate-600 dark:text-slate-300">
-                Période A — Début
-                <input
-                  type="date"
-                  value={periodAStart}
-                  onChange={(e) => setPeriodAStart(e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-800 outline-none focus:border-purple-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200"
-                />
-              </label>
-
-              <label className="text-xs font-bold text-slate-600 dark:text-slate-300">
-                Période A — Fin
-                <input
-                  type="date"
-                  value={periodAEnd}
-                  onChange={(e) => setPeriodAEnd(e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-800 outline-none focus:border-purple-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200"
-                />
-              </label>
-
-              <label className="text-xs font-bold text-slate-600 dark:text-slate-300">
-                Période B — Début
-                <input
-                  type="date"
-                  value={periodBStart}
-                  onChange={(e) => setPeriodBStart(e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-800 outline-none focus:border-purple-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200"
-                />
-              </label>
-
-              <label className="text-xs font-bold text-slate-600 dark:text-slate-300">
-                Période B — Fin
-                <input
-                  type="date"
-                  value={periodBEnd}
-                  onChange={(e) => setPeriodBEnd(e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-800 outline-none focus:border-purple-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200"
-                />
-              </label>
-            </div>
-
-            <div className="mt-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
-              <div className="flex flex-wrap items-center gap-3">
-                <select
-                  value={comparisonRiskType}
-                  onChange={(e) => setComparisonRiskType(e.target.value)}
-                  className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-700 outline-none focus:border-purple-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200"
+      {activeTab === 'catalog' && (
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
+            {reports.map((report) => {
+              const Icon = report.icon;
+              return (
+                <div
+                  key={`${report.title}-${report.format}`}
+                  className="flex flex-col justify-between rounded-2xl border border-slate-200 bg-white p-5 shadow-xs transition hover:border-purple-300 hover:shadow-md dark:border-slate-800 dark:bg-slate-900"
                 >
-                  <option value="">Tous les aléas</option>
-                  <option value="FLOOD">Inondation</option>
-                  <option value="DROUGHT">Sécheresse</option>
-                  <option value="LANDSLIDE">Glissement</option>
-                  <option value="CYCLONE">Cyclone</option>
-                </select>
+                  <div>
+                    <div className="mb-4 flex items-start justify-between gap-3">
+                      <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-purple-50 text-purple-600 dark:bg-purple-950/50 dark:text-purple-300">
+                        <Icon size={22} />
+                      </div>
+                      {getFormatBadge(report.format)}
+                    </div>
 
-                <select
-                  value={comparisonZoneType}
-                  onChange={(e) => setComparisonZoneType(e.target.value)}
-                  className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-700 outline-none focus:border-purple-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200"
-                >
-                  <option value="region">Régions (23)</option>
-                  <option value="district">Districts (119)</option>
-                  <option value="commune">Communes (1579+)</option>
-                </select>
-              </div>
+                    <h3 className="text-base font-black text-slate-900 dark:text-white">
+                      {report.title}
+                    </h3>
+                    <p className="mt-2 text-xs leading-5 text-slate-500 dark:text-slate-400">
+                      {report.description}
+                    </p>
+                  </div>
 
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={loadComparison}
-                  disabled={comparisonLoading}
-                  className="inline-flex items-center gap-2 rounded-xl bg-purple-600 px-4 py-2 text-xs font-black text-white hover:bg-purple-700 transition"
-                >
-                  <RefreshCw size={14} className={comparisonLoading ? 'animate-spin' : ''} />
-                  <span>Calculer la comparaison</span>
-                </button>
-
-                {comparisonRows.length > 0 && (
                   <button
                     type="button"
-                    onClick={downloadComparisonExcel}
-                    className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-black text-white hover:bg-emerald-700 transition"
+                    onClick={async () => {
+                      await report.action();
+                      await loadHistory();
+                    }}
+                    className="mt-5 inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 text-xs font-black text-white transition hover:bg-slate-800 dark:bg-white dark:text-slate-950 dark:hover:bg-slate-100"
                   >
-                    <Download size={14} />
-                    <span>Exporter XLSX</span>
+                    <Download size={15} />
+                    <span>Télécharger l’export</span>
                   </button>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Tableau Comparatif */}
-          <div className="rounded-2xl border border-slate-200 bg-white shadow-xs dark:border-slate-800 dark:bg-slate-900 overflow-hidden">
-            {comparisonRows.length > 0 ? (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                  <thead className="bg-slate-50 font-black text-slate-600 dark:bg-slate-950 dark:text-slate-400">
-                    <tr>
-                      <th className="p-3.5">Zone Administrative</th>
-                      <th className="p-3.5">Aléa</th>
-                      <th className="p-3.5 text-center">Score Période A</th>
-                      <th className="p-3.5 text-center">Score Période B</th>
-                      <th className="p-3.5 text-center">Évolution (Δ Max)</th>
-                      <th className="p-3.5 text-right">Pop. Exposée A</th>
-                      <th className="p-3.5 text-right">Pop. Exposée B</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-medium">
-                    {comparisonRows.map((row, idx) => {
-                      const delta = Number(row.riskMaxDelta ?? 0);
-                      return (
-                        <tr
-                          key={`${row.zoneId}-${row.riskType}-${idx}`}
-                          className="transition-colors hover:bg-slate-50/80 dark:hover:bg-slate-950/60"
-                        >
-                          <td className="p-3.5 font-black text-slate-900 dark:text-white">
-                            {row.zoneNom}
-                          </td>
-                          <td className="p-3.5">
-                            <span className="rounded-md bg-purple-50 dark:bg-purple-950/50 px-2 py-0.5 text-[11px] font-bold text-purple-700 dark:text-purple-300">
-                              {row.riskLabel || row.riskType}
-                            </span>
-                          </td>
-                          <td className="p-3.5 text-center font-bold text-slate-700 dark:text-slate-300">
-                            {formatComparisonValue(row.riskMaxA)}
-                          </td>
-                          <td className="p-3.5 text-center font-bold text-slate-700 dark:text-slate-300">
-                            {formatComparisonValue(row.riskMaxB)}
-                          </td>
-                          <td className="p-3.5 text-center font-black">
-                            <span
-                              className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-black ${
-                                delta > 0
-                                  ? 'bg-rose-100 text-rose-800 dark:bg-rose-950/50 dark:text-rose-300'
-                                  : delta < 0
-                                    ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300'
-                                    : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
-                              }`}
-                            >
-                              {delta > 0 ? <TrendingUp size={13} /> : delta < 0 ? <TrendingDown size={13} /> : null}
-                              <span>{formatDelta(delta)}</span>
-                            </span>
-                          </td>
-                          <td className="p-3.5 text-right text-slate-600 dark:text-slate-400">
-                            {row.populationExposedA ? Number(row.populationExposedA).toLocaleString('fr-FR') : '—'}
-                          </td>
-                          <td className="p-3.5 text-right font-bold text-slate-800 dark:text-slate-200">
-                            {row.populationExposedB ? Number(row.populationExposedB).toLocaleString('fr-FR') : '—'}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              <div className="p-12 text-center text-xs text-slate-500">
-                {comparisonLoading
-                  ? 'Calcul de la comparaison temporelle en cours...'
-                  : 'Sélectionnez deux périodes temporelles et cliquez sur "Calculer la comparaison".'}
-              </div>
-            )}
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
