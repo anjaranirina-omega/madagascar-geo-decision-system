@@ -16,8 +16,8 @@ L'entrepôt est structuré sous le schéma PostgreSQL `dwh` :
                                          │
 ┌────────────────────────┐               │               ┌────────────────────────┐
 │      dwh.dim_zone      │               │               │   dwh.dim_risk_type    │
-│ (23 Régions, 119 Dist, ├───────────────┼───────────────┤ (GLOBAL, FLOOD, DROUGHT│
-│  1579 Communes PostGIS)│               │               │  CYCLONE, LANDSLIDE)   │
+│ (22 Régions, 110 Dist, ├───────────────┼───────────────┤ (GLOBAL, FLOOD, DROUGHT│
+│  1433 Communes PostGIS)│               │               │  CYCLONE, LANDSLIDE)   │
 └────────────────────────┘               │               └────────────────────────┘
                                          ▼
                      ┌─────────────────────────────────────────┐

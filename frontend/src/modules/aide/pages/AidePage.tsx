@@ -51,7 +51,7 @@ const QUICK_STEPS = [
     step: '02',
     title: 'Visualiser la Carte interactive (SIG)',
     description:
-      'Superposez les rasters de risque global, inondation, cyclone, sécheresse et les 1 579 communes de Madagascar.',
+      'Superposez les rasters de risque global, inondation, cyclone, sécheresse et les 1 433 communes de Madagascar.',
     path: '/carte',
     icon: Map,
     color: 'from-emerald-500 to-teal-500',
@@ -86,7 +86,7 @@ const PLATFORM_MODULES = [
       'Centre de commandement unifié affichant les indicateurs clés (KPIs nationaux), la météo en direct sur les 22 régions, les alertes actives et l’état du dernier pipeline ETL.',
     features: [
       'Météo en direct via Open-Meteo & NASA POWER (température, vent, humidité)',
-      'Distribution territoriale du risque sur 22 Régions, 119 Districts, 1579 Communes',
+      'Distribution territoriale du risque sur 22 Régions, 110 Districts, 1 433 Communes',
       'Flux d’alertes critiques en temps réel avec notifications toast',
     ],
   },
@@ -291,7 +291,7 @@ const FAQ_ITEMS = [
   {
     q: 'Que signifient les opérations "Drill-Down" et "Roll-Up" dans l’Explorateur SOLAP ?',
     category: 'SOLAP',
-    a: 'Le "Drill-Down" (forage vers le bas) permet de descendre d’un niveau hiérarchique supérieur (les 22 Régions) vers les 119 Districts ou les 1 579 Communes. Le "Roll-Up" agrège inversement les indicateurs locaux vers les totaux régionaux ou nationaux.',
+    a: 'Le "Drill-Down" (forage vers le bas) permet de descendre d’un niveau hiérarchique supérieur (les 22 Régions) vers les 110 Districts ou les 1 433 Communes. Le "Roll-Up" agrège inversement les indicateurs locaux vers les totaux régionaux ou nationaux.',
   },
   {
     q: 'Comment sont déclenchées les alertes automatiques ?',

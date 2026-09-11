@@ -601,8 +601,8 @@ export default function DashboardPage() {
             <div className="flex items-center rounded-2xl bg-slate-100 p-1 dark:bg-slate-800">
               {[
                 { value: 'region', label: '22 Régions' },
-                { value: 'district', label: '119 Districts' },
-                { value: 'commune', label: '1 579 Communes' },
+                { value: 'district', label: '110 Districts' },
+                { value: 'commune', label: '1 433 Communes' },
               ].map((item) => (
                 <button
                   key={item.value}
