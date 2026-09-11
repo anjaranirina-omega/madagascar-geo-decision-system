@@ -88,8 +88,8 @@ const periodLabels: Record<string, string> = {
 const zoneLevelLabels: Record<string, string> = {
   madagascar: 'Madagascar',
   region: 'Région (22)',
-  district: 'District (119)',
-  commune: 'Commune (1 579)',
+  district: 'District (110)',
+  commune: 'Commune (1 433)',
 };
 
 const elementOptions = [
@@ -767,8 +767,8 @@ export default function RapportsPage() {
                   className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-700 outline-none focus:border-purple-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200"
                 >
                   <option value="region">Régions (22)</option>
-                  <option value="district">Districts (119)</option>
-                  <option value="commune">Communes (1 579)</option>
+                  <option value="district">Districts (110)</option>
+                  <option value="commune">Communes (1 433)</option>
                 </select>
               </div>
 
@@ -1414,8 +1414,8 @@ export default function RapportsPage() {
                   {[
                     ['national', 'Rapport national officiel multi-risques'],
                     ['region', 'Rapport régional (22 Régions)'],
-                    ['district', 'Rapport par district (119 Districts)'],
-                    ['commune', 'Rapport communal de vulnérabilité (1 579 Communes)'],
+                    ['district', 'Rapport par district (110 Districts)'],
+                    ['commune', 'Rapport communal de vulnérabilité (1 433 Communes)'],
                     ['custom', 'Rapport sur-mesure d’urgence'],
                   ].map(([id, label]) => (
                     <ChoiceButton
@@ -1490,8 +1490,8 @@ export default function RapportsPage() {
                   {[
                     ['madagascar', 'National (Madagascar complet)'],
                     ['region', 'Niveau Régional (22 entités)'],
-                    ['district', 'Niveau District (119 entités)'],
-                    ['commune', 'Niveau Communal (1 579 entités)'],
+                    ['district', 'Niveau District (110 entités)'],
+                    ['commune', 'Niveau Communal (1 433 entités)'],
                   ].map(([id, label]) => (
                     <ChoiceButton
                       key={id}
