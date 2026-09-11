@@ -7,14 +7,12 @@ import { AccountRequestsModule } from './modules/account-requests/account-reques
 import { AlertesModule } from './modules/alertes/alertes.module';
 import { AnalyseMulticritereModule } from './modules/analyse-multicritere/analyse-multicritere.module';
 import { AuthModule } from './modules/auth/auth.module';
-import { CollecteModule } from './modules/collecte/collecte.module';
 import { ClimateModule } from './modules/climate/climate.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { DataSourcesModule } from './modules/data-sources/data-sources.module';
 import { GeographieModule } from './modules/geographie/geographie.module';
 import { RastersModule } from './modules/rasters/rasters.module';
 import { ReportsModule } from './modules/reports/reports.module';
-import { SigModule } from './modules/sig/sig.module';
 import { SettingsModule } from './modules/settings/settings.module';
 import { SolapModule } from './modules/solap/solap.module';
 import { StorageModule } from './modules/storage/storage.module';
@@ -53,9 +51,7 @@ import { RisquesModule } from './modules/risques/risques.module';
     RastersModule,
     ReportsModule,
     RisquesModule,
-    CollecteModule,
     ClimateModule,
-    SigModule,
     SettingsModule,
     SolapModule,
     DashboardModule,
