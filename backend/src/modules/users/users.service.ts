@@ -35,7 +35,6 @@ export class UsersService {
       { name: 'ADMIN', description: 'Administrateur du système' },
       { name: 'DECIDEUR', description: 'Décideur' },
       { name: 'ANALYSTE', description: 'Analyste' },
-      { name: 'AGENT_TERRAIN', description: 'Agent de terrain' },
     ];
 
     for (const role of roles) {

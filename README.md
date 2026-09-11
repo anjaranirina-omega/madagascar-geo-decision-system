@@ -127,7 +127,7 @@ scripts/       Scripts utilitaires
 - JWT ;
 - gestion des utilisateurs ;
 - demandes de compte ;
-- rôles administrateur / analyste / décideur / agent terrain.
+- rôles administrateur (ADMIN) / analyste (ANALYSTE) / décideur (DECIDEUR).
 
 ### Géographie
 

@@ -21,7 +21,7 @@ export class OperationalSignalsController {
   }
 
   @Get()
-  @Roles('ADMIN', 'ANALYSTE', 'DECIDEUR', 'AGENT_TERRAIN')
+  @Roles('ADMIN', 'ANALYSTE', 'DECIDEUR')
   findAll(
     @Query('riskType') riskType?: OperationalRiskType,
     @Query('zoneType') zoneType?: string,
@@ -33,7 +33,7 @@ export class OperationalSignalsController {
   }
 
   @Get('critical')
-  @Roles('ADMIN', 'ANALYSTE', 'DECIDEUR', 'AGENT_TERRAIN')
+  @Roles('ADMIN', 'ANALYSTE', 'DECIDEUR')
   findLatestCritical() {
     return this.operationalSignalsService.findLatestCritical();
   }
