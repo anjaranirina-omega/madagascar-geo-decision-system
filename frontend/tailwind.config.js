@@ -7,6 +7,18 @@ export default {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        sans: [
+          '"Plus Jakarta Sans"',
+          'Inter',
+          'system-ui',
+          '-apple-system',
+          'BlinkMacSystemFont',
+          '"Segoe UI"',
+          'Roboto',
+          'sans-serif',
+        ],
+      },
       colors: {
         riskgreen: '#16a34a',
         riskdark: '#061624',
@@ -17,10 +29,10 @@ export default {
         soft: '0 10px 30px rgba(15, 23, 42, 0.08)',
       },
       keyframes: {
-      float: {
-        '0%, 100%': { transform: 'translateY(0px)' },
-        '50%': { transform: 'translateY(-12px)' },
-      },
+        float: {
+          '0%, 100%': { transform: 'translateY(0px)' },
+          '50%': { transform: 'translateY(-12px)' },
+        },
       },
       animation: {
         float: 'float 4s ease-in-out infinite',
