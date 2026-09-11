@@ -86,9 +86,13 @@ frontend/
 │   │   ├── rapports/                # génération de rapports (PDF/Excel)
 │   │   │   └── pages/RapportsPage.tsx
 │   │   │
-│   │   └── terrain/                 # module agent de terrain
-│   │       ├── pages/TerrainPage.tsx
-│   │       └── components/FieldReportForm.tsx
+│   │   ├── donnees/                 # gestion des données & sources ETL
+│   │   │   └── pages/DonneesPage.tsx
+│   │   │
+│   │   └── administration/          # gestion utilisateurs & habilitations
+│   │       ├── pages/UsersPage.tsx
+│   │       ├── pages/RolesPage.tsx
+│   │       └── pages/AccountRequestsPage.tsx
 │   │
 │   ├── shared/
 │   │   ├── components/              # boutons, tables, modals réutilisables

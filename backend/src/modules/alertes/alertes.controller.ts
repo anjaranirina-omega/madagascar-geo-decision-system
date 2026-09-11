@@ -26,14 +26,14 @@ export class AlertesController {
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ADMIN', 'DECIDEUR', 'ANALYSTE', 'AGENT_TERRAIN')
+  @Roles('ADMIN', 'DECIDEUR', 'ANALYSTE')
   @Get()
   findAll() {
     return this.alertesService.findAll();
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ADMIN', 'DECIDEUR', 'ANALYSTE', 'AGENT_TERRAIN')
+  @Roles('ADMIN', 'DECIDEUR', 'ANALYSTE')
   @Get('active')
   findActive() {
     return this.alertesService.findActive();
@@ -77,14 +77,14 @@ export class AlertesController {
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ADMIN', 'DECIDEUR', 'ANALYSTE', 'AGENT_TERRAIN')
+  @Roles('ADMIN', 'DECIDEUR', 'ANALYSTE')
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.alertesService.findOne(id);
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ADMIN', 'ANALYSTE', 'AGENT_TERRAIN')
+  @Roles('ADMIN', 'ANALYSTE')
   @Patch(':id/resolve')
   resolve(@Param('id') id: string) {
     return this.alertesService.resolve(id);

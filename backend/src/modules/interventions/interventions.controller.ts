@@ -20,11 +20,11 @@ export class InterventionsController {
   constructor(private readonly interventionsService: InterventionsService) {}
 
   /**
-   * Création d'une intervention terrain.
-   * Accessible aux administrateurs, analystes, agents de terrain et décideurs.
+   * Création d'une intervention.
+   * Accessible aux administrateurs, analystes et décideurs.
    */
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ADMIN', 'ANALYSTE', 'AGENT_TERRAIN', 'DECIDEUR')
+  @Roles('ADMIN', 'ANALYSTE', 'DECIDEUR')
   @Post()
   create(@Body() dto: CreateInterventionDto) {
     return this.interventionsService.create(dto);
@@ -61,11 +61,11 @@ export class InterventionsController {
   }
 
   /**
-   * Mise à jour d'une intervention terrain.
-   * Accessible aux administrateurs, analystes, agents de terrain et décideurs.
+   * Mise à jour d'une intervention.
+   * Accessible aux administrateurs, analystes et décideurs.
    */
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ADMIN', 'ANALYSTE', 'AGENT_TERRAIN', 'DECIDEUR')
+  @Roles('ADMIN', 'ANALYSTE', 'DECIDEUR')
   @Patch(':id')
   update(@Param('id') id: string, @Body() dto: UpdateInterventionDto) {
     return this.interventionsService.update(id, dto);

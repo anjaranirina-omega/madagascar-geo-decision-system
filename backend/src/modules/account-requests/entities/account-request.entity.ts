@@ -15,7 +15,6 @@ export enum AccountRequestStatus {
 export enum RequestedRole {
   DECIDEUR = 'DECIDEUR',
   ANALYSTE = 'ANALYSTE',
-  AGENT_TERRAIN = 'AGENT_TERRAIN',
 }
 
 @Entity('account_requests')

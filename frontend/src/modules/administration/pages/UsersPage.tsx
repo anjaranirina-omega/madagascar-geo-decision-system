@@ -80,8 +80,9 @@ export default function UsersPage() {
         usersService.findRoles(),
       ]);
 
-      const filteredRoles = rolesData.filter(
-        (r) => (r.name as string) !== 'AGENT_TERRAIN',
+      const allowedRoleNames = ['ADMIN', 'DECIDEUR', 'ANALYSTE'];
+      const filteredRoles = rolesData.filter((r) =>
+        allowedRoleNames.includes(r.name),
       );
 
       setUsers(usersData);
