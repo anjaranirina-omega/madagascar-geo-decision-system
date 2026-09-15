@@ -138,11 +138,21 @@ export class EtlService {
   private async runPythonStep(step: EtlPipelineStep) {
     const pythonBin = this.getPythonBin();
     const etlDir = this.getEtlDir();
-    const args = [step.script, ...(step.args ?? [])];
+    const etlApiKey = process.env.ETL_API_KEY;
+
+    const extraArgs =
+      step.script === 'raster/register_raster_metadata.py' && etlApiKey
+        ? ['--token', etlApiKey]
+        : [];
+
+    const args = [step.script, ...(step.args ?? []), ...extraArgs];
 
     const env = {
       ...process.env,
       BACKEND_API_URL: this.getBackendApiUrl(),
+      ...(etlApiKey
+        ? { ETL_API_KEY: etlApiKey, BACKEND_API_TOKEN: etlApiKey }
+        : {}),
     };
 
     this.logger.log(`ETL step start: ${step.name}`);

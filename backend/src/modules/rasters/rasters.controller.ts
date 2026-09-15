@@ -14,6 +14,7 @@ import { Response } from 'express';
 import { existsSync } from 'fs';
 import { resolve } from 'path';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { ApiKeyOrJwtGuard } from '../auth/guards/api-key-or-jwt.guard';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { CreateRasterLayerDto } from './dto/create-raster-layer.dto';
@@ -34,10 +35,10 @@ export class RastersController {
 
   /**
    * Enregistrement de métadonnées raster.
-   * Réservé aux administrateurs et analystes (utilisé par l'ETL).
+   * Réservé aux administrateurs, analystes et services système (utilisé par l'ETL).
    */
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ADMIN', 'ANALYSTE')
+  @UseGuards(ApiKeyOrJwtGuard, RolesGuard)
+  @Roles('ADMIN', 'ANALYSTE', 'SYSTEM')
   @Post('register')
   register(@Body() dto: CreateRasterLayerDto) {
     return this.rastersService.register(dto);

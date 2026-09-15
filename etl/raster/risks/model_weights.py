@@ -76,10 +76,17 @@ def load_model_weights(risk_type: str):
     defaults = DEFAULT_MODEL_WEIGHTS[risk_type]
 
     base_url = os.getenv("BACKEND_API_URL", "http://localhost:3001/api")
+    api_key = os.getenv("ETL_API_KEY") or os.getenv("BACKEND_API_TOKEN") or os.getenv("JWT_TOKEN")
+
+    headers = {}
+    if api_key:
+        headers["X-API-KEY"] = api_key
+        headers["Authorization"] = f"Bearer {api_key}"
 
     try:
         response = requests.get(
             f"{base_url}/risques/model-weights/{risk_type}/object",
+            headers=headers,
             timeout=8,
         )
 

@@ -34,9 +34,15 @@ RASTER_BY_CRITERION = {
 
 def get_weights():
     url = f"{BACKEND_API_URL}/risques/criteria-weights/object"
+    api_key = os.getenv("ETL_API_KEY") or os.getenv("BACKEND_API_TOKEN") or os.getenv("JWT_TOKEN")
+
+    headers = {}
+    if api_key:
+        headers["X-API-KEY"] = api_key
+        headers["Authorization"] = f"Bearer {api_key}"
 
     try:
-      response = requests.get(url, timeout=10)
+      response = requests.get(url, headers=headers, timeout=10)
       response.raise_for_status()
       data = response.json()
 

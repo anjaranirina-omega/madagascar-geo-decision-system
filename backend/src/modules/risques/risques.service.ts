@@ -310,16 +310,25 @@ export class RisquesService implements OnModuleInit {
     const backendPort = process.env.BACKEND_PORT ?? 3001;
     const backendApiUrl =
       process.env.BACKEND_API_URL ?? `http://localhost:${backendPort}/api`;
+    const etlApiKey = process.env.ETL_API_KEY;
 
     const env = {
       ...process.env,
       BACKEND_API_URL: backendApiUrl,
+      ...(etlApiKey
+        ? { ETL_API_KEY: etlApiKey, BACKEND_API_TOKEN: etlApiKey }
+        : {}),
     };
+
+    const registerArgs = [
+      'raster/register_raster_metadata.py',
+      ...(etlApiKey ? ['--token', etlApiKey] : []),
+    ];
 
     const scripts = [
       ['raster/weighted_overlay.py'],
       ['raster/mask_rasters_to_madagascar.py', '--scope', 'risk'],
-      ['raster/register_raster_metadata.py'],
+      registerArgs,
     ];
 
     const logs: string[] = [];
@@ -371,18 +380,27 @@ export class RisquesService implements OnModuleInit {
     const backendPort = process.env.BACKEND_PORT ?? 3001;
     const backendApiUrl =
       process.env.BACKEND_API_URL ?? `http://localhost:${backendPort}/api`;
+    const etlApiKey = process.env.ETL_API_KEY;
 
     const env = {
       ...process.env,
       BACKEND_API_URL: backendApiUrl,
+      ...(etlApiKey
+        ? { ETL_API_KEY: etlApiKey, BACKEND_API_TOKEN: etlApiKey }
+        : {}),
     };
+
+    const registerArgs = [
+      'raster/register_raster_metadata.py',
+      ...(etlApiKey ? ['--token', etlApiKey] : []),
+    ];
 
     const scripts = [
       ['raster/chirps/fetch_latest_chirps.py'],
       ['raster/mask_rasters_to_madagascar.py', '--scope', 'normalized'],
       ['raster/weighted_overlay.py'],
       ['raster/mask_rasters_to_madagascar.py', '--scope', 'risk'],
-      ['raster/register_raster_metadata.py'],
+      registerArgs,
     ];
 
     const logs: string[] = [];

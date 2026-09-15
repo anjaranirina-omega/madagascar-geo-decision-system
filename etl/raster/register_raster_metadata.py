@@ -18,7 +18,7 @@ load_dotenv(PROJECT_ROOT / ".env")
 load_dotenv(PROJECT_ROOT / "backend" / ".env", override=True)
 
 API_BASE_URL = os.getenv("BACKEND_API_URL", "http://localhost:3001/api")
-API_TOKEN = os.getenv("BACKEND_API_TOKEN") or os.getenv("JWT_TOKEN")
+API_KEY = os.getenv("ETL_API_KEY") or os.getenv("BACKEND_API_TOKEN") or os.getenv("JWT_TOKEN")
 
 RASTER_VERSION_HISTORY_ENABLED = (
     os.getenv("RASTER_VERSION_HISTORY_ENABLED", "true").strip().lower()
@@ -60,212 +60,203 @@ RASTER_CONFIG = {
         "description": "Raster spécifique du risque d’inondation intégrant l’aléa, l’exposition humaine et l’occupation du sol.",
     },
     "risk/flood/flood_risk_classified.tif": {
-        "name": "Classes de risque d’inondation",
+        "name": "Classes du risque d’inondation",
         "type": "FLOOD_RISK_CLASSIFIED",
-        "description": "Raster classifié du risque d’inondation : faible, moyen, élevé, critique.",
+        "description": "Raster classifié du risque d’inondation (1: Faible, 2: Moyen, 3: Élevé, 4: Critique).",
     },
 
     # Risque sécheresse
     "risk/drought/drought_hazard_index.tif": {
-        "name": "Aléa sécheresse",
+        "name": "Aléa de sécheresse",
         "type": "DROUGHT_HAZARD_INDEX",
-        "description": "Raster d’aléa sécheresse basé sur le déficit pluviométrique récent, le stress thermique et la sensibilité du territoire.",
+        "description": "Raster d’aléa de sécheresse combinant déficit pluviométrique, stress thermique et sensibilité d’occupation du sol.",
     },
     "risk/drought/drought_risk_index.tif": {
-        "name": "Risque sécheresse",
+        "name": "Risque de sécheresse",
         "type": "DROUGHT_RISK_INDEX",
-        "description": "Raster spécifique du risque sécheresse intégrant l’aléa, l’exposition humaine et la sensibilité de l’occupation du sol.",
+        "description": "Raster spécifique du risque de sécheresse intégrant l’aléa, la densité de population et la vulnérabilité du sol.",
     },
     "risk/drought/drought_risk_classified.tif": {
-        "name": "Classes de risque sécheresse",
+        "name": "Classes du risque de sécheresse",
         "type": "DROUGHT_RISK_CLASSIFIED",
-        "description": "Raster classifié du risque sécheresse : faible, moyen, élevé, critique.",
+        "description": "Raster classifié du risque de sécheresse (1: Faible, 2: Moyen, 3: Élevé, 4: Critique).",
     },
 
     # Risque glissement de terrain
     "risk/landslide/landslide_hazard_index.tif": {
-        "name": "Aléa glissement de terrain",
+        "name": "Aléa de glissement de terrain",
         "type": "LANDSLIDE_HAZARD_INDEX",
-        "description": "Raster d’aléa glissement de terrain basé sur la pente, la pluie récente et la sensibilité de l’occupation du sol.",
+        "description": "Raster d’aléa de glissement combinant forte pente, précipitations déclenchantes et sensibilité du couvert végétal.",
     },
     "risk/landslide/landslide_risk_index.tif": {
-        "name": "Risque glissement de terrain",
+        "name": "Risque de glissement de terrain",
         "type": "LANDSLIDE_RISK_INDEX",
-        "description": "Raster spécifique du risque glissement de terrain intégrant l’aléa, l’exposition humaine et l’occupation du sol.",
+        "description": "Raster spécifique du risque de glissement de terrain intégrant l’aléa, la population exposée et l’occupation du sol.",
     },
     "risk/landslide/landslide_risk_classified.tif": {
-        "name": "Classes de risque glissement de terrain",
+        "name": "Classes du risque de glissement de terrain",
         "type": "LANDSLIDE_RISK_CLASSIFIED",
-        "description": "Raster classifié du risque glissement de terrain : faible, moyen, élevé, critique.",
+        "description": "Raster classifié du risque de glissement (1: Faible, 2: Moyen, 3: Élevé, 4: Critique).",
     },
 
     # Risque cyclonique
-    "risk/cyclone/cyclone_track_hazard_norm.tif": {
-        "name": "Aléa historique cyclonique normalisé",
-        "type": "CYCLONE_HAZARD_INDEX",
-        "description": "Raster intermédiaire d’aléa cyclonique historique basé sur la proximité, densité et intensité des trajectoires IBTrACS.",
-    },
     "risk/cyclone/cyclone_hazard_index.tif": {
         "name": "Aléa cyclonique",
         "type": "CYCLONE_HAZARD_INDEX",
-        "description": "Raster d’aléa cyclonique basé sur IBTrACS et les précipitations récentes CHIRPS.",
+        "description": "Raster d’aléa cyclonique combinant proximité aux trajectoires IBTrACS et pluie extrême.",
     },
     "risk/cyclone/cyclone_risk_index.tif": {
         "name": "Risque cyclonique",
         "type": "CYCLONE_RISK_INDEX",
-        "description": "Raster spécifique du risque cyclonique intégrant l’aléa historique, l’exposition humaine et la vulnérabilité de l’occupation du sol.",
+        "description": "Raster spécifique du risque cyclonique combinant aléa historique, population exposée et vulnérabilité.",
     },
     "risk/cyclone/cyclone_risk_classified.tif": {
-        "name": "Classes de risque cyclonique",
+        "name": "Classes du risque cyclonique",
         "type": "CYCLONE_RISK_CLASSIFIED",
-        "description": "Raster classifié du risque cyclonique : faible, moyen, élevé, critique.",
+        "description": "Raster classifié du risque cyclonique (1: Faible, 2: Moyen, 3: Élevé, 4: Critique).",
     },
 
-    # Couches normalisées
+    # Risque global / multicritère existant
+    "risk/risk_index.tif": {
+        "name": "Indice de risque global",
+        "type": "RISK_INDEX",
+        "description": "Indice composite multicritère combinant pluie, pente, population et occupation du sol.",
+    },
+    "risk/risk_classified.tif": {
+        "name": "Classes de risque global",
+        "type": "RISK_CLASSIFIED",
+        "description": "Raster classifié de 1 à 4 (1: Faible, 2: Moyen, 3: Élevé, 4: Critique).",
+    },
+
+    # Rasters normalisés (facultatif mais utile pour debug / exploration)
     "normalized/rainfall_norm.tif": {
         "name": "Précipitations normalisées",
-        "type": "RAINFALL",
-        "description": "Couche raster des précipitations CHIRPS normalisées entre 0 et 1.",
+        "type": "NORMALIZED_RAINFALL",
+        "description": "Précipitations CHIRPS normalisées de 0 à 1.",
     },
     "normalized/slope_norm.tif": {
         "name": "Pente normalisée",
-        "type": "SLOPE",
-        "description": "Couche raster de pente normalisée issue du DEM Copernicus GLO-30.",
+        "type": "NORMALIZED_SLOPE",
+        "description": "Pente Copernicus DEM normalisée de 0 à 1.",
     },
     "normalized/population_norm.tif": {
         "name": "Population normalisée",
-        "type": "POPULATION",
-        "description": "Couche raster WorldPop normalisée entre 0 et 1.",
+        "type": "NORMALIZED_POPULATION",
+        "description": "Population WorldPop normalisée de 0 à 1.",
     },
     "normalized/landcover_norm.tif": {
         "name": "Occupation du sol normalisée",
-        "type": "LANDCOVER",
-        "description": "Couche raster ESA WorldCover reclassifiée et normalisée entre 0 et 1.",
+        "type": "NORMALIZED_LANDCOVER",
+        "description": "Occupation du sol ESA WorldCover normalisée selon la vulnérabilité.",
     },
-
-    # Risque global
-    "risk/risk_index.tif": {
-        "name": "Indice de risque climatique",
-        "type": "RISK_INDEX",
-        "description": "Raster final d’indice de risque climatique global calculé par overlay pondéré.",
-    },
-    "risk/risk_classified.tif": {
-        "name": "Classes de risque climatique",
-        "type": "RISK_CLASSIFIED",
-        "description": "Raster classifié du risque climatique global : 1 faible, 2 moyen, 3 élevé, 4 critique.",
+    "normalized/river_proximity_norm.tif": {
+        "name": "Proximité aux rivières normalisée",
+        "type": "NORMALIZED_RIVER_PROXIMITY",
+        "description": "Proximité aux cours d'eau HydroRIVERS/HydroSHEDS normalisée.",
     },
 }
 
 
-def summarize_raster(path: Path):
-    with rasterio.open(path) as src:
+def summarize_raster(raster_path: Path) -> dict:
+    with rasterio.open(raster_path) as src:
         data = src.read(1).astype("float32")
         nodata = src.nodata
 
+        valid_mask = np.isfinite(data)
         if nodata is not None:
-            data = np.where(data == nodata, np.nan, data)
+            valid_mask &= (data != nodata)
 
-        data = np.where(data <= -9999, np.nan, data)
+        valid_data = data[valid_mask]
 
-        bounds = src.bounds
-        valid = data[np.isfinite(data)]
-
-        if valid.size == 0:
-            min_value = None
-            max_value = None
-            mean_value = None
+        if valid_data.size == 0:
+            min_val = None
+            max_val = None
+            mean_val = None
         else:
-            min_value = float(valid.min())
-            max_value = float(valid.max())
-            mean_value = float(valid.mean())
+            min_val = float(np.nanmin(valid_data))
+            max_val = float(np.nanmax(valid_data))
+            mean_val = float(np.nanmean(valid_data))
+
+        bounds = {
+            "left": float(src.bounds.left),
+            "bottom": float(src.bounds.bottom),
+            "right": float(src.bounds.right),
+            "top": float(src.bounds.top),
+        }
 
         return {
-            "crs": str(src.crs),
-            "resolutionX": float(src.res[0]),
-            "resolutionY": float(src.res[1]),
-            "minValue": min_value,
-            "maxValue": max_value,
-            "meanValue": mean_value,
+            "minValue": min_val,
+            "maxValue": max_val,
+            "meanValue": mean_val,
             "width": int(src.width),
             "height": int(src.height),
-            "bounds": f"{bounds.left},{bounds.bottom},{bounds.right},{bounds.top}",
+            "crs": str(src.crs),
+            "bounds": bounds,
         }
 
 
-def file_sha256(path: Path) -> str:
-    digest = hashlib.sha256()
-
-    with path.open("rb") as file:
-        for chunk in iter(lambda: file.read(1024 * 1024), b""):
-            digest.update(chunk)
-
-    return digest.hexdigest()
-
-
 def ensure_relative_to_project(path: Path) -> str:
-    return str(path.resolve().relative_to(PROJECT_ROOT.resolve()))
+    try:
+        return str(path.relative_to(PROJECT_ROOT))
+    except ValueError:
+        return str(path)
 
 
-def find_existing_version_by_hash(version_dir: Path, source_hash: str) -> Path | None:
-    if not version_dir.exists():
+def should_archive_layer(raster_type: str) -> bool:
+    if not RASTER_VERSION_HISTORY_ENABLED:
+        return False
+    return raster_type in RASTER_VERSION_HISTORY_TYPES
+
+
+def file_sha256(file_path: Path) -> str:
+    hasher = hashlib.sha256()
+    with open(file_path, "rb") as fh:
+        for chunk in iter(lambda: fh.read(1024 * 1024), b""):
+            hasher.update(chunk)
+    return hasher.hexdigest()
+
+
+def find_existing_duplicate(target_dir: Path, source_hash: str) -> Path | None:
+    if not target_dir.exists():
         return None
 
-    for candidate in sorted(version_dir.glob("*.tif"), reverse=True):
-        try:
-            if file_sha256(candidate) == source_hash:
-                return candidate
-        except OSError:
+    for existing_file in target_dir.glob("*.tif"):
+        if not existing_file.is_file():
             continue
-
+        try:
+            if file_sha256(existing_file) == source_hash:
+                return existing_file
+        except Exception:
+            continue
     return None
 
 
 def create_versioned_copy(raster_path: Path, raster_type: str) -> Path:
     source_hash = file_sha256(raster_path)
-    hash_short = source_hash[:10]
-
-    version_dir = RASTER_VERSION_HISTORY_DIR / raster_type
-    version_dir.mkdir(parents=True, exist_ok=True)
+    type_dir = RASTER_VERSION_HISTORY_DIR / raster_type
+    type_dir.mkdir(parents=True, exist_ok=True)
 
     if RASTER_VERSION_DEDUP_BY_HASH:
-        existing = find_existing_version_by_hash(version_dir, source_hash)
-
-        if existing:
+        duplicate = find_existing_duplicate(type_dir, source_hash)
+        if duplicate:
             print(
-                f"Version identique déjà présente pour {raster_type}, "
-                f"réutilisation : {ensure_relative_to_project(existing)}"
+                f"Version identique existante réutilisée pour {raster_type} : {duplicate.name}"
             )
-            return existing
+            return duplicate
 
-    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
-    destination = version_dir / f"{raster_type}_{timestamp}_{hash_short}.tif"
-
-    suffix = 1
-    while destination.exists():
-        destination = version_dir / f"{raster_type}_{timestamp}_{hash_short}_{suffix}.tif"
-        suffix += 1
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%SZ")
+    hash_prefix = source_hash[:8]
+    destination_name = f"{raster_type.lower()}_{timestamp}_{hash_prefix}.tif"
+    destination = type_dir / destination_name
 
     shutil.copy2(raster_path, destination)
-
-    print(
-        f"Snapshot raster créé pour {raster_type} : "
-        f"{ensure_relative_to_project(destination)}"
-    )
-
+    print(f"Nouvelle version archivée pour {raster_type} : {destination}")
     return destination
 
 
-def should_version_raster(raster_type: str) -> bool:
-    return (
-        RASTER_VERSION_HISTORY_ENABLED
-        and raster_type in RASTER_VERSION_HISTORY_TYPES
-    )
-
-
 def build_registration_path(raster_path: Path, raster_type: str) -> Path:
-    if should_version_raster(raster_type):
+    if should_archive_layer(raster_type):
         return create_versioned_copy(raster_path, raster_type)
-
     return raster_path
 
 
@@ -290,8 +281,9 @@ def register_layer(relative_path: str, config: dict, token: str | None = None):
 
     url = f"{API_BASE_URL}/rasters/register"
     headers = {}
-    auth_token = token or os.getenv("BACKEND_API_TOKEN") or os.getenv("JWT_TOKEN") or API_TOKEN
+    auth_token = token or API_KEY
     if auth_token:
+        headers["X-API-KEY"] = auth_token
         headers["Authorization"] = f"Bearer {auth_token}"
 
     response = requests.post(url, json=payload, headers=headers, timeout=30)
@@ -308,10 +300,10 @@ def register_layer(relative_path: str, config: dict, token: str | None = None):
 
 def main():
     parser = argparse.ArgumentParser(description="Enregistre les métadonnées raster dans le backend.")
-    parser.add_argument("--token", type=str, default=None, help="Jeton JWT pour l'authentification backend.")
+    parser.add_argument("--token", "--api-key", dest="token", type=str, default=None, help="Clé API ou jeton JWT pour l'authentification backend.")
     args = parser.parse_args()
 
-    token_to_use = args.token or API_TOKEN
+    token_to_use = args.token or API_KEY
 
     print(f"API backend : {API_BASE_URL}")
     print(f"Historique raster activé : {RASTER_VERSION_HISTORY_ENABLED}")
