@@ -131,27 +131,27 @@ RASTER_CONFIG = {
     # Rasters normalisés (facultatif mais utile pour debug / exploration)
     "normalized/rainfall_norm.tif": {
         "name": "Précipitations normalisées",
-        "type": "NORMALIZED_RAINFALL",
+        "type": "RAINFALL",
         "description": "Précipitations CHIRPS normalisées de 0 à 1.",
     },
     "normalized/slope_norm.tif": {
         "name": "Pente normalisée",
-        "type": "NORMALIZED_SLOPE",
+        "type": "SLOPE",
         "description": "Pente Copernicus DEM normalisée de 0 à 1.",
     },
     "normalized/population_norm.tif": {
         "name": "Population normalisée",
-        "type": "NORMALIZED_POPULATION",
+        "type": "POPULATION",
         "description": "Population WorldPop normalisée de 0 à 1.",
     },
     "normalized/landcover_norm.tif": {
         "name": "Occupation du sol normalisée",
-        "type": "NORMALIZED_LANDCOVER",
+        "type": "LANDCOVER",
         "description": "Occupation du sol ESA WorldCover normalisée selon la vulnérabilité.",
     },
     "normalized/river_proximity_norm.tif": {
         "name": "Proximité aux rivières normalisée",
-        "type": "NORMALIZED_RIVER_PROXIMITY",
+        "type": "OTHER",
         "description": "Proximité aux cours d'eau HydroRIVERS/HydroSHEDS normalisée.",
     },
 }
