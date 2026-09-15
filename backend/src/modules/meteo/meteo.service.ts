@@ -608,6 +608,7 @@ export class MeteoService {
 
     const token =
       userToken ||
+      process.env.ETL_API_KEY ||
       process.env.BACKEND_API_TOKEN ||
       process.env.JWT_TOKEN;
 

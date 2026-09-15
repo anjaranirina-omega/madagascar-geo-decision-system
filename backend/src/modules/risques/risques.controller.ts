@@ -8,6 +8,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { ApiKeyOrJwtGuard } from '../auth/guards/api-key-or-jwt.guard';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { UpdateCriteriaWeightsDto } from './dto/update-criteria-weights.dto';
@@ -35,7 +36,10 @@ export class RisquesController {
     return this.risquesService.updateWeights(dto);
   }
 
-  @UseGuards(JwtAuthGuard)
+  /**
+   * Poids format objet pour scripts de calcul de risque (ETL/M2M et utilisateur).
+   */
+  @UseGuards(ApiKeyOrJwtGuard)
   @Get('criteria-weights/object')
   getWeightsAsObject() {
     return this.risquesService.getWeightsAsObject();
@@ -57,7 +61,10 @@ export class RisquesController {
     return this.risquesService.findRiskModelWeights(riskType);
   }
 
-  @UseGuards(JwtAuthGuard)
+  /**
+   * Poids spécifiques format objet pour scripts de calcul de risque (ETL/M2M et utilisateur).
+   */
+  @UseGuards(ApiKeyOrJwtGuard)
   @Get('model-weights/:riskType/object')
   getRiskModelWeightsObject(@Param('riskType') riskType: SpecificRiskType) {
     return this.risquesService.getRiskModelWeightsObject(riskType);
