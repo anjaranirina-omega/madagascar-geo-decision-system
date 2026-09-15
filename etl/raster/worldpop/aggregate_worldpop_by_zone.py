@@ -1,3 +1,4 @@
+import argparse
 import os
 from pathlib import Path
 
@@ -32,6 +33,7 @@ SQLALCHEMY_DATABASE_URL = DATABASE_URL.replace(
 )
 
 BACKEND_API_URL = os.getenv("BACKEND_API_URL", "http://localhost:3001/api")
+API_KEY = os.getenv("ETL_API_KEY") or os.getenv("BACKEND_API_TOKEN") or os.getenv("JWT_TOKEN")
 
 YEAR = os.getenv("WORLDPOP_YEAR", "2020")
 COUNTRY = os.getenv("WORLDPOP_COUNTRY", "MDG")
@@ -166,10 +168,16 @@ def compute_area_km2(geometry):
     return float(gdf.area.iloc[0] / 1_000_000)
 
 
-def upsert_indicator(payload: dict):
+def upsert_indicator(payload: dict, token: str | None = None):
     url = f"{BACKEND_API_URL}/zone-indicators/upsert"
 
-    response = requests.post(url, json=payload, timeout=60)
+    headers = {}
+    auth_token = token or API_KEY
+    if auth_token:
+        headers["X-API-KEY"] = auth_token
+        headers["Authorization"] = f"Bearer {auth_token}"
+
+    response = requests.post(url, json=payload, headers=headers, timeout=60)
 
     if response.status_code >= 400:
         print("Erreur API:", response.status_code, response.text[:500])
@@ -178,7 +186,7 @@ def upsert_indicator(payload: dict):
     return response.json()
 
 
-def process_table(zone_type: str, table_name: str):
+def process_table(zone_type: str, table_name: str, token: str | None = None):
     print(f"\nTraitement {zone_type} depuis table {table_name}")
 
     zones = read_zones(table_name)
@@ -227,7 +235,7 @@ def process_table(zone_type: str, table_name: str):
                 "riskLevel": risk_level,
             }
 
-            upsert_indicator(payload)
+            upsert_indicator(payload, token=token)
 
             if position % 25 == 0 or position == len(zones):
                 print(f"  {position}/{len(zones)} zones traitées")
@@ -236,6 +244,12 @@ def process_table(zone_type: str, table_name: str):
 
 
 def main():
+    parser = argparse.ArgumentParser(description="Agrégation de la population exposée par zone.")
+    parser.add_argument("--token", "--api-key", dest="token", type=str, default=None, help="Clé API ou jeton JWT backend.")
+    args = parser.parse_args()
+
+    token_to_use = args.token or API_KEY
+
     if not POPULATION_RASTER.exists():
         raise FileNotFoundError(
             f"Raster WorldPop brut introuvable : {POPULATION_RASTER}\n"
@@ -255,7 +269,7 @@ def main():
     print(f"Niveaux traités : {ZONE_LEVELS}")
 
     for zone_type, table_name in selected_tables():
-        process_table(zone_type, table_name)
+        process_table(zone_type, table_name, token=token_to_use)
 
     print("\nCalcul des indicateurs zonaux terminé.")
 

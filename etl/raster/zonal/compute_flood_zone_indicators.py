@@ -1,3 +1,4 @@
+import argparse
 import os
 from pathlib import Path
 
@@ -30,6 +31,7 @@ SQLALCHEMY_DATABASE_URL = DATABASE_URL.replace(
 )
 
 BACKEND_API_URL = os.getenv("BACKEND_API_URL", "http://localhost:3001/api")
+API_KEY = os.getenv("ETL_API_KEY") or os.getenv("BACKEND_API_TOKEN") or os.getenv("JWT_TOKEN")
 
 
 def ensure_raster_layer_id_column(conn):
@@ -190,10 +192,16 @@ def compute_area_km2(geometry):
     return float(gdf.area.iloc[0] / 1_000_000)
 
 
-def upsert_flood_indicator(payload: dict):
+def upsert_flood_indicator(payload: dict, token: str | None = None):
     url = f"{BACKEND_API_URL}/zone-indicators/risk/upsert"
 
-    response = requests.post(url, json=payload, timeout=30)
+    headers = {}
+    auth_token = token or API_KEY
+    if auth_token:
+        headers["X-API-KEY"] = auth_token
+        headers["Authorization"] = f"Bearer {auth_token}"
+
+    response = requests.post(url, json=payload, headers=headers, timeout=30)
 
     if response.status_code >= 400:
         print("Erreur API:", response.status_code, response.text[:500])
@@ -202,7 +210,7 @@ def upsert_flood_indicator(payload: dict):
     return response.json()
 
 
-def process_table(zone_type: str, table_name: str, raster_layer_id: str | None):
+def process_table(zone_type: str, table_name: str, raster_layer_id: str | None, token: str | None = None):
     print(f"\nTraitement inondation {zone_type} depuis table {table_name}")
 
     zones = read_zones(table_name)
@@ -254,7 +262,7 @@ def process_table(zone_type: str, table_name: str, raster_layer_id: str | None):
                 "rasterLayerId": raster_layer_id,
             }
 
-            upsert_flood_indicator(payload)
+            upsert_flood_indicator(payload, token=token)
 
             if (idx + 1) % 25 == 0:
                 print(f"  {idx + 1}/{len(zones)} zones traitées")
@@ -263,6 +271,12 @@ def process_table(zone_type: str, table_name: str, raster_layer_id: str | None):
 
 
 def main():
+    parser = argparse.ArgumentParser(description="Calcul des indicateurs zonaux du risque inondation.")
+    parser.add_argument("--token", "--api-key", dest="token", type=str, default=None, help="Clé API ou jeton JWT backend.")
+    args = parser.parse_args()
+
+    token_to_use = args.token or API_KEY
+
     required_files = [
         ("Population raster", POPULATION_RASTER),
         ("Flood risk raster", FLOOD_RISK_RASTER),
@@ -289,7 +303,7 @@ def main():
             print("  Avertissement : aucun raster_layer_id actif trouvé pour FLOOD_RISK_INDEX")
 
         for zone_type, table_name in TABLES:
-            process_table(zone_type, table_name, raster_layer_id)
+            process_table(zone_type, table_name, raster_layer_id, token=token_to_use)
 
     print("Calcul des indicateurs zonaux inondation terminé.")
 
