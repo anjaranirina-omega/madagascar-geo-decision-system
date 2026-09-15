@@ -177,12 +177,7 @@ def summarize_raster(raster_path: Path) -> dict:
             max_val = float(np.nanmax(valid_data))
             mean_val = float(np.nanmean(valid_data))
 
-        bounds = {
-            "left": float(src.bounds.left),
-            "bottom": float(src.bounds.bottom),
-            "right": float(src.bounds.right),
-            "top": float(src.bounds.top),
-        }
+        bounds = f"[{src.bounds.left:.6f}, {src.bounds.bottom:.6f}, {src.bounds.right:.6f}, {src.bounds.top:.6f}]"
 
         return {
             "minValue": min_val,

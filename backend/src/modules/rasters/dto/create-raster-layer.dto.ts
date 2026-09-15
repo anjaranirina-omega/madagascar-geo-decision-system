@@ -1,3 +1,4 @@
+import { Transform } from 'class-transformer';
 import {
   IsBoolean,
   IsEnum,
@@ -54,6 +55,18 @@ export class CreateRasterLayerDto {
   height?: number;
 
   @IsOptional()
+  @Transform(({ value }) => {
+    if (value === null || value === undefined) {
+      return value;
+    }
+    if (typeof value === 'object') {
+      if ('left' in value && 'bottom' in value && 'right' in value && 'top' in value) {
+        return `[${value.left}, ${value.bottom}, ${value.right}, ${value.top}]`;
+      }
+      return JSON.stringify(value);
+    }
+    return String(value);
+  })
   @IsString()
   bounds?: string;
 
