@@ -8,6 +8,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { ApiKeyOrJwtGuard } from '../auth/guards/api-key-or-jwt.guard';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { UpsertZoneIndicatorDto } from './dto/upsert-zone-indicator.dto';
@@ -22,10 +23,10 @@ export class ZoneIndicatorsController {
 
   /**
    * Enregistrement ou mise à jour d'indicateurs de zone.
-   * Réservé aux administrateurs et analystes (utilisé par les pipelines ETL).
+   * Réservé aux administrateurs, analystes et services système ETL.
    */
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ADMIN', 'ANALYSTE')
+  @UseGuards(ApiKeyOrJwtGuard, RolesGuard)
+  @Roles('ADMIN', 'ANALYSTE', 'SYSTEM')
   @Post('upsert')
   upsert(@Body() dto: UpsertZoneIndicatorDto) {
     return this.zoneIndicatorsService.upsert(dto);
@@ -33,10 +34,10 @@ export class ZoneIndicatorsController {
 
   /**
    * Enregistrement ou mise à jour d'indicateurs de risque spécifique.
-   * Réservé aux administrateurs et analystes (utilisé par les pipelines ETL).
+   * Réservé aux administrateurs, analystes et services système ETL.
    */
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ADMIN', 'ANALYSTE')
+  @UseGuards(ApiKeyOrJwtGuard, RolesGuard)
+  @Roles('ADMIN', 'ANALYSTE', 'SYSTEM')
   @Post('risk/upsert')
   upsertRiskIndicator(@Body() dto: UpsertZoneRiskIndicatorDto) {
     return this.zoneIndicatorsService.upsertRiskIndicator(dto);

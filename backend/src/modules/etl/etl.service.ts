@@ -140,8 +140,17 @@ export class EtlService {
     const etlDir = this.getEtlDir();
     const etlApiKey = process.env.ETL_API_KEY;
 
+    const tokenSteps = [
+      'raster/register_raster_metadata.py',
+      'raster/zonal/compute_zone_indicators.py',
+      'raster/zonal/compute_flood_zone_indicators.py',
+      'raster/zonal/compute_drought_zone_indicators.py',
+      'raster/zonal/compute_landslide_zone_indicators.py',
+      'raster/zonal/compute_cyclone_zone_indicators.py',
+    ];
+
     const extraArgs =
-      step.script === 'raster/register_raster_metadata.py' && etlApiKey
+      tokenSteps.includes(step.script) && etlApiKey
         ? ['--token', etlApiKey]
         : [];
 

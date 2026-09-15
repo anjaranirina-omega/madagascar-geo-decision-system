@@ -9,6 +9,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { ApiKeyOrJwtGuard } from '../auth/guards/api-key-or-jwt.guard';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { SyncActiveCyclonesDto } from './dto/sync-active-cyclones.dto';
@@ -64,10 +65,10 @@ export class MeteoController {
   /**
    * Endpoint de synchronisation ETL des cyclones actifs (GDACS).
    * Utilisé par etl/raster/risks/cyclone/fetch_active_cyclones.py.
-   * Protégé par JWT et accessible aux rôles ADMIN, ANALYSTE et DECIDEUR.
+   * Protégé par JWT / Clé API et accessible aux rôles ADMIN, ANALYSTE, DECIDEUR et SYSTEM.
    */
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ADMIN', 'ANALYSTE', 'DECIDEUR')
+  @UseGuards(ApiKeyOrJwtGuard, RolesGuard)
+  @Roles('ADMIN', 'ANALYSTE', 'DECIDEUR', 'SYSTEM')
   @Post('active-cyclones/sync')
   syncActiveCyclones(@Body() dto: SyncActiveCyclonesDto) {
     return this.meteoService.syncActiveCyclones(dto);
