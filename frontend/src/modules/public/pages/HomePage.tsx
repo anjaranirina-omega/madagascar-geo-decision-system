@@ -200,12 +200,6 @@ const audiences = [
     icon: <BarChart3 size={26} />,
   },
   {
-    title: 'Agents de terrain',
-    description:
-      'Consultent les informations utiles sur les zones à surveiller et les signaux opérationnels.',
-    icon: <MapPin size={26} />,
-  },
-  {
     title: 'Administrateurs',
     description:
       'Gèrent les utilisateurs, les paramètres, les sources et la qualité opérationnelle du système.',
@@ -511,7 +505,7 @@ export default function HomePage() {
             </p>
           </div>
 
-          <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+          <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
             {audiences.map((audience) => (
               <article key={audience.title} className="rounded-[1.7rem] border border-white/10 bg-slate-950/55 p-5 shadow-xl shadow-black/20 backdrop-blur">
                 <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-600 to-green-500 text-white">
