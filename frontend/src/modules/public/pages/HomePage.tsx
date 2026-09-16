@@ -259,7 +259,7 @@ export default function HomePage() {
             <a className="text-green-300" href="#accueil">Accueil</a>
             <a className="transition hover:text-green-300" href="#objectifs">À propos</a>
             <a className="transition hover:text-green-300" href="#fonctionnalites">Fonctionnalités</a>
-            <a className="transition hover:text-green-300" href="#fonctionnement">Fonctionnement</a>
+            <a className="transition hover:text-green-300" href="#methodologie">Méthodologie</a>
             <a className="transition hover:text-green-300" href="#utilisateurs">Utilisateurs</a>
           </nav>
 
@@ -303,10 +303,10 @@ export default function HomePage() {
                 </Link>
 
                 <a
-                  href="#fonctionnement"
+                  href="#methodologie"
                   className="inline-flex h-13 items-center justify-center gap-3 rounded-xl border border-white/25 bg-white/10 px-6 py-4 text-sm font-extrabold text-white backdrop-blur transition hover:bg-white/15"
                 >
-                  Découvrir le système
+                  Découvrir la méthodologie
                   <ArrowRight size={19} />
                 </a>
               </div>
@@ -460,12 +460,12 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section id="fonctionnement" className="border-t border-white/10 bg-slate-950 px-5 py-16 sm:px-8 lg:px-10">
+      <section id="methodologie" className="border-t border-white/10 bg-slate-950 px-5 py-16 sm:px-8 lg:px-10">
         <div className="mx-auto max-w-7xl">
           <div className="mb-10 max-w-3xl">
             <div className="h-1 w-16 rounded-full bg-gradient-to-r from-green-400 to-blue-500" />
             <h2 className="mt-5 text-3xl font-black tracking-tight">
-              Comment fonctionne RISKCLIM-MG ?
+              Notre méthodologie
             </h2>
             <p className="mt-4 leading-7 text-slate-300">
               Le système suit une chaîne complète allant de la donnée brute à la
@@ -559,7 +559,7 @@ export default function HomePage() {
               <a className="block hover:text-green-300" href="#accueil">Accueil</a>
               <a className="block hover:text-green-300" href="#objectifs">À propos</a>
               <a className="block hover:text-green-300" href="#fonctionnalites">Fonctionnalités</a>
-              <a className="block hover:text-green-300" href="#fonctionnement">Fonctionnement</a>
+              <a className="block hover:text-green-300" href="#methodologie">Méthodologie</a>
             </div>
           </div>
 
