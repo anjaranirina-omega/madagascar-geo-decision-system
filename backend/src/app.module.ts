@@ -3,6 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { ScheduleModule } from '@nestjs/schedule';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { validateEnvironment } from './config/validate-env';
 import { AccountRequestsModule } from './modules/account-requests/account-requests.module';
 import { AlertesModule } from './modules/alertes/alertes.module';
 import { AnalyseMulticritereModule } from './modules/analyse-multicritere/analyse-multicritere.module';
@@ -25,14 +26,19 @@ import { RisquesModule } from './modules/risques/risques.module';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true }),
+    ConfigModule.forRoot({
+      isGlobal: true,
+      validate: validateEnvironment,
+    }),
     EventEmitterModule.forRoot(),
     ScheduleModule.forRoot(),
     TypeOrmModule.forRoot({
       type: 'postgres',
       url:
-        process.env.DATABASE_URL ??
-        'postgresql://geodecisionnel:geodecisionnel@localhost:5433/geodecisionnel',
+        process.env.DATABASE_URL?.trim() ||
+        // Fallback développement uniquement. Les développeurs ayant une base locale
+        // existante doivent définir DATABASE_URL explicitement dans leur .env.
+        'postgresql://dev_only_user:dev-only-insecure-password-not-for-production@localhost:5433/dev_only_db',
       autoLoadEntities: true,
       synchronize:
         process.env.TYPEORM_SYNCHRONIZE !== undefined

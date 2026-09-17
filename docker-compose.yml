@@ -6,7 +6,7 @@ services:
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-geodecisionnel}
       POSTGRES_USER: ${POSTGRES_USER:-geodecisionnel}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-geodecisionnel}
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env}"
     ports:
       - "5433:5432"
     volumes:
@@ -67,8 +67,8 @@ services:
     restart: unless-stopped
     command: server /data --console-address ":9001"
     environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin123}
+      MINIO_ROOT_USER: "${MINIO_ROOT_USER:?MINIO_ROOT_USER must be set in .env}"
+      MINIO_ROOT_PASSWORD: "${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD must be set in .env}"
     ports:
       - "9000:9000"
       - "9001:9001"
@@ -85,7 +85,7 @@ services:
     container_name: geodecisionnel-superset
     restart: unless-stopped
     environment:
-      SUPERSET_SECRET_KEY: ${SUPERSET_SECRET_KEY:-change-me}
+      SUPERSET_SECRET_KEY: "${SUPERSET_SECRET_KEY:?SUPERSET_SECRET_KEY must be set in .env}"
     ports:
       - "8088:8088"
     depends_on:

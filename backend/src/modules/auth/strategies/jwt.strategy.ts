@@ -2,6 +2,7 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
+import { getConfiguredJwtSecret } from '../../../config/validate-env';
 import { UsersService } from '../../users/users.service';
 
 type JwtPayload = {
@@ -19,7 +20,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
-      secretOrKey: configService.get<string>('JWT_SECRET') ?? 'change-me',
+      secretOrKey: getConfiguredJwtSecret(configService.get<string>('JWT_SECRET')),
     });
   }
 

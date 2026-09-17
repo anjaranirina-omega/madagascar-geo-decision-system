@@ -12,6 +12,28 @@ import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Readable } from 'stream';
 
+function getConfigValue(
+  configService: ConfigService,
+  names: string[],
+  developmentFallback: string,
+): string {
+  const configuredValue = names
+    .map((name) => configService.get<string>(name)?.trim())
+    .find((value): value is string => Boolean(value));
+
+  if (configuredValue) {
+    return configuredValue;
+  }
+
+  if (configService.get<string>('NODE_ENV') === 'production') {
+    throw new Error(
+      `${names.join(' ou ')} doit être défini en production.`,
+    );
+  }
+
+  return developmentFallback;
+}
+
 @Injectable()
 export class StorageService implements OnModuleInit {
   private readonly logger = new Logger(StorageService.name);
@@ -21,18 +43,26 @@ export class StorageService implements OnModuleInit {
   private readonly publicBaseUrl: string;
 
   constructor(private readonly configService: ConfigService) {
-    const endpoint =
-      this.configService.get<string>('S3_ENDPOINT') || 'http://localhost:9000';
-    const region =
-      this.configService.get<string>('S3_REGION') || 'us-east-1';
-    const accessKeyId =
-      this.configService.get<string>('S3_ACCESS_KEY') ||
-      this.configService.get<string>('MINIO_ROOT_USER') ||
-      'minioadmin';
-    const secretAccessKey =
-      this.configService.get<string>('S3_SECRET_KEY') ||
-      this.configService.get<string>('MINIO_ROOT_PASSWORD') ||
-      'minioadmin123';
+    const endpoint = getConfigValue(
+      this.configService,
+      ['S3_ENDPOINT'],
+      'http://localhost:9000',
+    );
+    const region = getConfigValue(
+      this.configService,
+      ['S3_REGION'],
+      'us-east-1',
+    );
+    const accessKeyId = getConfigValue(
+      this.configService,
+      ['S3_ACCESS_KEY', 'MINIO_ROOT_USER'],
+      'dev-only-minio-access-key',
+    );
+    const secretAccessKey = getConfigValue(
+      this.configService,
+      ['S3_SECRET_KEY', 'MINIO_ROOT_PASSWORD'],
+      'dev-only-insecure-minio-secret-not-for-production',
+    );
     const forcePathStyle =
       this.configService.get<string>('S3_FORCE_PATH_STYLE') !== 'false';
     const useSsl =
