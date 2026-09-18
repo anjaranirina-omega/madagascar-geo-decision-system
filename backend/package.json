@@ -10,6 +10,15 @@
     "build": "nest build",
     "test": "jest",
     "test:e2e": "jest --config ./test/jest-e2e.json",
+    "typeorm": "typeorm-ts-node-commonjs",
+    "typeorm:prod": "typeorm",
+    "migration:create": "npm run typeorm -- migration:create",
+    "migration:generate": "npm run typeorm -- migration:generate -d src/config/typeorm.data-source.ts",
+    "migration:run": "npm run typeorm -- migration:run -d src/config/typeorm.data-source.ts",
+    "migration:revert": "npm run typeorm -- migration:revert -d src/config/typeorm.data-source.ts",
+    "migration:show": "npm run typeorm -- migration:show -d src/config/typeorm.data-source.ts",
+    "migration:run:prod": "npm run typeorm:prod -- migration:run -d dist/src/config/typeorm.data-source.js",
+    "migration:revert:prod": "npm run typeorm:prod -- migration:revert -d dist/src/config/typeorm.data-source.js",
     "migrate:uploads": "ts-node -r tsconfig-paths/register scripts/migrate-uploads-to-minio.ts"
   },
   "dependencies": {
