@@ -28,6 +28,7 @@ import NotificationBellDropdown from '../../modules/alertes/components/Notificat
 import AlertToastNotification from '../../modules/alertes/components/AlertToastNotification';
 import { disconnectAlertsSocket } from '../../modules/alertes/services/alertes-socket.service';
 import { AppRole, normalizeRole, PAGE_ACCESS } from '../auth/roles';
+import { LogoIcon } from '../components/LogoIcon';
 
 type SubMenuItem = {
   label: string;
@@ -280,8 +281,8 @@ export default function MainLayout() {
         <div className="relative z-10 flex h-full flex-col px-4 py-5">
           <div className="mb-8 flex items-center justify-between gap-3 px-2">
             <div className="flex min-w-0 items-center gap-3">
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-green-400 to-blue-500 shadow-lg shadow-blue-950/30">
-                <CloudRain size={27} />
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-slate-900/80 p-1 shadow-lg shadow-blue-950/30 ring-1 ring-white/10">
+                <LogoIcon size={38} />
               </div>
 
               {!sidebarCollapsed && (
