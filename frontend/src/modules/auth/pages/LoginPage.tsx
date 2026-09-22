@@ -5,7 +5,6 @@ import {
   CloudRain,
   Eye,
   EyeOff,
-  Leaf,
   Lock,
   MapPin,
   ShieldCheck,
@@ -18,6 +17,7 @@ import { z } from 'zod';
 import { useAppStore } from '../../../app/store';
 import { getDefaultPathForRole } from '../../../shared/auth/roles';
 import { authService } from '../auth.service';
+import { LogoIcon } from '../../../shared/components/LogoIcon';
 
 const loginSchema = z.object({
   email: z
@@ -90,29 +90,11 @@ function LogoMark({ compact = false }: { compact?: boolean }) {
       <div
         className={
           compact
-            ? 'flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-green-500 via-teal-500 to-blue-500 text-white shadow-xl shadow-blue-900/20'
-            : 'relative flex h-20 w-20 items-center justify-center text-white'
+            ? 'flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-900/80 p-2 shadow-xl shadow-blue-900/20 ring-1 ring-white/10'
+            : 'relative flex h-24 w-24 items-center justify-center'
         }
       >
-        {compact ? (
-          <>
-            <CloudRain size={34} strokeWidth={2.2} />
-            <Leaf
-              size={25}
-              strokeWidth={2.4}
-              className="-ml-3 mt-6 text-white"
-            />
-          </>
-        ) : (
-          <>
-            <CloudRain size={74} strokeWidth={2.2} />
-            <Leaf
-              size={42}
-              strokeWidth={2.4}
-              className="absolute bottom-1 right-0 text-green-400"
-            />
-          </>
-        )}
+        <LogoIcon size={compact ? 52 : 92} />
       </div>
 
       {!compact && (

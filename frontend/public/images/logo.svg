@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <defs>
+    <linearGradient id="swirlGrad1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#10b981" />
+      <stop offset="45%" stop-color="#06b6d4" />
+      <stop offset="100%" stop-color="#2563eb" />
+    </linearGradient>
+    <linearGradient id="swirlGrad2" x1="100%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#059669" />
+      <stop offset="50%" stop-color="#0ea5e9" />
+      <stop offset="100%" stop-color="#1d4ed8" />
+    </linearGradient>
+    <linearGradient id="pinGrad" x1="50%" y1="0%" x2="50%" y2="100%">
+      <stop offset="0%" stop-color="#059669" />
+      <stop offset="30%" stop-color="#0d9488" />
+      <stop offset="70%" stop-color="#0284c7" />
+      <stop offset="100%" stop-color="#1d4ed8" />
+    </linearGradient>
+  </defs>
+
+  <!-- Outer Vortex Swirl Blades -->
+  <!-- Top Right Outer Blade -->
+  <path
+    d="M 256,75 C 330,75 400,118 432,185 C 448,218 450,260 435,295 C 430,270 422,230 398,198 C 362,150 310,132 250,135 C 205,138 185,152 180,155 C 200,120 230,85 256,75 Z"
+    fill="url(#swirlGrad2)"
+  />
+
+  <!-- Top Center Swirl Arc -->
+  <path
+    d="M 180,205 C 220,110 320,105 385,145 C 425,170 445,210 440,250 C 432,215 410,185 375,168 C 325,145 255,152 208,195 C 190,212 178,228 175,232 C 172,225 174,212 180,205 Z"
+    fill="url(#swirlGrad1)"
+  />
+
+  <!-- Right Inner Spiral Arm -->
+  <path
+    d="M 318,160 C 375,190 395,255 370,320 C 352,365 315,405 265,420 C 298,395 328,348 330,295 C 332,238 298,195 256,182 C 280,170 300,162 318,160 Z"
+    fill="url(#swirlGrad1)"
+  />
+
+  <!-- Bottom Right Sweeping Arm -->
+  <path
+    d="M 445,330 C 420,410 345,460 270,445 C 330,420 375,370 380,310 C 382,280 375,260 368,245 C 400,270 435,300 445,330 Z"
+    fill="url(#swirlGrad2)"
+  />
+
+  <!-- Left Outer Spiral Blade -->
+  <path
+    d="M 100,180 C 105,240 120,310 165,365 C 205,415 260,438 315,432 C 270,425 220,395 185,350 C 145,298 135,230 148,165 C 128,170 110,175 100,180 Z"
+    fill="url(#swirlGrad2)"
+  />
+
+  <!-- Bottom Left Inward Hook -->
+  <path
+    d="M 145,285 C 135,325 150,380 195,410 C 240,440 300,430 350,390 C 295,405 235,388 198,348 C 170,318 162,280 165,255 C 155,265 148,275 145,285 Z"
+    fill="url(#swirlGrad1)"
+  />
+
+  <!-- Central Geolocation Pin -->
+  <path
+    d="M 256,165 C 206,165 166,205 166,255 C 166,310 216,380 256,430 C 296,380 346,310 346,255 C 346,205 306,165 256,165 Z"
+    fill="url(#pinGrad)"
+  />
+
+  <!-- Central Pin Inner Cutout / Circle Hole -->
+  <circle cx="256" cy="255" r="38" fill="white" />
+</svg>

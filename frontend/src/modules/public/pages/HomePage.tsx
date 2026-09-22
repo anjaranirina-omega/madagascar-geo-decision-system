@@ -7,7 +7,6 @@ import {
   CloudRain,
   Database,
   FileText,
-  Leaf,
   Lock,
   Map,
   MapPin,
@@ -19,17 +18,13 @@ import {
   Zap,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import LogoIcon from '../../../shared/components/LogoIcon';
 
 function LogoMark() {
   return (
     <Link to="/" className="flex items-center gap-3" aria-label="Accueil RISKCLIM-MG">
-      <div className="relative flex h-11 w-11 items-center justify-center text-white">
-        <CloudRain size={38} strokeWidth={2.2} />
-        <Leaf
-          size={23}
-          strokeWidth={2.4}
-          className="absolute bottom-0 right-0 text-green-400"
-        />
+      <div className="relative flex h-11 w-11 items-center justify-center">
+        <LogoIcon size={42} />
       </div>
 
       <div className="text-xl font-black tracking-tight">
