@@ -85,31 +85,31 @@ function getAuthErrorMessage(error: unknown) {
 }
 
 function LogoMark({ compact = false }: { compact?: boolean }) {
+  if (compact) {
+    return (
+      <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-tr from-emerald-500/10 via-cyan-500/10 to-blue-500/10 border border-emerald-500/20 shadow-sm">
+        <LogoIcon size={40} />
+      </div>
+    );
+  }
+
   return (
     <div className="flex items-center gap-4">
-      <div
-        className={
-          compact
-            ? 'flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-900/80 p-2 shadow-xl shadow-blue-900/20 ring-1 ring-white/10'
-            : 'relative flex h-24 w-24 items-center justify-center'
-        }
-      >
-        <LogoIcon size={compact ? 52 : 92} />
+      <div className="relative flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-slate-900/40 p-1.5 shadow-2xl ring-1 ring-white/15 backdrop-blur-md">
+        <LogoIcon size={48} />
       </div>
 
-      {!compact && (
-        <div>
-          <div className="text-5xl font-black tracking-tight">
-            <span className="text-white">RISK</span>
-            <span className="text-blue-400">CLIM</span>
-            <span className="text-green-400">-MG</span>
-          </div>
-          <div className="mt-4 max-w-md text-lg font-extrabold uppercase leading-7 tracking-wide text-white">
-            Système d’aide à la décision climatique géospatialisé
-          </div>
-          <div className="mt-7 h-1.5 w-24 rounded-full bg-gradient-to-r from-blue-400 to-green-400" />
+      <div>
+        <div className="text-3xl font-black tracking-tight sm:text-4xl leading-tight">
+          <span className="text-white">RISK</span>
+          <span className="text-blue-400">CLIM</span>
+          <span className="text-green-400">-MG</span>
         </div>
-      )}
+        <div className="mt-1 text-xs font-bold uppercase tracking-wider text-emerald-300/90">
+          Système d’aide à la décision climatique géospatialisé
+        </div>
+        <div className="mt-2.5 h-1 w-16 rounded-full bg-gradient-to-r from-green-400 via-cyan-400 to-blue-500" />
+      </div>
     </div>
   );
 }

@@ -281,17 +281,18 @@ export default function MainLayout() {
         <div className="relative z-10 flex h-full flex-col px-4 py-5">
           <div className="mb-8 flex items-center justify-between gap-3 px-2">
             <div className="flex min-w-0 items-center gap-3">
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-slate-900/80 p-1 shadow-lg shadow-blue-950/30 ring-1 ring-white/10">
-                <LogoIcon size={38} />
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-slate-900/60 p-1 shadow-md ring-1 ring-white/10 backdrop-blur-sm">
+                <LogoIcon size={34} />
               </div>
 
               {!sidebarCollapsed && (
                 <div className={sidebarCollapsed ? "hidden" : "min-w-0"}>
-                  <div className="truncate text-xl font-black tracking-tight">
-                    RISK<span className="text-blue-400">CLIM</span>
+                  <div className="truncate text-lg font-black tracking-tight leading-tight">
+                    <span className="text-white">RISK</span>
+                    <span className="text-blue-400">CLIM</span>
                     <span className="text-green-400">-MG</span>
                   </div>
-                  <div className="text-xs font-medium text-slate-300">
+                  <div className="text-[11px] font-semibold text-slate-300">
                     Géodécisionnel
                   </div>
                 </div>
