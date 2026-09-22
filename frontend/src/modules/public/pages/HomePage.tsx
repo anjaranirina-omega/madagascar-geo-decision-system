@@ -22,15 +22,20 @@ import LogoIcon from '../../../shared/components/LogoIcon';
 
 function LogoMark() {
   return (
-    <Link to="/" className="flex items-center gap-3" aria-label="Accueil RISKCLIM-MG">
-      <div className="relative flex h-11 w-11 items-center justify-center">
-        <LogoIcon size={42} />
+    <Link to="/" className="group flex items-center gap-3.5" aria-label="Accueil RISKCLIM-MG">
+      <div className="relative flex h-11 w-11 shrink-0 items-center justify-center">
+        <LogoIcon size={40} className="transition group-hover:scale-105 drop-shadow-[0_2px_8px_rgba(0,196,159,0.25)]" />
       </div>
 
-      <div className="text-xl font-black tracking-tight">
-        <span className="text-white">RISK</span>
-        <span className="text-blue-400">CLIM</span>
-        <span className="text-green-400">-MG</span>
+      <div className="flex flex-col">
+        <div className="text-xl font-black tracking-tight leading-none">
+          <span className="text-white">RISK</span>
+          <span className="text-blue-400">CLIM</span>
+          <span className="text-green-400">-MG</span>
+        </div>
+        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-300/80 mt-1">
+          Système Géodécisionnel
+        </span>
       </div>
     </Link>
   );
