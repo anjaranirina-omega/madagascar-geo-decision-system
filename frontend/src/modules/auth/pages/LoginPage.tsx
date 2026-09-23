@@ -87,16 +87,16 @@ function getAuthErrorMessage(error: unknown) {
 function LogoMark({ compact = false }: { compact?: boolean }) {
   if (compact) {
     return (
-      <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-tr from-emerald-500/10 via-cyan-500/10 to-blue-500/10 border border-emerald-500/20 shadow-sm">
-        <LogoIcon size={40} />
+      <div className="shrink-0 overflow-hidden rounded-xl border-2 border-cyan-400 shadow-[0_0_15px_rgba(34,211,238,0.4)]">
+        <LogoIcon size={52} />
       </div>
     );
   }
 
   return (
     <div className="flex items-center gap-4">
-      <div className="relative flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-slate-900/40 p-1.5 shadow-2xl ring-1 ring-white/15 backdrop-blur-md">
-        <LogoIcon size={48} />
+      <div className="shrink-0 overflow-hidden rounded-xl border-2 border-cyan-400 shadow-[0_0_15px_rgba(34,211,238,0.4)]">
+        <LogoIcon size={52} />
       </div>
 
       <div>

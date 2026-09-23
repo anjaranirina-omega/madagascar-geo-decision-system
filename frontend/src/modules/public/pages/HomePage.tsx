@@ -23,8 +23,8 @@ import LogoIcon from '../../../shared/components/LogoIcon';
 function LogoMark() {
   return (
     <Link to="/" className="group flex items-center gap-3.5" aria-label="Accueil RISKCLIM-MG">
-      <div className="relative flex h-11 w-11 shrink-0 items-center justify-center">
-        <LogoIcon size={40} className="transition group-hover:scale-105 drop-shadow-[0_2px_8px_rgba(0,196,159,0.25)]" />
+      <div className="shrink-0 overflow-hidden rounded-xl border-2 border-cyan-400 shadow-[0_0_15px_rgba(34,211,238,0.4)] transition group-hover:scale-105 group-hover:shadow-[0_0_20px_rgba(34,211,238,0.6)]">
+        <LogoIcon size={42} />
       </div>
 
       <div className="flex flex-col">

@@ -281,8 +281,8 @@ export default function MainLayout() {
         <div className="relative z-10 flex h-full flex-col px-4 py-5">
           <div className="mb-8 flex items-center justify-between gap-3 px-2">
             <div className="flex min-w-0 items-center gap-3">
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-slate-900/60 p-1 shadow-md ring-1 ring-white/10 backdrop-blur-sm">
-                <LogoIcon size={34} />
+              <div className="shrink-0 overflow-hidden rounded-xl border-2 border-cyan-400 shadow-[0_0_12px_rgba(34,211,238,0.35)]">
+                <LogoIcon size={38} />
               </div>
 
               {!sidebarCollapsed && (
