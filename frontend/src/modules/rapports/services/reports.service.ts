@@ -114,14 +114,14 @@ export const reportsService = {
   downloadNationalPdf() {
     return downloadReport(
       '/reports/national-risk.pdf',
-      'riskclim-mg-rapport-national.pdf',
+      'vigilmada-rapport-national.pdf',
     );
   },
 
   downloadNationalExcel() {
     return downloadReport(
       '/reports/national-risk.xlsx',
-      'riskclim-mg-rapport-national.xlsx',
+      'vigilmada-rapport-national.xlsx',
     );
   },
 

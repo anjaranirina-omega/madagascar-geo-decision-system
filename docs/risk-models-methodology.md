@@ -1,6 +1,6 @@
-# Méthodologie des modèles de risque — RISKCLIM-MG
+# Méthodologie des modèles de risque — Vigil'Mada
 
-Ce document décrit les modèles de risque actuellement implémentés dans RISKCLIM-MG.
+Ce document décrit les modèles de risque actuellement implémentés dans Vigil'Mada.
 
 Le système distingue deux niveaux :
 

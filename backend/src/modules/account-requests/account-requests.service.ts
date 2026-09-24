@@ -208,7 +208,7 @@ export class AccountRequestsService {
 
     const from =
       this.getEnvValue('SMTP_FROM') ||
-      (smtpUser ? `RISKCLIM-MG <${smtpUser}>` : undefined);
+      (smtpUser ? `Vigil'Mada <${smtpUser}>` : undefined);
 
     if (!adminEmail) {
       throw new InternalServerErrorException(
@@ -242,7 +242,7 @@ export class AccountRequestsService {
         from,
         to: adminEmail,
         replyTo: request.email,
-        subject: `Nouvelle demande de compte RISKCLIM-MG - ${request.fullName}`,
+        subject: `Nouvelle demande de compte Vigil'Mada - ${request.fullName}`,
         text: this.buildAdminTextEmail(request),
         html: this.buildAdminHtmlEmail(request),
       });
@@ -270,11 +270,11 @@ export class AccountRequestsService {
       await transporter.sendMail({
         from,
         to: params.to,
-        subject: 'Votre compte RISKCLIM-MG a été approuvé',
+        subject: 'Votre compte Vigil\'Mada a été approuvé',
         text: `
 Bonjour ${params.fullName},
 
-Votre demande de compte RISKCLIM-MG a été approuvée.
+Votre demande de compte Vigil'Mada a été approuvée.
 
 Identifiants :
 Email : ${params.email}
@@ -286,7 +286,7 @@ ${frontendUrl}/login
 
 Pour des raisons de sécurité, changez votre mot de passe après votre première connexion.
 
-RISKCLIM-MG
+Vigil'Mada
 `.trim(),
         html: `
 <!doctype html>
@@ -298,7 +298,7 @@ RISKCLIM-MG
         <table width="620" cellpadding="0" cellspacing="0" style="background:white;border-radius:18px;overflow:hidden;border:1px solid #d8e0e7;">
           <tr>
             <td style="background:#061624;color:white;padding:26px 32px;">
-              <div style="font-size:24px;font-weight:800;">RISKCLIM-MG</div>
+              <div style="font-size:24px;font-weight:800;">Vigil'Mada</div>
               <div style="font-size:13px;color:#cbd5e1;margin-top:6px;">Compte approuvé</div>
             </td>
           </tr>
@@ -306,7 +306,7 @@ RISKCLIM-MG
             <td style="padding:32px;">
               <h1 style="margin:0 0 16px;font-size:24px;">Votre compte a été créé</h1>
               <p style="line-height:1.7;color:#475569;">Bonjour ${this.escapeHtml(params.fullName)},</p>
-              <p style="line-height:1.7;color:#475569;">Votre demande d’accès à RISKCLIM-MG a été approuvée.</p>
+              <p style="line-height:1.7;color:#475569;">Votre demande d’accès à Vigil'Mada a été approuvée.</p>
 
               <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:18px;margin:24px 0;">
                 <p><strong>Email :</strong> ${this.escapeHtml(params.email)}</p>
@@ -353,17 +353,17 @@ RISKCLIM-MG
       await transporter.sendMail({
         from,
         to: params.to,
-        subject: 'Votre demande de compte RISKCLIM-MG',
+        subject: 'Votre demande de compte Vigil\'Mada',
         text: `
 Bonjour ${params.fullName},
 
-Votre demande de compte RISKCLIM-MG n’a pas été approuvée.
+Votre demande de compte Vigil'Mada n’a pas été approuvée.
 
 ${params.reason ? `Motif : ${params.reason}` : ''}
 
 Pour plus d'informations, veuillez contacter l’administrateur.
 
-RISKCLIM-MG
+Vigil'Mada
 `.trim(),
         html: `
 <!doctype html>
@@ -375,7 +375,7 @@ RISKCLIM-MG
         <table width="620" cellpadding="0" cellspacing="0" style="background:white;border-radius:18px;overflow:hidden;border:1px solid #d8e0e7;">
           <tr>
             <td style="background:#061624;color:white;padding:26px 32px;">
-              <div style="font-size:24px;font-weight:800;">RISKCLIM-MG</div>
+              <div style="font-size:24px;font-weight:800;">Vigil'Mada</div>
               <div style="font-size:13px;color:#cbd5e1;margin-top:6px;">Demande de compte</div>
             </td>
           </tr>
@@ -383,7 +383,7 @@ RISKCLIM-MG
             <td style="padding:32px;">
               <h1 style="margin:0 0 16px;font-size:24px;">Demande non approuvée</h1>
               <p style="line-height:1.7;color:#475569;">Bonjour ${this.escapeHtml(params.fullName)},</p>
-              <p style="line-height:1.7;color:#475569;">Votre demande de compte RISKCLIM-MG n’a pas été approuvée.</p>
+              <p style="line-height:1.7;color:#475569;">Votre demande de compte Vigil'Mada n’a pas été approuvée.</p>
               ${
                 params.reason
                   ? `<p style="background:#fff7ed;border:1px solid #fed7aa;border-radius:12px;padding:16px;color:#9a3412;"><strong>Motif :</strong> ${this.escapeHtml(params.reason)}</p>`
@@ -410,7 +410,7 @@ RISKCLIM-MG
 
   private buildAdminTextEmail(request: AccountRequest) {
     return `
-Nouvelle demande de création de compte RISKCLIM-MG
+Nouvelle demande de création de compte Vigil'Mada
 
 Nom complet : ${request.fullName}
 Organisation : ${request.organization}
@@ -439,7 +439,7 @@ Date : ${request.createdAt.toISOString()}
         <table width="640" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:18px;overflow:hidden;border:1px solid #d8e0e7;">
           <tr>
             <td style="background:#061624;padding:28px 32px;color:#ffffff;">
-              <div style="font-size:24px;font-weight:800;">RISKCLIM-MG</div>
+              <div style="font-size:24px;font-weight:800;">Vigil'Mada</div>
               <div style="font-size:13px;color:#cbd5e1;margin-top:6px;">Nouvelle demande de création de compte</div>
             </td>
           </tr>

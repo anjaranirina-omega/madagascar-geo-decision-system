@@ -1,4 +1,4 @@
-# Checklist de validation — RISKCLIM-MG
+# Checklist de validation — Vigil'Mada
 
 ## 1. Vérification Git
 

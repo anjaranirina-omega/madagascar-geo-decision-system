@@ -1,4 +1,4 @@
-# Documentation RISKCLIM-MG
+# Documentation Vigil'Mada
 
 Ce dossier contient la documentation méthodologique, technique et utilisateur du projet.
 

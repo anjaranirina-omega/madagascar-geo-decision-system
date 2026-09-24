@@ -171,7 +171,7 @@ def add_layout(map_image: Image.Image, title: str):
     draw.text((padding, 22), title, fill=(15, 23, 42), font=title_font)
     draw.text(
         (padding, 50),
-        "RISKCLIM-MG • indice de risque 0–100 • données raster réelles",
+        "Vigil'Mada • indice de risque 0–100 • données raster réelles",
         fill=(100, 116, 139),
         font=small_font,
     )

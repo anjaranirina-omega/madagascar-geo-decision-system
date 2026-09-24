@@ -1,6 +1,6 @@
 # Pipeline Raster — Analyse des risques climatiques
 
-Ce dossier contient les scripts ETL raster utilisés pour préparer les couches d’analyse spatiale du système RISKCLIM-MG.
+Ce dossier contient les scripts ETL raster utilisés pour préparer les couches d’analyse spatiale du système Vigil'Mada.
 
 Le pipeline raster permet de transformer des données géographiques continues en grilles spatiales exploitables pour le calcul d’un indice de risque climatique.
 

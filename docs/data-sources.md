@@ -1,6 +1,6 @@
-# Sources de données — RISKCLIM-MG
+# Sources de données — Vigil'Mada
 
-Ce document décrit les sources utilisées par RISKCLIM-MG.
+Ce document décrit les sources utilisées par Vigil'Mada.
 
 ## GADM
 

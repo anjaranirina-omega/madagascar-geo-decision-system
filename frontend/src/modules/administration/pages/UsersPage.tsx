@@ -312,7 +312,7 @@ export default function UsersPage() {
       {/* En-tête standardisé PageHeader */}
       <PageHeader
         title="Gestion des Utilisateurs & Accès"
-        subtitle="Gérez les comptes, habilitations et statuts des utilisateurs autorisés à accéder à la plateforme RISKCLIM-MG."
+        subtitle="Gérez les comptes, habilitations et statuts des utilisateurs autorisés à accéder à la plateforme Vigil'Mada."
         icon={<Users size={32} className="text-emerald-400" />}
         actions={
           <div className="flex flex-wrap items-center gap-2.5">

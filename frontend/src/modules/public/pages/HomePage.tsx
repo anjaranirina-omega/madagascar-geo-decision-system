@@ -22,16 +22,15 @@ import LogoIcon from '../../../shared/components/LogoIcon';
 
 function LogoMark() {
   return (
-    <Link to="/" className="group flex items-center gap-3.5" aria-label="Accueil RISKCLIM-MG">
+    <Link to="/" className="group flex items-center gap-3.5" aria-label="Accueil Vigil'Mada">
       <div className="relative flex h-11 w-11 shrink-0 items-center justify-center">
         <LogoIcon size={40} className="transition group-hover:scale-105 drop-shadow-[0_2px_8px_rgba(0,196,159,0.25)]" />
       </div>
 
       <div className="flex flex-col">
         <div className="text-xl font-black tracking-tight leading-none">
-          <span className="text-white">RISK</span>
-          <span className="text-blue-400">CLIM</span>
-          <span className="text-green-400">-MG</span>
+          <span className="text-white">Vigil'</span>
+          <span className="text-green-400">Mada</span>
         </div>
         <span className="text-[10px] font-bold uppercase tracking-wider text-slate-300/80 mt-1">
           Système Géodécisionnel
@@ -287,7 +286,7 @@ export default function HomePage() {
               </h1>
 
               <p className="mt-7 max-w-2xl text-base font-medium leading-8 text-slate-200 sm:text-lg">
-                RISKCLIM-MG intègre les données climatiques, géospatiales et
+                Vigil'Mada intègre les données climatiques, géospatiales et
                 socio-économiques pour analyser les risques, produire des
                 indicateurs territoriaux, générer des alertes et appuyer les
                 décisions pour un territoire plus résilient.
@@ -436,7 +435,7 @@ export default function HomePage() {
               Une plateforme, plusieurs capacités
             </h2>
             <p className="mt-4 leading-7 text-slate-300">
-              RISKCLIM-MG transforme les données brutes en informations
+              Vigil'Mada transforme les données brutes en informations
               compréhensibles, cartographiées et exploitables pour l’action.
             </p>
           </div>
@@ -576,7 +575,7 @@ export default function HomePage() {
           <div>
             <h3 className="font-black">Contact</h3>
             <div className="mt-4 space-y-2 text-sm text-slate-400">
-              <div>contact@riskclim-mg.mg</div>
+              <div>contact@example.com</div>
               <div>Antananarivo, Madagascar</div>
               <div className="flex items-center gap-2 pt-2 text-green-300">
                 <ShieldCheck size={17} />
@@ -587,8 +586,8 @@ export default function HomePage() {
         </div>
 
         <div className="mx-auto mt-8 flex max-w-7xl flex-col justify-between gap-3 border-t border-white/10 pt-6 text-sm text-slate-500 md:flex-row">
-          <span>© 2026 RISKCLIM-MG • Tous droits réservés</span>
-          <span>Système géodécisionnel climatique et spatial</span>
+          <span>© 2026 Vigil'Mada • Tous droits réservés</span>
+          <span>Système géo-décisionnel de veille climatique pour Madagascar</span>
         </div>
       </footer>
     </main>

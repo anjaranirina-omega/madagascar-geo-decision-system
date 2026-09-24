@@ -221,7 +221,7 @@ export default function MainLayout() {
 
   const { formattedDate, formattedTime } = formatDateTime(currentDate);
 
-  const pageTitle = titles[location.pathname] ?? 'RISKCLIM-MG';
+  const pageTitle = titles[location.pathname] ?? "Vigil'Mada";
   const pageSubtitle = subtitles[location.pathname] ?? 'Plateforme géodécisionnelle';
   const userRole = normalizeRole(user?.role?.name);
   const visibleMenu = menu.filter((item) => userRole && item.allowedRoles.includes(userRole));
@@ -288,9 +288,8 @@ export default function MainLayout() {
               {!sidebarCollapsed && (
                 <div className={sidebarCollapsed ? "hidden" : "min-w-0"}>
                   <div className="truncate text-lg font-black tracking-tight leading-tight">
-                    <span className="text-white">RISK</span>
-                    <span className="text-blue-400">CLIM</span>
-                    <span className="text-green-400">-MG</span>
+                    <span className="text-white">Vigil'</span>
+                    <span className="text-green-400">Mada</span>
                   </div>
                   <div className="text-[11px] font-semibold text-slate-300">
                     Géodécisionnel
@@ -525,7 +524,7 @@ export default function MainLayout() {
 
         <footer className="flex flex-col items-start justify-between gap-3 px-4 pb-6 text-sm text-slate-500 sm:px-6 md:flex-row md:items-center lg:px-8">
           <div>
-            © 2026 RISKCLIM-MG • Système d’aide à la décision climatique géospatialisé en temps réel
+            © 2026 Vigil'Mada • Système géo-décisionnel de veille climatique pour Madagascar
           </div>
 
           <div className="flex items-center gap-2">

@@ -29,7 +29,7 @@ export default function PageHeader({
 
           <div>
             <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs font-black uppercase tracking-wide text-emerald-100">
-              RISKCLIM-MG
+              Vigil'Mada
               <span className="h-1 w-1 rounded-full bg-emerald-300" />
               Décision spatiale
             </div>

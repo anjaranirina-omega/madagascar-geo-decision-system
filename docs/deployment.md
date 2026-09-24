@@ -1,4 +1,4 @@
-# Déploiement local — RISKCLIM-MG
+# Déploiement local — Vigil'Mada
 
 ## Prérequis
 

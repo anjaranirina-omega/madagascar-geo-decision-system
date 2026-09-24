@@ -87,7 +87,7 @@ export default function ContactAdminPage() {
               <h1 className="text-4xl font-black leading-tight">
                 Demande d’accès
                 <br />
-                à RISKCLIM-MG
+                à Vigil'Mada
               </h1>
 
               <p className="mt-6 max-w-sm text-lg leading-8 text-slate-200">

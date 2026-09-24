@@ -1,6 +1,6 @@
-# Résumé final du projet — RISKCLIM-MG
+# Résumé final du projet — Vigil'Mada
 
-RISKCLIM-MG est une plateforme géodécisionnelle multi-risques pour Madagascar.
+Vigil'Mada est une plateforme géodécisionnelle multi-risques pour Madagascar.
 
 ## Risques couverts
 

@@ -70,7 +70,7 @@ export class ReportsService {
   ) {
     const workbook = new ExcelJS.Workbook();
 
-    workbook.creator = 'RISKCLIM-MG';
+    workbook.creator = "Vigil'Mada";
     workbook.created = new Date();
 
     for (const sheet of sheets) {
@@ -123,8 +123,8 @@ export class ReportsService {
         size: 'A4',
         margin: 42,
         info: {
-          Title: 'RISKCLIM-MG Report',
-          Author: 'RISKCLIM-MG',
+          Title: "Vigil'Mada Report",
+          Author: "Vigil'Mada",
         },
       });
 
@@ -639,7 +639,7 @@ export class ReportsService {
           .font('Helvetica-Bold')
           .fillColor('#0f172a')
           .text(
-            'RISKCLIM-MG — Rapport d’analyse des risques climatiques',
+            'Vigil\'Mada — Rapport d’analyse des risques climatiques',
             margin,
             24,
             {
@@ -859,7 +859,7 @@ export class ReportsService {
         .fillColor('#22c55e')
         .fontSize(18)
         .font('Helvetica-Bold')
-        .text('RISKCLIM-MG', margin, 70, {
+        .text('Vigil\'Mada', margin, 70, {
           width: contentWidth,
         });
 
@@ -868,7 +868,7 @@ export class ReportsService {
         .fontSize(11)
         .font('Helvetica')
         .text(
-          'Système géodécisionnel spatial d’aide à la décision climatique',
+          'Système géo-décisionnel de veille climatique pour Madagascar',
           margin,
           96,
           {
@@ -927,7 +927,7 @@ export class ReportsService {
         .font('Helvetica')
         .fillColor('#94a3b8')
         .text(
-          'Document généré automatiquement par RISKCLIM-MG',
+          'Document généré automatiquement par Vigil\'Mada',
           margin,
           pageHeight - 80,
           {
@@ -1245,7 +1245,7 @@ export class ReportsService {
         .font('Helvetica-Bold')
         .fillColor('#0f172a')
         .text(
-          'Fin du rapport — Document généré automatiquement par RISKCLIM-MG',
+          'Fin du rapport — Document généré automatiquement par Vigil\'Mada',
           margin,
           doc.y,
           {
@@ -1372,7 +1372,7 @@ export class ReportsService {
           .fontSize(9)
           .font('Helvetica-Bold')
           .fillColor('#0f172a')
-          .text('RISKCLIM-MG — Rapport des zones exposées', margin, 24, {
+          .text('Vigil\'Mada — Rapport des zones exposées', margin, 24, {
             width: contentWidth - 40,
             lineBreak: false,
           });
@@ -1524,7 +1524,7 @@ export class ReportsService {
         .fillColor('#22c55e')
         .fontSize(18)
         .font('Helvetica-Bold')
-        .text('RISKCLIM-MG', margin, 70, {
+        .text('Vigil\'Mada', margin, 70, {
           width: contentWidth,
         });
 
@@ -1533,7 +1533,7 @@ export class ReportsService {
         .fontSize(11)
         .font('Helvetica')
         .text(
-          'Système géodécisionnel spatial d’aide à la décision climatique',
+          'Système géo-décisionnel de veille climatique pour Madagascar',
           margin,
           96,
           {
@@ -1592,7 +1592,7 @@ export class ReportsService {
         .font('Helvetica')
         .fillColor('#94a3b8')
         .text(
-          'Document généré automatiquement par RISKCLIM-MG',
+          'Document généré automatiquement par Vigil\'Mada',
           margin,
           pageHeight - 80,
           {
@@ -1606,7 +1606,7 @@ export class ReportsService {
       sectionTitle('1. Contexte');
 
       paragraph(
-        'Ce rapport présente les zones administratives les plus exposées selon les derniers indicateurs de risque disponibles dans le data warehouse RISKCLIM-MG.',
+        'Ce rapport présente les zones administratives les plus exposées selon les derniers indicateurs de risque disponibles dans le data warehouse Vigil\'Mada.',
       );
 
       paragraph(
@@ -1751,7 +1751,7 @@ export class ReportsService {
         .font('Helvetica-Bold')
         .fillColor('#0f172a')
         .text(
-          'Fin du rapport — Document généré automatiquement par RISKCLIM-MG',
+          'Fin du rapport — Document généré automatiquement par Vigil\'Mada',
           margin,
           doc.y,
           {

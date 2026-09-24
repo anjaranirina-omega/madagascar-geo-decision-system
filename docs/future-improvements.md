@@ -1,4 +1,4 @@
-# Améliorations futures — RISKCLIM-MG
+# Améliorations futures — Vigil'Mada
 
 Ce document liste les améliorations prévues pour les prochaines versions.
 

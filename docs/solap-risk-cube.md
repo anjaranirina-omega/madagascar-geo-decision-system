@@ -1,6 +1,6 @@
-# SOLAP Risk Cube — RISKCLIM-MG
+# SOLAP Risk Cube — Vigil'Mada
 
-Ce document décrit le module SOLAP de RISKCLIM-MG.
+Ce document décrit le module SOLAP de Vigil'Mada.
 
 ## Objectif
 

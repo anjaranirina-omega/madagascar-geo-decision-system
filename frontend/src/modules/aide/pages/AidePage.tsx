@@ -386,7 +386,7 @@ export default function AidePage() {
       {/* 1. Header Principal Standardisé */}
       <PageHeader
         title="Centre d'Aide & Guide Méthodologique"
-        subtitle="Documentation complète, guide de prise en main, inventaire des sources satellitaires et méthodologie multicritère RISKCLIM-MG."
+        subtitle="Documentation complète, guide de prise en main, inventaire des sources satellitaires et méthodologie multicritère Vigil'Mada."
         icon={<HelpCircle size={32} className="text-emerald-400" />}
         actions={
           <div className="flex items-center gap-2">
@@ -538,7 +538,7 @@ export default function AidePage() {
               </div>
 
               <div className="mt-4 rounded-2xl border border-blue-100 bg-blue-50 p-3.5 text-xs font-semibold text-blue-900 dark:border-blue-900/60 dark:bg-blue-950/40 dark:text-blue-200">
-                ⚠️ <strong>Avertissement :</strong> RISKCLIM-MG est un système d’aide à la décision. Les alertes diffusées doivent être validées par les autorités officielles (BNGRC, Météo Madagascar) avant diffusion au grand public.
+                ⚠️ <strong>Avertissement :</strong> Vigil'Mada est un système d’aide à la décision. Les alertes diffusées doivent être validées par les autorités officielles (BNGRC, Météo Madagascar) avant diffusion au grand public.
               </div>
             </div>
           </div>

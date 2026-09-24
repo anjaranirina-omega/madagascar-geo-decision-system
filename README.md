@@ -1,6 +1,6 @@
-# RISKCLIM-MG — Système géodécisionnel climatique pour Madagascar
+# Vigil'Mada — Système géo-décisionnel de veille climatique pour Madagascar
 
-RISKCLIM-MG est une plateforme géodécisionnelle spatiale destinée à l'analyse, la visualisation et l'aide à la décision face aux risques climatiques à Madagascar.
+Vigil'Mada est une plateforme géodécisionnelle spatiale destinée à l'analyse, la visualisation et l'aide à la décision face aux risques climatiques à Madagascar.
 
 Le système transforme des données géographiques, climatiques, environnementales et démographiques réelles en :
 
@@ -335,7 +335,7 @@ Ils doivent être régénérés via les pipelines ETL.
 
 ## État actuel
 
-RISKCLIM-MG dispose aujourd'hui d'une V1 avancée :
+Vigil'Mada dispose aujourd'hui d'une V1 avancée :
 
 ```txt
 multi-risques

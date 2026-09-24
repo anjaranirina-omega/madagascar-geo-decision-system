@@ -101,12 +101,11 @@ function LogoMark({ compact = false }: { compact?: boolean }) {
 
       <div>
         <div className="text-3xl font-black tracking-tight sm:text-4xl leading-tight">
-          <span className="text-white">RISK</span>
-          <span className="text-blue-400">CLIM</span>
-          <span className="text-green-400">-MG</span>
+          <span className="text-white">Vigil'</span>
+          <span className="text-green-400">Mada</span>
         </div>
         <div className="mt-1 text-xs font-bold uppercase tracking-wider text-emerald-300/90">
-          Système d’aide à la décision climatique géospatialisé
+          Système géo-décisionnel de veille climatique pour Madagascar
         </div>
         <div className="mt-2.5 h-1 w-16 rounded-full bg-gradient-to-r from-green-400 via-cyan-400 to-blue-500" />
       </div>
@@ -183,7 +182,7 @@ export default function LoginPage() {
     <main className="grid min-h-screen grid-cols-1 bg-slate-50 lg:grid-cols-[52%_48%]">
       <section
         className="relative hidden min-h-screen overflow-hidden bg-slate-950 text-white lg:block"
-        aria-label="Présentation de RISKCLIM-MG"
+        aria-label="Présentation de Vigil'Mada"
       >
         <div
           className="absolute inset-0 bg-cover bg-center"
@@ -209,7 +208,7 @@ export default function LoginPage() {
             </h1>
 
             <p className="mt-8 max-w-xl text-xl font-medium leading-9 text-slate-100 drop-shadow">
-              RISKCLIM-MG est une plateforme intelligente qui intègre les
+              Vigil'Mada est une plateforme intelligente qui intègre les
               données climatiques et géospatiales pour analyser les risques,
               alerter et guider les décisions pour un avenir plus résilient.
             </p>
@@ -451,7 +450,7 @@ export default function LoginPage() {
           </div>
 
           <div className="mt-8 flex flex-col items-center justify-center gap-3 text-sm text-slate-500 sm:flex-row">
-            <span>© 2026 RISKCLIM-MG</span>
+            <span>© 2026 Vigil'Mada</span>
             <span className="hidden h-5 w-px bg-slate-300 sm:block" />
             <span>Tous droits réservés</span>
             <span className="hidden h-5 w-px bg-slate-300 sm:block" />

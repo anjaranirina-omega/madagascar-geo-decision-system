@@ -38,13 +38,13 @@ export class MailService {
     resetLink: string;
     expiresInMinutes: number;
   }) {
-    const from = process.env.SMTP_FROM ?? 'RISKCLIM-MG <noreply@riskclim.mg>';
+    const from = process.env.SMTP_FROM ?? "Vigil'Mada <noreply@example.com>";
 
     try {
       await this.transporter.sendMail({
         from,
         to: params.to,
-        subject: 'Réinitialisation de votre mot de passe RISKCLIM-MG',
+        subject: 'Réinitialisation de votre mot de passe Vigil\'Mada',
         text: this.buildResetPasswordText(params),
         html: this.buildResetPasswordHtml(params),
       });
@@ -65,7 +65,7 @@ export class MailService {
     return `
 Bonjour ${params.firstName ?? ''},
 
-Vous avez demandé la réinitialisation de votre mot de passe RISKCLIM-MG.
+Vous avez demandé la réinitialisation de votre mot de passe Vigil'Mada.
 
 Cliquez sur le lien suivant pour définir un nouveau mot de passe :
 ${params.resetLink}
@@ -74,8 +74,8 @@ Ce lien expire dans ${params.expiresInMinutes} minutes.
 
 Si vous n'êtes pas à l'origine de cette demande, ignorez cet email.
 
-RISKCLIM-MG
-Système d'aide à la décision climatique géospatialisé
+Vigil'Mada
+Système géo-décisionnel de veille climatique pour Madagascar
 `.trim();
   }
 
@@ -99,10 +99,10 @@ Système d'aide à la décision climatique géospatialisé
           <tr>
             <td style="background:#061624;padding:28px 32px;color:#ffffff;">
               <div style="font-size:24px;font-weight:800;letter-spacing:0.3px;">
-                RISKCLIM-MG
+                Vigil'Mada
               </div>
               <div style="font-size:13px;color:#cbd5e1;margin-top:6px;">
-                Système d'aide à la décision climatique géospatialisé
+                Système géo-décisionnel de veille climatique pour Madagascar
               </div>
             </td>
           </tr>
@@ -118,7 +118,7 @@ Système d'aide à la décision climatique géospatialisé
               </p>
 
               <p style="font-size:15px;line-height:1.7;color:#475569;margin:0 0 24px;">
-                Vous avez demandé la réinitialisation de votre mot de passe pour accéder à la plateforme RISKCLIM-MG.
+                Vous avez demandé la réinitialisation de votre mot de passe pour accéder à la plateforme Vigil'Mada.
               </p>
 
               <p style="text-align:center;margin:32px 0;">
@@ -150,7 +150,7 @@ Système d'aide à la décision climatique géospatialisé
         </table>
 
         <p style="font-size:12px;color:#94a3b8;margin-top:18px;">
-          © 2026 RISKCLIM-MG — Plateforme sécurisée
+          © 2026 Vigil'Mada — Plateforme sécurisée
         </p>
       </td>
     </tr>
@@ -177,7 +177,7 @@ Système d'aide à la décision climatique géospatialisé
       createdAt?: Date | string;
     };
   }) {
-    const from = process.env.SMTP_FROM ?? 'RISKCLIM-MG <noreply@riskclim.mg>';
+    const from = process.env.SMTP_FROM ?? "Vigil'Mada <noreply@example.com>";
     const appUrl = process.env.APP_URL ?? 'http://localhost:3000';
 
     try {
@@ -217,7 +217,7 @@ Système d'aide à la décision climatique géospatialisé
   ) {
     const alertUrl = `${appUrl}/alertes`;
     return `
-ALERTE CLIMATIQUE CRITIQUE — RISKCLIM-MG
+ALERTE CLIMATIQUE CRITIQUE — Vigil'Mada
 
 Bonjour ${params.recipientName ?? ''},
 
@@ -237,7 +237,7 @@ Consulter l'alerte sur la plateforme :
 ${alertUrl}
 
 --
-RISKCLIM-MG — Système d'aide à la décision climatique géospatialisé
+Vigil'Mada — Système géo-décisionnel de veille climatique pour Madagascar
 `.trim();
   }
 
@@ -272,7 +272,7 @@ RISKCLIM-MG — Système d'aide à la décision climatique géospatialisé
 <html lang="fr">
 <head>
   <meta charset="utf-8" />
-  <title>Alerte Critique RISKCLIM-MG</title>
+  <title>Alerte Critique Vigil'Mada</title>
 </head>
 <body style="margin:0;padding:0;background:#f8fafc;font-family:Arial,Helvetica,sans-serif;color:#0f172a;">
   <table width="100%" cellpadding="0" cellspacing="0" style="background:#f8fafc;padding:32px 0;">
@@ -289,7 +289,7 @@ RISKCLIM-MG — Système d'aide à la décision climatique géospatialisé
                       ⚠️ ALERTE CLIMATIQUE CRITIQUE
                     </div>
                     <div style="font-size:13px;color:#fee2e2;margin-top:4px;">
-                      RISKCLIM-MG — Plateforme géodécisionnelle
+                      Vigil'Mada — Plateforme géodécisionnelle
                     </div>
                   </td>
                   <td align="right">
@@ -369,10 +369,10 @@ RISKCLIM-MG — Système d'aide à la décision climatique géospatialisé
           <tr>
             <td style="background:#f8fafc;padding:20px 32px;border-top:1px solid #e2e8f0;text-align:center;">
               <p style="font-size:12px;color:#64748b;margin:0 0 4px;">
-                Notification automatique générée par le système <strong>RISKCLIM-MG</strong>.
+                Notification automatique générée par le système <strong>Vigil'Mada</strong>.
               </p>
               <p style="font-size:11px;color:#94a3b8;margin:0;">
-                © 2026 RISKCLIM-MG — Système géodécisionnel d'aide à la décision climatique
+                © 2026 Vigil'Mada — Système géo-décisionnel de veille climatique pour Madagascar
               </p>
             </td>
           </tr>

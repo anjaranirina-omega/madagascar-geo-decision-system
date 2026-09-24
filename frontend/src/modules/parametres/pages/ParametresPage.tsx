@@ -189,7 +189,7 @@ export default function ParametresPage() {
     <div className="space-y-6">
       <PageHeader
         title="Paramètres système"
-        subtitle="Vue opérationnelle de la configuration RISKCLIM-MG. Les informations sensibles ne sont pas exposées et les paramètres sont affichés en lecture seule."
+        subtitle="Vue opérationnelle de la configuration Vigil'Mada. Les informations sensibles ne sont pas exposées et les paramètres sont affichés en lecture seule."
         icon={<Settings size={28} />}
         actions={
           <button

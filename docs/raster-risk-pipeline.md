@@ -1,6 +1,6 @@
-# Pipeline raster de risque — RISKCLIM-MG
+# Pipeline raster de risque — Vigil'Mada
 
-Ce document résume le pipeline raster de RISKCLIM-MG.
+Ce document résume le pipeline raster de Vigil'Mada.
 
 ## 1. Sources principales
 

@@ -170,7 +170,7 @@ export class ReportsController {
   @Get('national-risk.pdf')
   @Roles('ADMIN', 'ANALYSTE', 'DECIDEUR')
   async nationalRiskPdf(@Res() res: Response) {
-    const fileName = 'riskclim-mg-rapport-national.pdf';
+    const fileName = 'vigilmada-rapport-national.pdf';
     const content = await this.reportsService.getNationalRiskPdf();
 
     await this.reportsService.saveGeneratedReport({
@@ -191,7 +191,7 @@ export class ReportsController {
   @Get('national-risk.xlsx')
   @Roles('ADMIN', 'ANALYSTE', 'DECIDEUR')
   async nationalRiskExcel(@Res() res: Response) {
-    const fileName = 'riskclim-mg-rapport-national.xlsx';
+    const fileName = 'vigilmada-rapport-national.xlsx';
     const content = await this.reportsService.getNationalRiskExcel();
 
     await this.reportsService.saveGeneratedReport({

@@ -1,4 +1,4 @@
-# Script de démonstration — RISKCLIM-MG
+# Script de démonstration — Vigil'Mada
 
 ## Durée cible
 
@@ -20,7 +20,7 @@
 
 ## Message clé
 
-RISKCLIM-MG transforme des données réelles en informations décisionnelles spatiales :
+Vigil'Mada transforme des données réelles en informations décisionnelles spatiales :
 
 ```txt
 sources → ETL → rasters → indicateurs → DWH/SOLAP → carte/dashboard/rapports/alertes
@@ -73,4 +73,4 @@ sources → ETL → rasters → indicateurs → DWH/SOLAP → carte/dashboard/ra
 
 ## Conclusion
 
-RISKCLIM-MG est une plateforme complète d'aide à la décision climatique pour Madagascar, basée sur des données réelles, des modèles raster et des outils décisionnels.
+Vigil'Mada est une plateforme complète d'aide à la décision climatique pour Madagascar, basée sur des données réelles, des modèles raster et des outils décisionnels.

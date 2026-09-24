@@ -18,7 +18,7 @@ export const LogoIcon: React.FC<LogoIconProps> = ({
       height={size}
       className={`inline-block shrink-0 overflow-visible ${className}`}
       style={{ width: size, height: size }}
-      aria-label="RISKCLIM-MG Logo"
+      aria-label="Vigil'Mada Logo"
     >
       <defs>
         {/* Gradients émeraude/cyan/bleu électrique */}

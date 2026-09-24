@@ -1,6 +1,6 @@
 # Data Warehouse — Schéma en étoile
 
-Cette documentation décrit l'entrepôt décisionnel de RISKCLIM-MG.
+Cette documentation décrit l'entrepôt décisionnel de Vigil'Mada.
 
 ## Objectif
 
