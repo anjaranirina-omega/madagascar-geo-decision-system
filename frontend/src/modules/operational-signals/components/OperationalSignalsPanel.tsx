@@ -15,6 +15,8 @@ import {
   operationalSignalsService,
 } from '../services/operational-signals.service';
 
+const PAGE_SIZE = 10;
+
 const riskLabels: Record<OperationalRiskType, string> = {
   FLOOD: 'Inondation',
   DROUGHT: 'Sécheresse / chaleur',
@@ -98,6 +100,7 @@ export default function OperationalSignalsPanel() {
   const [riskType, setRiskType] = useState<OperationalRiskType | 'ALL'>('ALL');
   const [zoneType, setZoneType] = useState('region');
   const [message, setMessage] = useState('');
+  const [page, setPage] = useState(0);
 
   const loadSignals = async () => {
     setLoading(true);
@@ -115,6 +118,7 @@ export default function OperationalSignalsPanel() {
   };
 
   useEffect(() => {
+    setPage(0);
     loadSignals();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [riskType, zoneType]);
@@ -146,6 +150,21 @@ export default function OperationalSignalsPanel() {
           : 0,
     };
   }, [signals]);
+
+  const orderedSignals = useMemo(
+    () =>
+      [...signals].sort(
+        (a, b) => Number(b.signalScore ?? 0) - Number(a.signalScore ?? 0),
+      ),
+    [signals],
+  );
+
+  const pageCount = Math.max(1, Math.ceil(orderedSignals.length / PAGE_SIZE));
+  const currentPage = Math.min(page, pageCount - 1);
+  const paginatedSignals = orderedSignals.slice(
+    currentPage * PAGE_SIZE,
+    currentPage * PAGE_SIZE + PAGE_SIZE,
+  );
 
   return (
     <div className="space-y-5">
@@ -227,6 +246,37 @@ export default function OperationalSignalsPanel() {
         <SignalStatCard label="Score max" value={stats.max.toFixed(1)} />
       </div>
 
+      {orderedSignals.length > PAGE_SIZE && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-3xl border border-slate-200 bg-white px-5 py-3 shadow-soft dark:border-slate-800 dark:bg-slate-900">
+          <span className="text-sm font-semibold text-slate-500">
+            Signaux {currentPage * PAGE_SIZE + 1} à{' '}
+            {Math.min((currentPage + 1) * PAGE_SIZE, orderedSignals.length)} sur{' '}
+            {orderedSignals.length}
+          </span>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setPage(Math.max(0, currentPage - 1))}
+              disabled={currentPage === 0}
+              className="h-9 rounded-lg border border-slate-300 px-3 text-sm font-bold text-slate-700 disabled:opacity-40 dark:border-slate-700 dark:text-slate-200"
+            >
+              Précédent
+            </button>
+            <span className="px-2 text-sm font-bold text-slate-600 dark:text-slate-300">
+              {currentPage + 1} / {pageCount}
+            </span>
+            <button
+              type="button"
+              onClick={() => setPage(Math.min(pageCount - 1, currentPage + 1))}
+              disabled={currentPage >= pageCount - 1}
+              className="h-9 rounded-lg border border-slate-300 px-3 text-sm font-bold text-slate-700 disabled:opacity-40 dark:border-slate-700 dark:text-slate-200"
+            >
+              Suivant
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="rounded-3xl border border-slate-200 bg-white shadow-soft dark:border-slate-800 dark:bg-slate-900">
         {loading ? (
           <div className="flex h-72 items-center justify-center text-slate-500">
@@ -246,7 +296,7 @@ export default function OperationalSignalsPanel() {
           </div>
         ) : (
           <div className="divide-y divide-slate-100">
-            {signals.map((signal) => {
+            {paginatedSignals.map((signal) => {
               const Icon = riskIcons[signal.riskType];
 
               return (

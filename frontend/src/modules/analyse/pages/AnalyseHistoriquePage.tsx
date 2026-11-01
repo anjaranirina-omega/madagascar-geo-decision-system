@@ -46,7 +46,7 @@ export default function AnalyseHistoriquePage() {
   const fetchData = () => {
     setLoading(true);
     solapService
-      .getRiskTimeSeries({ riskType })
+      .getRiskTimeSeries({ riskType, zoneType: 'region' })
       .then((res) => {
         setData(res || []);
       })

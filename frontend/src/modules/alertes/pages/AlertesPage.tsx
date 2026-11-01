@@ -187,7 +187,7 @@ export default function AlertesPage() {
     return {
       total: alertes.length,
       active: alertes.filter((a) => a.status === 'ACTIVE').length,
-      critical: alertes.filter((a) => a.niveau === 'CRITIQUE').length,
+      critical: alertes.filter((a) => a.niveau === 'CRITIQUE' && a.status === 'ACTIVE').length,
       resolved: alertes.filter((a) => a.status === 'RESOLUE').length,
     };
   }, [alertes]);

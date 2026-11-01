@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthModule } from '../auth/auth.module';
 import { MeteoModule } from '../meteo/meteo.module';
+import { OperationalSignalsModule } from '../operational-signals/operational-signals.module';
 import { UsersModule } from '../users/users.module';
 import { Alerte } from './entities/alerte.entity';
 import { AlertesController } from './alertes.controller';
@@ -13,6 +14,7 @@ import { AlertesService } from './alertes.service';
   imports: [
     TypeOrmModule.forFeature([Alerte]),
     MeteoModule,
+    OperationalSignalsModule,
     UsersModule,
     AuthModule,
   ],

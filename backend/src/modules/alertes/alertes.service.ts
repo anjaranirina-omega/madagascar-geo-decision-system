@@ -497,22 +497,26 @@ export class AlertesService {
     const signals = await this.alertesRepository.query(
       `
       SELECT
-        risk_type,
-        zone_type,
-        zone_id,
-        zone_nom,
-        background_risk_max,
-        background_risk_mean,
-        weather_factor,
-        signal_score,
-        signal_level,
-        message,
-        observed_at,
-        details
-      FROM operational_risk_signals
-      WHERE zone_type = $1
-        AND signal_level IN ('ELEVE', 'CRITIQUE')
-      ORDER BY signal_score DESC
+        s.risk_type,
+        s.zone_type,
+        s.zone_id,
+        s.zone_nom,
+        s.background_risk_max,
+        s.background_risk_mean,
+        s.weather_factor,
+        s.signal_score,
+        s.signal_level,
+        s.message,
+        s.observed_at,
+        s.details,
+        zi.population_exposed AS zone_population
+      FROM operational_risk_signals s
+      LEFT JOIN zone_indicators zi
+        ON zi.zone_type::text = s.zone_type
+       AND zi.zone_id = s.zone_id
+      WHERE s.zone_type = $1
+        AND s.signal_level IN ('ELEVE', 'CRITIQUE')
+      ORDER BY s.signal_score DESC
       `,
       [zoneType],
     );
@@ -560,6 +564,10 @@ export class AlertesService {
           signal.background_risk_mean !== null
             ? Number(signal.background_risk_mean)
             : undefined;
+        existing.populationExposed =
+          signal.zone_population !== null && signal.zone_population !== undefined
+            ? Number(signal.zone_population)
+            : undefined;
 
         const saved = await this.alertesRepository.save(existing);
         updated.push(saved);
@@ -583,6 +591,10 @@ export class AlertesService {
         riskMean:
           signal.background_risk_mean !== null
             ? Number(signal.background_risk_mean)
+            : undefined,
+        populationExposed:
+          signal.zone_population !== null && signal.zone_population !== undefined
+            ? Number(signal.zone_population)
             : undefined,
         status: AlerteStatus.ACTIVE,
       });

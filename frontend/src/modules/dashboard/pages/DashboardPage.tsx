@@ -408,9 +408,9 @@ export default function DashboardPage() {
       tone: 'blue' as const,
     },
     {
-      title: 'Zones en Alerte Critique',
+      title: 'Zones à Surveiller',
       value: String(summary?.elevatedOrCriticalZones ?? 0),
-      subtitle: `${summary?.criticalZones ?? 0} zones en seuil critique (>75)`,
+      subtitle: `dont ${summary?.criticalZones ?? 0} couples zone-aléa au-delà de 80`,
       icon: <ShieldAlert size={20} />,
       tone: (summary?.criticalZones ?? 0) > 0 ? ('red' as const) : ('green' as const),
     },
