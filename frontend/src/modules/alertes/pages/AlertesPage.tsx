@@ -525,7 +525,7 @@ export default function AlertesPage() {
                       <th className="px-5 py-4">Risque max</th>
                       <th className="px-5 py-4">Population exposée</th>
                       <th className="px-5 py-4">Statut</th>
-                      <th className="px-5 py-4">Date</th>
+                      <th className="px-5 py-4">Créée le</th>
                       <th className="px-5 py-4 text-right">Actions</th>
                     </tr>
                   </thead>
@@ -598,7 +598,14 @@ export default function AlertesPage() {
                         </td>
 
                         <td className="px-5 py-5 text-slate-500 dark:text-slate-400">
-                          {formatDate(alerte.createdAt)}
+                          <div>{formatDate(alerte.createdAt)}</div>
+                          {alerte.updatedAt &&
+                            formatDate(alerte.updatedAt) !==
+                              formatDate(alerte.createdAt) && (
+                              <div className="mt-1 text-[11px] text-slate-400 dark:text-slate-500">
+                                mise à jour {formatDate(alerte.updatedAt)}
+                              </div>
+                            )}
                         </td>
 
                         <td className="px-5 py-5">
