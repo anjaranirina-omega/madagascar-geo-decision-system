@@ -37,4 +37,14 @@ export const meteoService = {
 
     return response.data;
   },
+
+  async syncRegions() {
+    const response = await api.post<{
+      message: string;
+      successCount: number;
+      failedCount: number;
+    }>('/meteo/sync-regions');
+
+    return response.data;
+  },
 };

@@ -14,6 +14,8 @@ import { useEffect, useMemo, useState } from 'react';
 import PageHeader from '../../../shared/components/ui/PageHeader';
 import Tabs from '../../../shared/components/ui/Tabs';
 import OperationalSignalsPanel from '../../operational-signals/components/OperationalSignalsPanel';
+import { operationalSignalsService } from '../../operational-signals/services/operational-signals.service';
+import { meteoService } from '../../meteo/services/meteo.service';
 import AlerteDetailDrawer from '../components/AlerteDetailDrawer';
 import { useAlertsNotificationStore } from '../store/alerts-notification.store';
 import {
@@ -218,18 +220,38 @@ export default function AlertesPage() {
     }
   };
 
+  /**
+   * Chaine complete, en un seul clic :
+   * 1. synchronisation de la meteo des regions,
+   * 2. recalcul des signaux operationnels,
+   * 3. generation des alertes a partir de ces signaux.
+   * Garantit que les alertes et les signaux restent coherents.
+   */
   const handleGenerateOperationalAlerts = async () => {
     setActionLoading(true);
     setError('');
     setSuccess('');
 
     try {
+      let meteoInfo = '';
+      try {
+        const meteo: any = await meteoService.syncRegions();
+        meteoInfo = `Meteo : ${meteo.successCount ?? 0} zone(s) actualisee(s). `;
+      } catch {
+        meteoInfo = 'Meteo : synchronisation indisponible. ';
+      }
+
+      const signals: any = await operationalSignalsService.recompute(zoneType);
+      const signalsInfo = `${signals.count ?? 0} signal(aux) recalcule(s). `;
+
       const result: any = await alertesService.generateOperationalAlerts({
         zoneType,
       });
 
       setSuccess(
-        result.message ?? 'Génération des alertes opérationnelles terminée.',
+        `${meteoInfo}${signalsInfo}${
+          result.message ?? 'Generation des alertes operationnelles terminee.'
+        }`,
       );
 
       await loadAlertes();

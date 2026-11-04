@@ -66,7 +66,24 @@ def get_active_raster_layer_id(conn, raster_type: str) -> str | None:
     return row["id"] if row else None
 
 
+WORLDPOP_YEAR = os.getenv("WORLDPOP_YEAR", "2020")
+WORLDPOP_COUNTRY = os.getenv("WORLDPOP_COUNTRY", "MDG")
+
+# La population exposée est une somme d'effectifs : elle doit être calculée sur le
+# raster WorldPop brut (count par pixel), jamais sur une couche rééchantillonnée par
+# interpolation (population_worldpop_aligned.tif), qui écrase les effectifs.
 POPULATION_RASTER = (
+    PROJECT_ROOT
+    / "etl"
+    / "data"
+    / "raster"
+    / "raw"
+    / "worldpop"
+    / f"{WORLDPOP_COUNTRY.lower()}_ppp_{WORLDPOP_YEAR}_UNadj.tif"
+)
+
+# Repli si le raster brut est absent, afin de ne pas interrompre le pipeline.
+POPULATION_RASTER_FALLBACK = (
     PROJECT_ROOT
     / "etl"
     / "data"
@@ -75,6 +92,21 @@ POPULATION_RASTER = (
     / "worldpop"
     / "population_worldpop_aligned.tif"
 )
+
+
+def resolve_population_raster() -> Path:
+    if POPULATION_RASTER.exists():
+        return POPULATION_RASTER
+
+    print(
+        "Avertissement : raster WorldPop brut introuvable "
+        f"({POPULATION_RASTER}). Repli sur la couche alignée, "
+        "la population exposée sera sous-estimée. "
+        "Lance etl/raster/worldpop/download_worldpop.py puis process_worldpop.py."
+    )
+
+    return POPULATION_RASTER_FALLBACK
+
 
 RISK_RASTER = (
     PROJECT_ROOT
@@ -188,14 +220,16 @@ def upsert_indicator(payload: dict, token: str | None = None):
     return response.json()
 
 
-def process_table(zone_type: str, table_name: str, raster_layer_id: str | None, token: str | None = None):
+def process_table(zone_type: str, table_name: str, raster_layer_id: str | None, token: str | None = None, population_raster: Path | None = None):
     print(f"\nTraitement {zone_type} depuis table {table_name}")
 
     zones = read_zones(table_name)
 
     print(f"Nombre de zones : {len(zones)}")
 
-    with rasterio.open(POPULATION_RASTER) as pop_src, rasterio.open(RISK_RASTER) as risk_src:
+    population_path = population_raster or resolve_population_raster()
+
+    with rasterio.open(population_path) as pop_src, rasterio.open(RISK_RASTER) as risk_src:
         for idx, row in zones.iterrows():
             geometry = row["geom"]
 
@@ -236,9 +270,11 @@ def main():
 
     token_to_use = args.token or API_KEY
 
-    if not POPULATION_RASTER.exists():
+    population_raster = resolve_population_raster()
+
+    if not population_raster.exists():
         raise FileNotFoundError(
-            f"Population raster introuvable : {POPULATION_RASTER}"
+            f"Population raster introuvable : {population_raster}"
         )
 
     if not RISK_RASTER.exists():
@@ -246,7 +282,7 @@ def main():
             f"Risk raster introuvable : {RISK_RASTER}"
         )
 
-    print(f"Population raster : {POPULATION_RASTER}")
+    print(f"Population raster : {population_raster}")
     print(f"Risk raster : {RISK_RASTER}")
     print(f"Backend API : {BACKEND_API_URL}")
 
@@ -261,7 +297,13 @@ def main():
             print("  Avertissement : aucun raster_layer_id actif trouvé pour RISK_INDEX")
 
         for zone_type, table_name in TABLES:
-            process_table(zone_type, table_name, raster_layer_id, token=token_to_use)
+            process_table(
+                zone_type,
+                table_name,
+                raster_layer_id,
+                token=token_to_use,
+                population_raster=population_raster,
+            )
 
     print("Calcul des indicateurs zonaux terminé.")
 
